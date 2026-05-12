@@ -1381,16 +1381,16 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
             return
         _last_activate_spoken = now
 
-        # Refresh mail cache
         loop = asyncio.get_event_loop()
-        fresh = await loop.run_in_executor(None, get_mail_sync)
-        async with _mail_lock:
-            MAIL_INFO = fresh
 
         # Morning trigger → record state, let LLM generate the rich greeting
         daily_brief.load()
         _llm_morning = False
         if daily_brief.detect_morning_trigger():
+            # Fresh mail only needed for rich morning brief
+            fresh = await loop.run_in_executor(None, get_mail_sync)
+            async with _mail_lock:
+                MAIL_INFO = fresh
             mails = [{"sender": m.split(" || ")[0], "subject": m.split(" || ")[1]}
                      for m in fresh if " || " in m]
             tasks = get_tasks_sync()
@@ -1431,21 +1431,21 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         # Morning brief already done today → check pause/absence, else short acknowledgment
         if not _llm_morning and daily_brief._data.get("last_morning_brief"):
             if daily_brief.detect_long_absence():
-                mails_raw = await loop.run_in_executor(None, get_mail_sync)
+                fresh_abs = await loop.run_in_executor(None, get_mail_sync)
                 async with _mail_lock:
-                    MAIL_INFO = mails_raw
+                    MAIL_INFO = fresh_abs
                 mails = [{"sender": m.split(" || ")[0], "subject": m.split(" || ")[1]}
-                         for m in mails_raw if " || " in m]
+                         for m in fresh_abs if " || " in m]
                 text = daily_brief.generate_absence_brief(mails, USER_ADDRESS)
                 await _speak(ws, session_id, text)
                 return
 
             if daily_brief.detect_pause_return():
-                mails_raw = await loop.run_in_executor(None, get_mail_sync)
+                fresh_pau = await loop.run_in_executor(None, get_mail_sync)
                 async with _mail_lock:
-                    MAIL_INFO = mails_raw
+                    MAIL_INFO = fresh_pau
                 mails = [{"sender": m.split(" || ")[0], "subject": m.split(" || ")[1]}
-                         for m in mails_raw if " || " in m]
+                         for m in fresh_pau if " || " in m]
                 text = daily_brief.generate_pause_brief(mails, USER_ADDRESS)
                 if text:
                     await _speak(ws, session_id, text)
@@ -1464,7 +1464,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
                     f"Bereit, {USER_ADDRESS}.",
                 ])
             ]
-            await asyncio.sleep(0.8)
+            await asyncio.sleep(0.2)
             await _speak(ws, session_id, random.choice(phrases))
             return
 
