@@ -2414,7 +2414,7 @@ async def serve_dashboard():
 async def startup_and_refresh():
     """Load all startup data async without blocking the server, retry weather if network not ready,
     then refresh every 30 minutes."""
-    global WEATHER_INFO, TASKS_INFO, MAIL_INFO, CALENDAR_INFO, OBSIDIAN_INFO
+    global WEATHER_INFO, TASKS_INFO, MAIL_INFO, CALENDAR_INFO, OBSIDIAN_INFO, NEWS_INFO
     loop = asyncio.get_event_loop()
 
     print("[jarvis] Startup: Lade Daten...", flush=True)
