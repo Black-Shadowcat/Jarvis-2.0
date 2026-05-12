@@ -1598,6 +1598,29 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     await _speak(ws, session_id, summary)
 
 
+@app.websocket("/ws/stt")
+async def stt_endpoint(ws: WebSocket):
+    """Dedizierter Endpoint für speech_input.py — empfängt nur Text, bekommt kein Audio."""
+    await ws.accept()
+    session_id = f"stt_{id(ws)}"
+    print(f"[jarvis] STT connected  session={session_id}", flush=True)
+    # Einen Dummy-Browser-WS finden für _speak (Audio geht NUR an Browser)
+    try:
+        while True:
+            data = await ws.receive_json()
+            user_text = data.get("text", "").strip()
+            if not user_text:
+                continue
+            print(f"  You:    {user_text}", flush=True)
+            # Antworte über den ersten aktiven Browser (active_connections)
+            browser_ws = next(iter(active_connections), None)
+            await process_message(session_id, user_text, browser_ws or ws)
+    except WebSocketDisconnect:
+        conversations.pop(session_id, None)
+    finally:
+        print(f"[jarvis] STT disconnected session={session_id}", flush=True)
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()

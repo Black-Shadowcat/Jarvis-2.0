@@ -16,7 +16,7 @@ import websockets
 
 SAMPLE_RATE   = 16000
 PTT_KEY       = keyboard.Key.f19
-SERVER_URL    = "ws://localhost:8341/ws"
+SERVER_URL    = "ws://localhost:8341/ws/stt"
 PTT_API       = "http://localhost:8341/api/ptt"
 WHISPER_MODEL = "mlx-community/whisper-large-v3-mlx"
 

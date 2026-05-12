@@ -683,6 +683,7 @@ function initWS() {
     dashboardWs.onmessage = e => {
         const data = JSON.parse(e.data);
         if (data.type === 'response') {
+            clearTimeout(window._thinkTimeout);
             setOrbState('speaking');
             addMsg('jarvis', data.text);
             if (data.audio?.length > 0) queueAudio(data.audio);
@@ -691,6 +692,8 @@ function initWS() {
             setOrbState('recording');
         } else if (data.type === 'ptt_stop') {
             setOrbState('thinking');
+            clearTimeout(window._thinkTimeout);
+            window._thinkTimeout = setTimeout(() => setOrbState('idle'), 12000);
         } else if (data.type === 'refresh_tasks') {
             loadTasks();
         }
