@@ -235,7 +235,7 @@ async def _check_for_update() -> dict:
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(
-                "https://api.github.com/repos/Black-Shadowcat/jarvis-voice-assistant/releases/latest",
+                "https://api.github.com/repos/Black-Shadowcat/jarvis-whisper/releases/latest",
                 headers={"Accept": "application/vnd.github+json", "User-Agent": "Jarvis-UpdateCheck/1"}
             )
         if r.status_code != 200:
