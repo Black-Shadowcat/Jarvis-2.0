@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. Control Center</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230a0e27' stroke='%2300aaff' stroke-width='2'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='%2300aaff' font-size='10' font-family='monospace'>J</text></svg>">
+
+<style>
+:root {
+    --bg:     #0a0e27;
+    --text:   #e0e0e0;
+    --accent: #2a9ee2;
+    --green:  #4cbf7e;
+    --purple: #a78bfa;
+    --gold:   #d4af37;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    height:100vh;
+    overflow:hidden;
+}
+
+/* ── Layout ── */
+.dashboard {
+    display:grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap:16px;
+    padding:20px;
+    height:100vh;
+}
+
+/* ── News ── */
+.news-item {
+    padding:8px 10px;
+    border-radius:6px;
+    background:rgba(42,158,226,0.04);
+    border:1px solid rgba(42,158,226,0.08);
+    border-left:3px solid transparent;
+    cursor:pointer;
+    transition:all 0.2s ease;
+}
+.news-item:hover {
+    background:rgba(212,175,55,0.1);
+    border-left-color:var(--gold);
+    transform:translateX(4px);
+}
+.news-source {
+    font-size:0.7rem;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    margin-bottom:3px;
+}
+.news-title { font-size:0.85rem; font-weight:500; line-height:1.35; color:var(--text); }
+.cat-apple   { color:var(--accent); }
+.cat-tech    { color:var(--green); }
+.cat-science { color:var(--purple); }
+.cat-default { color:var(--gold); }
+
+.panel-section-divider {
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:8px 0 4px;
+    border-top:1px solid rgba(42,158,226,0.1);
+    margin-top:6px;
+    flex-shrink:0;
+    font-size:0.8rem;
+    letter-spacing:.08em;
+    color:var(--accent);
+    text-transform:uppercase;
+}
+
+/* ── News Popup ── */
+#news-popup {
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.72);
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+}
+#news-popup.open { display:flex; }
+.news-popup-box {
+    background:#0d1b2a;
+    border:1px solid rgba(42,158,226,0.3);
+    border-radius:12px;
+    padding:24px;
+    max-width:520px;
+    width:90%;
+    position:relative;
+}
+.news-popup-source {
+    font-size:0.7rem;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin-bottom:8px;
+    font-weight:700;
+}
+.news-popup-title {
+    font-size:1.05rem;
+    font-weight:600;
+    line-height:1.4;
+    margin-bottom:8px;
+    color:var(--text);
+}
+.news-popup-meta { font-size:0.72rem; color:#666; margin-bottom:18px; }
+.news-popup-actions { display:flex; gap:10px; }
+.popup-btn {
+    padding:8px 16px;
+    border-radius:6px;
+    border:none;
+    cursor:pointer;
+    font-size:0.82rem;
+    transition:opacity 0.2s;
+}
+.popup-btn:hover { opacity:0.85; }
+.popup-btn-primary { background:var(--accent); color:#fff; }
+.popup-btn-ack { background:rgba(42,158,226,0.12); color:var(--accent); border:1px solid rgba(42,158,226,0.28); }
+.popup-btn-close { background:rgba(255,255,255,0.08); color:var(--text); }
+.popup-close-btn {
+    position:absolute;
+    top:12px; right:14px;
+    background:none; border:none;
+    color:#666; font-size:1.1rem;
+    cursor:pointer; line-height:1;
+}
+.popup-close-btn:hover { color:var(--text); }
+
+/* ── Panels ── */
+.panel {
+    background:rgba(13,27,42,0.6);
+    border:1px solid rgba(42,158,226,0.15);
+    border-radius:10px;
+    padding:18px;
+    display:flex;
+    flex-direction:column;
+    backdrop-filter:blur(6px);
+    overflow:hidden;
+}
+
+.panel-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+    padding-bottom:8px;
+    border-bottom:1px solid rgba(42,158,226,0.1);
+}
+
+.panel-title {
+    font-size:0.8rem;
+    letter-spacing:.08em;
+    color:var(--accent);
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+.panel-action {
+    font-size:0.7rem;
+    opacity:0.5;
+    cursor:pointer;
+    transition:opacity 0.2s;
+}
+.panel-action:hover { opacity:1; }
+
+/* ── Panel Content ── */
+.panel-content {
+    flex:1;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.panel-content::-webkit-scrollbar { width:3px; }
+.panel-content::-webkit-scrollbar-track { background:transparent; }
+.panel-content::-webkit-scrollbar-thumb { background:rgba(42,158,226,0.3); border-radius:2px; }
+
+/* ── List Items (Apps / Mail / Tasks) ── */
+.list-item {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:10px 12px;
+    border-radius:6px;
+    background:rgba(42,158,226,0.04);
+    border:1px solid rgba(42,158,226,0.08);
+    border-left:3px solid transparent;
+    cursor:pointer;
+    transition:all 0.2s ease;
+}
+.list-item:hover {
+    background:rgba(42,158,226,0.12);
+    border-left-color:var(--accent);
+    transform:translateX(4px);
+}
+
+.list-icon {
+    width:18px;
+    text-align:center;
+    color:var(--accent);
+    opacity:0.7;
+    font-size:0.9rem;
+    flex-shrink:0;
+}
+
+.list-title { font-size:0.85rem; font-weight:500; }
+.list-sub { font-size:0.75rem; color:#888; margin-top:2px; }
+.list-sender { font-size:0.75rem; font-weight:600; color:var(--green); text-transform:uppercase; letter-spacing:.04em; }
+
+/* Task checkbox */
+.task-cb { flex-shrink:0; accent-color:var(--green); cursor:pointer; }
+.task-cb.obsidian { accent-color:var(--purple); }
+.task-source { font-size:0.7rem; color:var(--green); text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
+.task-source.obsidian { color:var(--purple); }
+.task-source.calendar { color:var(--accent); }
+.task-cal-spacer { width:16px; flex-shrink:0; }
+
+/* Badge */
+.badge {
+    background:var(--green);
+    color:var(--bg);
+    padding:2px 7px;
+    border-radius:10px;
+    font-size:0.65rem;
+    font-weight:700;
+}
+
+/* Placeholder */
+.placeholder {
+    color:#555;
+    text-align:center;
+    padding:24px 20px;
+    font-size:0.85rem;
+}
+
+/* ── Outline Icons ── */
+.icon {
+    width:14px;
+    height:14px;
+    stroke:currentColor;
+    fill:none;
+    stroke-width:1.5;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    flex-shrink:0;
+    vertical-align:middle;
+}
+.icon-sm { width:12px; height:12px; }
+.icon-send { width:16px; height:16px; stroke-width:1.8; }
+
+/* ── HUD ── */
+#hud {
+    width:240px;
+    margin:0 auto 10px;
+    cursor:pointer;
+    filter:drop-shadow(0 0 8px rgba(0,170,255,0.2));
+    display:block;
+}
+
+.hud-ccw-slow  { transform-origin:250px 250px; animation:hudCCW 18s linear infinite; }
+.hud-cw-medium { transform-origin:250px 250px; animation:hudCW  10s linear infinite; }
+.hud-cw-fast   { transform-origin:250px 250px; animation:hudCW   4s linear infinite; }
+@keyframes hudCW  { to { transform:rotate( 360deg); } }
+@keyframes hudCCW { to { transform:rotate(-360deg); } }
+
+#main-ring {
+    transition:stroke 0.3s, opacity 0.3s;
+    stroke:var(--gold);
+    opacity:0.6;
+    transform-origin:250px 250px;
+}
+
+/* ── Chat ── */
+#chat-history {
+    flex:1;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    font-size:0.82rem;
+    min-height:0;
+}
+#chat-history::-webkit-scrollbar { width:3px; }
+#chat-history::-webkit-scrollbar-thumb { background:rgba(42,158,226,0.3); border-radius:2px; }
+
+.msg {
+    padding:7px 10px;
+    border-radius:6px;
+    border-left:3px solid;
+    line-height:1.4;
+    word-break:break-word;
+}
+.msg.jarvis {
+    background:rgba(76,191,126,0.08);
+    border-color:var(--green);
+}
+.msg.user {
+    background:rgba(42,158,226,0.08);
+    border-color:var(--accent);
+}
+.msg strong { font-size:0.75rem; text-transform:uppercase; letter-spacing:.05em; }
+
+/* ── Input ── */
+.chat-input-row {
+    display:none;
+    gap:8px;
+    padding-top:10px;
+    border-top:1px solid rgba(42,158,226,0.1);
+    flex-shrink:0;
+}
+.chat-input-row.visible {
+    display:flex;
+}
+#chat-toggle.active { opacity:1; color:var(--accent); }
+#jarvis-input {
+    flex:1;
+    background:rgba(10,14,39,0.6);
+    border:1px solid rgba(42,158,226,0.2);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:6px;
+    font-size:0.85rem;
+    outline:none;
+}
+#jarvis-input:focus { border-color:rgba(42,158,226,0.5); }
+#jarvis-send {
+    background:rgba(42,158,226,0.15);
+    border:1px solid rgba(42,158,226,0.3);
+    color:var(--accent);
+    padding:8px 14px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:1rem;
+    transition:background 0.2s;
+}
+#jarvis-send:hover { background:rgba(42,158,226,0.3); }
+
+/* ── Status text ── */
+#status-text {
+    font-size:0.75rem;
+    color:#555;
+    text-align:center;
+    margin-bottom:6px;
+    min-height:1em;
+}
+</style>
+</head>
+
+<body>
+
+<div class="dashboard">
+
+<!-- ═════ JARVIS ═════ -->
+<div class="panel" id="jarvis-panel" style="grid-row:1; grid-column:1;">
+    <div class="panel-header">
+        <div class="panel-title">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+            J.A.R.V.I.S. Control Center
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <span class="panel-action" id="chat-toggle" title="Texteingabe ein-/ausblenden" onclick="toggleChatInput()"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></span>
+            <span class="panel-action" onclick="window.location.href='/config'" title="Einstellungen"><svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24M19.78 19.78l-4.24-4.24m-5.08-5.08l-4.24-4.24M19.78 4.22l-4.24 4.24m-5.08 5.08l-4.24 4.24"/></svg></span>
+        </div>
+    </div>
+    <div style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+
+        <!-- HUD SVG -->
+        <svg id="hud" viewBox="0 0 500 500" title="Klick zum Sprechen">
+            <!-- Outer ring — CCW slow -->
+            <g class="hud-ccw-slow">
+                <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="1"   fill="none" stroke-dasharray="5 7"    opacity="0.35"/>
+                <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="1.5" fill="none" stroke-dasharray="120 600" opacity="0.85"/>
+            </g>
+            <!-- Middle ring — CW medium -->
+            <g class="hud-cw-medium">
+                <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="1" fill="none" stroke-dasharray="8 5"   opacity="0.25"/>
+                <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="1" fill="none" stroke-dasharray="60 700" opacity="0.7"/>
+            </g>
+            <!-- Axis ticks -->
+            <line x1="250" y1="14"  x2="250" y2="34"  stroke="#2a9ee2" stroke-width="1.5"/>
+            <line x1="250" y1="466" x2="250" y2="486" stroke="#2a9ee2" stroke-width="1.5"/>
+            <line x1="14"  y1="250" x2="34"  y2="250" stroke="#2a9ee2" stroke-width="1.5"/>
+            <line x1="466" y1="250" x2="486" y2="250" stroke="#2a9ee2" stroke-width="1.5"/>
+            <!-- Pulse ring — CW fast -->
+            <g class="hud-cw-fast">
+                <circle cx="250" cy="250" r="162" stroke="#2a9ee2" stroke-width="0.8" fill="none" stroke-dasharray="4 12" opacity="0.5"/>
+            </g>
+            <!-- Main audio ring — functional, DO NOT REMOVE -->
+            <circle id="main-ring" cx="250" cy="250" r="150"
+                    stroke-width="10" fill="none" stroke-linecap="round"
+                    stroke-dasharray="700 300"
+                    transform="rotate(-90 250 250)"/>
+            <!-- Center -->
+            <circle cx="250" cy="250" r="88" fill="#021017" stroke="#2a9ee2" stroke-width="1.5"/>
+            <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+                  fill="#ffffff" font-size="22" letter-spacing="2">J.A.R.V.I.S.</text>
+        </svg>
+
+        <div id="status-text">Warte auf Eingabe…</div>
+
+        <!-- Chat -->
+        <div id="chat-history"></div>
+
+        <!-- Input -->
+        <div class="chat-input-row">
+            <input type="text" id="jarvis-input" placeholder="Sprich oder tippe…" data-i18n-placeholder="input_placeholder">
+            <button id="jarvis-send"><svg class="icon icon-send" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+        </div>
+    </div>
+</div>
+
+<!-- ═════ APPS ═════ -->
+<div class="panel" style="grid-row:1; grid-column:2;">
+    <div class="panel-header">
+        <div class="panel-title">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <span data-i18n="panel_apps">Programme</span>
+        </div>
+    </div>
+    <div class="panel-content" id="programs-container">
+        <div class="placeholder" data-i18n="loading_apps">Programme werden geladen…</div>
+    </div>
+</div>
+
+<!-- ═════ MAIL ═════ -->
+<div class="panel" style="grid-row:2; grid-column:1;">
+    <div class="panel-header">
+        <div class="panel-title">
+            <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+            <span data-i18n="panel_mail">Posteingang</span>
+            <span class="badge" id="mail-count">0</span>
+        </div>
+        <span class="panel-action" onclick="openApp('Mail')" title="Mail öffnen"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+    </div>
+    <div class="panel-content" id="mail-container">
+        <div class="placeholder" data-i18n="loading_mail">Mails werden geladen…</div>
+    </div>
+</div>
+
+<!-- ═════ TASKS + NEWS ═════ -->
+<div class="panel" style="grid-row:2; grid-column:2;">
+    <div class="panel-header">
+        <div class="panel-title">
+            <svg class="icon" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span data-i18n="panel_tasks">Aufgaben</span>
+            <span class="badge" id="task-count">0</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <span class="panel-action" onclick="loadNews()" title="News laden"><svg class="icon icon-sm" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
+            <span class="panel-action" onclick="openApp('Obsidian')" title="Obsidian öffnen"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>
+        </div>
+    </div>
+    <div class="panel-content" id="task-container" style="flex:1;min-height:0;">
+        <div class="placeholder" data-i18n="loading_tasks">Aufgaben werden geladen…</div>
+    </div>
+    <div class="panel-section-divider">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M4 22V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v18l-8-4-8 4z"/></svg>
+        <span data-i18n="panel_news">Neuigkeiten</span>
+        <span class="badge" id="news-count">—</span>
+    </div>
+    <div class="panel-content" id="news-container" style="flex:1;min-height:0;">
+        <div class="placeholder" data-i18n="news_load_hint">↻ Klicke zum Laden</div>
+    </div>
+</div>
+
+</div><!-- /.dashboard -->
+
+<!-- ── News Popup ── -->
+<div id="news-popup">
+    <div class="news-popup-box">
+        <button class="popup-close-btn" onclick="closeNewsPopup()">✕</button>
+        <div class="news-popup-source" id="popup-source"></div>
+        <div class="news-popup-title" id="popup-title"></div>
+        <div class="news-popup-meta" id="popup-meta"></div>
+        <div class="news-popup-actions">
+            <button class="popup-btn popup-btn-primary" onclick="openNewsArticle()" data-i18n="popup_open">Artikel öffnen ↗</button>
+            <button class="popup-btn popup-btn-ack" onclick="markNewsRead()" data-i18n="popup_ack">✓ Zur Kenntnis</button>
+            <button class="popup-btn popup-btn-close" onclick="closeNewsPopup()" data-i18n="popup_close">Schließen</button>
+        </div>
+    </div>
+</div>
+
+<div id="app-version" style="position:fixed;bottom:8px;right:12px;font-size:0.85rem;opacity:0.85;color:#2a9ee2;letter-spacing:.05em;pointer-events:none;z-index:9999;"></div>
+
+<div id="update-badge" style="display:none;position:fixed;bottom:30px;right:12px;z-index:9999;">
+    <a id="update-badge-link" href="#" target="_blank" rel="noopener"
+       style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 8px;border-radius:20px;font-size:0.72rem;text-decoration:none;letter-spacing:.05em;border:1px solid rgba(42,158,226,0.35);background:rgba(42,158,226,0.1);color:#2a9ee2;">
+        ↑ <span id="update-badge-version"></span>
+        <span id="update-badge-dismiss" style="opacity:0.5;margin-left:2px;cursor:pointer;font-size:0.68rem;" onclick="dismissUpdate(event)">✕</span>
+    </a>
+</div>
+
+<script>
+// ── State ──
+let _i18n        = {};
+let dashboardWs  = null;
+let audioQueue   = [];
+let isPlaying    = false;
+let isListening  = false;
+let audioEndTime = 0;
+let isMuted      = false;
+let recognition  = null;
+let audioContext = null;
+let analyser     = null;
+let animationId  = null;
+let currentAudio = null;
+let _wsDelay     = 3000;
+let _wsIsFirst   = true;   // nur beim ersten Verbindungsaufbau "Jarvis activate" senden
+
+
+const SPEECH_CORRECTIONS = {
+    'ob sie dir': 'Obsidian',
+    'ob si dir':  'Obsidian',
+    'ob sie di':  'Obsidian',
+    'obsidian':   'Obsidian',
+};
+
+function correctTranscript(text) {
+    let t = text;
+    for (const [w, r] of Object.entries(SPEECH_CORRECTIONS))
+        t = t.replace(new RegExp(w, 'gi'), r);
+    return t;
+}
+
+// ── AudioContext (einmal erstellen, nie doppelt) ──
+function getAudioContext() {
+    if (!audioContext)
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    return audioContext;
+}
+
+// ── Ring-Zustand ──
+function setOrbState(state) {
+    const ring = document.getElementById('main-ring');
+    const status = document.getElementById('status-text');
+    if (!ring) return;
+
+    const colors = {
+        idle:      { stroke:'#d4af37', opacity:'0.6' },
+        listening: { stroke:'#00aaff', opacity:'1'   },
+        speaking:  { stroke:'#00ff00', opacity:'0.8' },
+        thinking:  { stroke:'#ff9500', opacity:'0.7' },
+        muted:     { stroke:'#cc3333', opacity:'0.7' },
+    };
+    const labels = {
+        idle:      _i18n.status_idle      || 'Warte auf Eingabe…',
+        listening: _i18n.status_listening || '● Hört zu…',
+        speaking:  _i18n.status_speaking  || '◉ Spricht…',
+        thinking:  _i18n.status_thinking  || '◌ Denkt…',
+        muted:     _i18n.status_muted     || '🎙 Mikrofon stumm',
+    };
+
+    const c = colors[state] || colors.idle;
+    ring.style.stroke   = c.stroke;
+    ring.style.opacity  = c.opacity;
+    if (status) status.textContent = labels[state] || '';
+
+    if (state === 'listening' || state === 'speaking') startAudioAnalysis(state);
+    else stopAudioAnalysis();
+}
+
+// ── Ring-Animation ──
+function startAudioAnalysis(state) {
+    stopAudioAnalysis();
+    const ring = document.getElementById('main-ring');
+    if (!ring) return;
+
+    if (state === 'speaking') {
+        const loop = () => {
+            animationId = requestAnimationFrame(loop);
+            ring.style.transform = `rotate(-90deg) scale(${1 + Math.sin(Date.now()/150)*0.1})`;
+        };
+        loop();
+        return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        if (!analyser) {
+            const ctx = getAudioContext();
+            const src = ctx.createMediaStreamSource(stream);
+            analyser = ctx.createAnalyser();
+            analyser.fftSize = 256;
+            src.connect(analyser);
+        }
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        const loop = () => {
+            animationId = requestAnimationFrame(loop);
+            analyser.getByteFrequencyData(data);
+            const vol = data.reduce((a, b) => a + b) / data.length;
+            ring.style.transform = `rotate(-90deg) scale(${1 + Math.sin(Date.now()/250)*0.06 + vol/500})`;
+        };
+        loop();
+    }).catch(() => {});
+}
+
+function stopAudioAnalysis() {
+    if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
+    const ring = document.getElementById('main-ring');
+    if (ring) ring.style.transform = 'rotate(-90deg) scale(1)';
+}
+
+// ── TTS Playback — new Audio(), identisch mit Produktivsystem ──
+function queueAudio(b64) {
+    audioQueue.push(b64);
+    if (!isPlaying) playNext();
+}
+
+function playNext() {
+    if (audioQueue.length === 0) {
+        isPlaying = false;
+        audioEndTime = Date.now();
+        setOrbState('idle');
+        setTimeout(startListening, 1200);
+        return;
+    }
+    isPlaying = true;
+    setOrbState('speaking');
+    if (isListening) { try { recognition.abort(); } catch(_){} isListening = false; }
+
+    const b64 = audioQueue.shift();
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'audio/mpeg' });
+    const url = URL.createObjectURL(blob);
+    currentAudio = new Audio(url);
+    currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; playNext(); };
+    currentAudio.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; playNext(); };
+    currentAudio.play().catch(() => {
+        // Chrome hat blockiert — Audio zurück in Queue, auf Klick warten
+        audioQueue.unshift(b64);
+        URL.revokeObjectURL(url);
+        currentAudio = null;
+        isPlaying = false;
+        setOrbState('idle');
+        const st = document.getElementById('status-text');
+        if (st) st.textContent = _i18n.status_click_to_hear || '▶ Klicke um Jarvis zu hören';
+        document.addEventListener('click', () => playNext(), { once: true });
+    });
+}
+
+// ── Spracherkennung ──
+function initSpeechRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return console.warn('[Jarvis] Speech Recognition nicht unterstützt');
+
+    recognition = new SR();
+    recognition.lang = window.JARVIS_SPEECH_LANG || 'de-DE';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = e => {
+        if (isPlaying || Date.now() - audioEndTime < 2000) return;
+        const last = e.results[e.results.length - 1];
+        if (!last.isFinal) return;
+        const text = correctTranscript(last[0].transcript.trim());
+        if (!text) return;
+        addMsg('user', text);
+        setOrbState('thinking');
+        wsSend({ text });
+    };
+    recognition.onstart = () => { isListening = true; setOrbState('listening'); };
+    recognition.onend   = () => {
+        isListening = false;
+        if (!isPlaying) setTimeout(startListening, 300);
+        else setOrbState('idle');
+    };
+    recognition.onerror = e => {
+        isListening = false;
+        const retry = (e.error === 'no-speech' || e.error === 'aborted') ? 300 : 1000;
+        if (!isPlaying) setTimeout(startListening, retry);
+    };
+}
+
+function startListening() {
+    if (isPlaying || isMuted || !recognition) return;
+    try { recognition.start(); isListening = true; }
+    catch(e) { isListening = false; if (!isPlaying) setTimeout(startListening, 800); }
+}
+
+// ── HUD klickbar — Mute-Toggle ──
+document.getElementById('hud').addEventListener('click', () => {
+    if (!recognition) return;
+    isMuted = !isMuted;
+    if (isMuted) {
+        if (isListening) { recognition.stop(); isListening = false; }
+        setOrbState('muted');
+    } else {
+        if (!isPlaying) { setOrbState('idle'); startListening(); }
+    }
+});
+
+// ── WebSocket ──
+function wsSend(obj) {
+    if (dashboardWs?.readyState === WebSocket.OPEN)
+        dashboardWs.send(JSON.stringify(obj));
+}
+
+function initWS() {
+    const _rs = dashboardWs ? dashboardWs.readyState : -1;
+    if (dashboardWs && (_rs === WebSocket.OPEN || _rs === WebSocket.CONNECTING)) return;
+    dashboardWs = new WebSocket(`ws://${location.host}/ws`);
+    dashboardWs.onopen = () => {
+        _wsDelay = 3000;
+        if (_wsIsFirst) {
+            _wsIsFirst = false;
+            setOrbState('thinking');
+            wsSend({ text: 'Jarvis activate' });
+        } else {
+            // Reconnect nach Sleep: HUD aus 'thinking', Recognition sauber neu anstoßen
+            setOrbState('idle');
+            if (recognition) { try { recognition.abort(); } catch(e) {} }
+            setTimeout(() => { if (!isListening) startListening(); }, 1200);
+        }
+    };
+    dashboardWs.onmessage = e => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'response') {
+            setOrbState('speaking');
+            addMsg('jarvis', data.text);
+            if (data.audio?.length > 0) queueAudio(data.audio);
+            else setTimeout(() => { setOrbState('idle'); setTimeout(startListening, 1200); }, 1000);
+        } else if (data.type === 'refresh_tasks') {
+            loadTasks();
+        }
+    };
+    dashboardWs.onclose = () => {
+        setOrbState('idle');
+        setTimeout(initWS, _wsDelay);
+        _wsDelay = Math.min(_wsDelay * 2, 60000);
+    };
+    dashboardWs.onerror = () => {};
+}
+
+// ── Chat ──
+function addMsg(sender, text) {
+    const h = document.getElementById('chat-history');
+    // Platzhalter entfernen
+    const ph = h.querySelector('.placeholder-msg');
+    if (ph) ph.remove();
+
+    const d = document.createElement('div');
+    d.className = `msg ${sender}`;
+    d.innerHTML = `<strong>${sender === 'user' ? (_i18n.label_you || 'Du') : 'Jarvis'}:</strong> ${text}`;
+    h.appendChild(d);
+    h.scrollTop = h.scrollHeight;
+}
+
+function toggleChatInput() {
+    const row = document.querySelector('.chat-input-row');
+    const btn = document.getElementById('chat-toggle');
+    const visible = row.classList.toggle('visible');
+    btn.classList.toggle('active', visible);
+    if (visible) document.getElementById('jarvis-input').focus();
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('jarvis-input');
+    const text = input.value.trim();
+    if (!text) return;
+    addMsg('user', text);
+    input.value = '';
+    setOrbState('thinking');
+    if (dashboardWs?.readyState === WebSocket.OPEN) wsSend({ text });
+    else { setOrbState('idle'); addMsg('jarvis', _i18n.error_server || 'Fehler: Server nicht erreichbar.'); }
+}
+
+// ── App öffnen ──
+function openApp(name) {
+    fetch('/api/open_app', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app: name })
+    }).catch(() => {});
+}
+
+// ── Mails laden ──
+async function loadMails() {
+    const box   = document.getElementById('mail-container');
+    const badge = document.getElementById('mail-count');
+    try {
+        const r = await fetch('/api/get_mails_unread');
+        if (!r.ok) throw new Error();
+        const { mails = [] } = await r.json();
+        badge.textContent = mails.length;
+        if (!mails.length) {
+            box.innerHTML = `<div class="placeholder">${_i18n.empty_mail || 'Keine ungelesenen Mails'}</div>`;
+            return;
+        }
+        box.innerHTML = mails.map(m => {
+            const sender = m.sender.split(' <')[0];
+            return `<div class="list-item" onclick="openApp('Mail')">
+                <div class="list-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg></div>
+                <div>
+                    <div class="list-sender">${sender}</div>
+                    <div class="list-sub">${m.subject}</div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch {
+        box.innerHTML = `<div class="placeholder">${_i18n.error_load || 'Fehler beim Laden'}</div>`;
+    }
+}
+
+// ── Aufgaben laden ──
+async function loadTasks() {
+    const box   = document.getElementById('task-container');
+    const badge = document.getElementById('task-count');
+    try {
+        const [tr, or] = await Promise.all([
+            fetch('/api/get_tasks'),
+            fetch('/api/get_obsidian_notes'),
+        ]);
+        const { tasks = [] }        = tr.ok ? await tr.json() : {};
+        const { notes: obsidian = [] } = or.ok ? await or.json() : {};
+
+        const total = tasks.length + obsidian.length;
+        badge.textContent = total;
+
+        if (!total) {
+            box.innerHTML = `<div class="placeholder">${_i18n.empty_tasks || 'Alles erledigt!'}</div>`;
+            return;
+        }
+
+        const reminders = tasks.filter(t => t.source === 'reminders');
+        const calEvents = tasks.filter(t => t.source === 'calendar');
+
+        const remindersHtml = reminders.map(t => `
+            <div class="list-item">
+                <input type="checkbox" class="task-cb" onchange="completeTask('${btoa(t.title)}','${t.title}',this.checked)">
+                <div>
+                    <div class="list-title">${t.title}</div>
+                    <div class="task-source">Reminder</div>
+                </div>
+            </div>`).join('');
+
+        const calHtml = calEvents.map(t => `
+            <div class="list-item">
+                <span class="task-cal-spacer"></span>
+                <div>
+                    <div class="list-title">${t.title}</div>
+                    <div class="task-source calendar">${t.label || 'Kalender'}</div>
+                </div>
+            </div>`).join('');
+
+        const obsidianHtml = obsidian.map(n => `
+            <div class="list-item">
+                <input type="checkbox" class="task-cb obsidian" onchange="completeNote('${btoa(n.id)}','${n.id}',this.checked)">
+                <div>
+                    <div class="list-title">${n.title.substring(0,55)}${n.title.length>55?'…':''}</div>
+                    <div class="task-source obsidian">Obsidian</div>
+                </div>
+            </div>`).join('');
+
+        box.innerHTML = remindersHtml + calHtml + obsidianHtml;
+    } catch {
+        box.innerHTML = `<div class="placeholder">${_i18n.error_load || 'Fehler beim Laden'}</div>`;
+    }
+}
+
+async function completeTask(safeId, title, checked) {
+    if (!checked) return;
+    await fetch('/api/complete_task', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: safeId, title }) }).catch(() => {});
+    setTimeout(loadTasks, 500);
+}
+
+async function completeNote(safeId, id, checked) {
+    if (!checked) return;
+    await fetch('/api/complete_note', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) }).catch(() => {});
+    setTimeout(loadTasks, 500);
+}
+
+// ── Programme laden (async, blockiert nicht) ──
+async function loadPrograms() {
+    const box = document.getElementById('programs-container');
+    if (!box) return;
+    try {
+        const r = await Promise.race([
+            fetch('/api/config'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+        ]);
+        if (!r.ok) throw new Error();
+        const config = await r.json();
+        const programs = (config.programs || []).filter(p => p); // Filter out null/empty
+        if (!programs.length) {
+            box.innerHTML = `<div class="placeholder">${_i18n.empty_apps || 'Keine Programme konfiguriert'}</div>`;
+            return;
+        }
+        box.innerHTML = programs.map(prog => `
+            <div class="list-item" onclick="openApp('${prog}')">
+                <div class="list-icon">▶</div>
+                <div class="list-title">${prog}</div>
+            </div>`).join('');
+    } catch {
+        box.innerHTML = '<div class="placeholder">—</div>';
+    }
+}
+
+// ── News ──
+let _newsArticles   = [];
+let _currentNewsUrl = '';
+let _currentNewsId  = '';
+const CAT_COLORS = { apple:'cat-apple', tech:'cat-tech', science:'cat-science' };
+
+function renderNewsPanel() {
+    const box   = document.getElementById('news-container');
+    const badge = document.getElementById('news-count');
+    badge.textContent = _newsArticles.length;
+    if (!_newsArticles.length) {
+        box.innerHTML = '<div class="placeholder" style="cursor:pointer;" onclick="loadNews()" title="Neue Artikel laden">↻ Klicke zum Laden</div>';
+        return;
+    }
+    const shown = _newsArticles.slice(0, 5);
+    box.innerHTML = shown.map((a, i) => {
+        const catClass = CAT_COLORS[a.category] || 'cat-default';
+        const title = a.title.length > 82 ? a.title.slice(0, 82) + '…' : a.title;
+        return `<div class="news-item" onclick="showNewsPopup(${i})">
+            <div class="news-source ${catClass}">${a.source}</div>
+            <div class="news-title">${title}</div>
+        </div>`;
+    }).join('');
+    if (_newsArticles.length > 5)
+        box.innerHTML += `<div class="placeholder" style="font-size:0.7rem;padding:8px">+${_newsArticles.length - 5} weitere</div>`;
+}
+
+async function loadUnreadNews() {
+    try {
+        const r = await fetch('/api/news/unread?limit=20');
+        if (!r.ok) throw new Error();
+        const { articles = [] } = await r.json();
+        _newsArticles = articles;
+        renderNewsPanel();
+    } catch {
+        document.getElementById('news-container').innerHTML = '<div class="placeholder">—</div>';
+    }
+}
+
+async function loadNews() {
+    const box   = document.getElementById('news-container');
+    const badge = document.getElementById('news-count');
+    box.innerHTML = '<div class="placeholder">Lade Feeds…</div>';
+    badge.textContent = '…';
+    try {
+        const r = await fetch('/api/news');
+        if (!r.ok) throw new Error();
+        await loadUnreadNews();
+    } catch {
+        box.innerHTML = '<div class="placeholder">Fehler beim Laden</div>';
+        badge.textContent = '!';
+    }
+}
+
+function showNewsPopup(idx) {
+    const a = _newsArticles[idx];
+    if (!a) return;
+    _currentNewsUrl = a.url;
+    _currentNewsId  = a.id;
+    const catClass  = CAT_COLORS[a.category] || 'cat-default';
+    const srcEl = document.getElementById('popup-source');
+    srcEl.className = `news-popup-source ${catClass}`;
+    srcEl.textContent = a.source;
+    document.getElementById('popup-title').textContent = a.title;
+    const date = a.published
+        ? new Date(a.published).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' })
+        : '';
+    document.getElementById('popup-meta').textContent = date;
+    document.getElementById('news-popup').classList.add('open');
+}
+
+function closeNewsPopup() {
+    document.getElementById('news-popup').classList.remove('open');
+    _currentNewsUrl = '';
+    _currentNewsId  = '';
+}
+
+function openNewsArticle() {
+    if (_currentNewsId) {
+        fetch('/api/news/read', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ article_id: _currentNewsId }) }).catch(() => {});
+        _newsArticles = _newsArticles.filter(a => a.id !== _currentNewsId);
+    }
+    if (_currentNewsUrl) window.open(_currentNewsUrl, '_blank');
+    closeNewsPopup();
+    renderNewsPanel();
+}
+
+function markNewsRead() {
+    if (_currentNewsId) {
+        fetch('/api/news/read', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ article_id: _currentNewsId }) }).catch(() => {});
+        _newsArticles = _newsArticles.filter(a => a.id !== _currentNewsId);
+    }
+    closeNewsPopup();
+    renderNewsPanel();
+}
+
+document.addEventListener('click', e => {
+    const popup = document.getElementById('news-popup');
+    if (popup && e.target === popup) closeNewsPopup();
+});
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', async () => {
+    // Welcome page — show once on first visit
+    if (!localStorage.getItem('jarvis_welcome_shown')) {
+        window.location.href = '/welcome';
+        return;
+    }
+
+    setOrbState('idle');
+
+    try {
+        const lr = await fetch('/api/language');
+        const ld = await lr.json();
+        window.JARVIS_SPEECH_LANG = ld.speech_lang || 'de-DE';
+        const ir = await fetch(`/static/i18n/${ld.language || 'de'}.json`);
+        _i18n = await ir.json();
+    } catch { window.JARVIS_SPEECH_LANG = 'de-DE'; }
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        if (_i18n[el.dataset.i18n]) el.textContent = _i18n[el.dataset.i18n];
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        if (_i18n[el.dataset.i18nPlaceholder]) el.placeholder = _i18n[el.dataset.i18nPlaceholder];
+    });
+    setOrbState('idle');
+
+    initSpeechRecognition();
+
+    // Load data first, THEN initialize WebSocket
+    await Promise.all([loadMails(), loadTasks(), loadPrograms(), loadUnreadNews()]);
+
+    // Now start WebSocket (Jarvis will have complete data)
+    initWS();
+
+    const _pollId = setInterval(() => { loadMails(); loadTasks(); }, 20000);
+
+    // Auto-fetch fresh RSS feeds on startup (delayed to not compete with WebSocket init)
+    setTimeout(() => loadNews(), 5000);
+
+    fetch('/api/version').then(r => r.json()).then(v => {
+        document.getElementById('app-version').textContent = `v${v.version}`;
+    }).catch(() => {});
+
+    checkForUpdate();
+
+    document.getElementById('jarvis-send').addEventListener('click', sendChatMessage);
+    document.getElementById('jarvis-input').addEventListener('keypress', e => {
+        if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); }
+    });
+});
+
+async function checkForUpdate() {
+    if (sessionStorage.getItem('jarvis-update-dismissed')) return;
+    try {
+        const r = await fetch('/api/update_check');
+        const d = await r.json();
+        if (!d.has_update) return;
+        const badge   = document.getElementById('update-badge');
+        const link    = document.getElementById('update-badge-link');
+        const verSpan = document.getElementById('update-badge-version');
+        verSpan.textContent = `v${d.latest_version}`;
+        link.href = d.release_url || '#';
+        if (d.is_major) {
+            link.style.borderColor  = 'rgba(212,175,55,0.45)';
+            link.style.background   = 'rgba(212,175,55,0.1)';
+            link.style.color        = '#d4af37';
+        }
+        badge.style.display = 'block';
+    } catch {}
+}
+
+function dismissUpdate(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    sessionStorage.setItem('jarvis-update-dismissed', '1');
+    document.getElementById('update-badge').style.display = 'none';
+}
+</script>
+
+</body>
+</html>

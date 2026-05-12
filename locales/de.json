@@ -1,0 +1,76 @@
+{
+  "day_names": ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"],
+  "greetings": {
+    "morning":   "Guten Morgen",
+    "midday":    "Guten Tag",
+    "afternoon": "Guten Nachmittag",
+    "evening":   "Guten Abend"
+  },
+  "weather": {
+    "temp_format": "{temp} Grad",
+    "temp_decimal": ",",
+    "rain":  "Vergessen Sie Ihren Schirm nicht.",
+    "snow":  "Die Straßen könnten glatt sein — bitte vorsichtig.",
+    "storm": "Starker Wind heute — passen Sie auf sich auf.",
+    "sunny": "Ein schöner Tag draußen.",
+    "rain_keywords":  ["regen", "schauer", "niesel", "sprühregen"],
+    "snow_keywords":  ["schnee", "eis", "frost", "glätte"],
+    "storm_keywords": ["sturm", "gewitter", "böen", "orkan"],
+    "sunny_keywords": ["sonnig", "klar", "heiter", "wolkenlos"]
+  },
+  "morning_brief": {
+    "weekend_day": "Genießen Sie Ihren {day}.",
+    "weekday":     "Es ist {day}.",
+    "mail_1":    "Eine neue Mail wartet auf Sie.",
+    "mail_few":  "{n} ungelesene Mails.",
+    "mail_many": "{n} ungelesene Mails in Ihrem Postfach.",
+    "task_word_1":      "Aufgabe",
+    "task_word_many":   "Aufgaben",
+    "reminder_word_1":  "Erinnerung",
+    "reminder_word_many": "Erinnerungen",
+    "tasks_and_reminders": "{t} {task_word} und {r} {reminder_word} stehen noch aus.",
+    "only_tasks":     "{t} {task_word} auf der Liste.",
+    "only_reminders": "{r} {reminder_word} für heute.",
+    "note_word_1":    "Notiz",
+    "note_word_many": "Notizen",
+    "notes": "{n} offene {note_word} in Obsidian.",
+    "no_items": [
+      "Alles erledigt — ein ruhiger Start.",
+      "Keine offenen Punkte. Der Tag gehört Ihnen.",
+      "Postfach und Aufgaben: leer. Ein entspannter Beginn."
+    ],
+    "closing": [
+      "Ich stehe bereit.",
+      "Wie kann ich Ihnen behilflich sein?",
+      "Was darf ich für Sie tun?",
+      "Womit soll ich beginnen?"
+    ]
+  },
+  "pause_brief": {
+    "new_mail_1":    ["Willkommen zurück, {address}. Eine neue Mail von {sender}.", "Eine neue Mail von {sender} ist eingegangen, {address}."],
+    "new_mail_2":    "Willkommen zurück, {address}. {n} neue Mails — von {s1} und {s2}.",
+    "new_mail_many": "Willkommen zurück, {address}. {n} neue Mails — unter anderem von {sender}.",
+    "no_mail":       ["Willkommen zurück, {address}.", "Alles ruhig, {address}. Keine neuen Mails."]
+  },
+  "absence_brief": {
+    "new_mail_1":    ["Schön, Sie wieder zu haben, {address}. Eine neue Mail von {sender}.", "Willkommen zurück. Während Ihrer Abwesenheit schrieb {sender}."],
+    "new_mail_2":    "Schön, Sie wieder zu haben, {address}. {n} neue Mails — von {s1} und {s2}.",
+    "new_mail_many": "Willkommen zurück, {address}. {n} neue Mails in Ihrer Abwesenheit — unter anderem von {sender}.",
+    "no_mail":       ["Schön, Sie wieder zu haben, {address}. Das Postfach war ruhig.", "Willkommen zurück, {address}. Keine neuen Mails."]
+  },
+  "evening_brief": {
+    "opening":      "Feierabend, {address}.",
+    "mail":         "Im Postfach: {n} ungelesene {mail_word}.",
+    "mail_word_1":  "Mail",
+    "mail_word_many": "Mails",
+    "no_mail":      "Postfach ist leer."
+  },
+  "reconnect":   ["Ich bin wieder da, {address}.", "Wieder online, {address}.", "Zurück, {address}.", "Bereit, {address}."],
+  "wake_back":   "Willkommen zurück, {address}.",
+  "news_2":      "Aus Ihren Feeds: Bei {s1} geht es um {t1}. Außerdem bei {s2}: {t2}.",
+  "news_1":      "Aus Ihren Feeds: Bei {s1} geht es heute um {t1}.",
+  "done":        "Erledigt",
+  "kalender_done": "Verstanden, {address}. Der Termin ist abgehakt.",
+  "light_off":   ["Ist aus{sir}.", "Ausgeschaltet{sir}.", "Erledigt{sir}."],
+  "light_on":    ["Eingeschaltet{sir}.", "Ist an{sir}.", "Erledigt{sir}."]
+}

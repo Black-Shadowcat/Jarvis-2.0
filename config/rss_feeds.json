@@ -1,0 +1,18 @@
+{
+  "feeds": [
+    {
+      "id": "feed_001",
+      "name": "iFun.de",
+      "url": "https://www.ifun.de/feed",
+      "category": "apple",
+      "enabled": true
+    },
+    {
+      "id": "feed_688fba0e",
+      "name": "iphone-ticker.de",
+      "url": "https://www.iphone-ticker.de/feed",
+      "category": "apple",
+      "enabled": true
+    }
+  ]
+}

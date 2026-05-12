@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. — Willkommen</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0a0e1a;
+  --bg2:      #0d1220;
+  --bg3:      #111828;
+  --accent:   #2a9ee2;
+  --green:    #00ff9d;
+  --gold:     #ffd700;
+  --red:      #ff4466;
+  --text:     #c8d8e8;
+  --muted:    #3a5070;
+  --border:   rgba(42,158,226,0.2);
+  --border2:  rgba(0,255,157,0.15);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  overflow-x: hidden;
+}
+
+/* ── Scanlines ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 3px,
+    rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* ── Corner brackets (decorative) ── */
+.corner { position: fixed; width: 28px; height: 28px; }
+.corner::before, .corner::after { content: ''; position: absolute; background: var(--accent); }
+.corner::before { width: 100%; height: 1.5px; }
+.corner::after  { width: 1.5px; height: 100%; }
+.corner-tl { top: 18px; left: 18px; }
+.corner-tr { top: 18px; right: 18px; transform: scaleX(-1); }
+.corner-bl { bottom: 18px; left: 18px; transform: scaleY(-1); }
+.corner-br { bottom: 18px; right: 18px; transform: scale(-1); }
+
+/* ── Status bar top ── */
+.statusbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 32px;
+  background: rgba(10,14,26,0.9);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 3rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  z-index: 200;
+}
+.statusbar .status-left  { display: flex; gap: 2rem; }
+.statusbar .status-right { display: flex; gap: 2rem; }
+.blink {
+  animation: blink 1.4s step-end infinite;
+  color: var(--green);
+}
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+/* ── Main layout ── */
+.wrapper {
+  min-height: 100vh;
+  padding: 56px 2rem 3rem;
+  display: flex;
+  justify-content: center;
+}
+
+.layout {
+  width: 100%;
+  max-width: 1100px;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 2.5rem;
+  align-items: start;
+  padding-top: 2rem;
+}
+
+/* ── LEFT COLUMN ── */
+.left {
+  position: sticky;
+  top: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.8rem;
+}
+
+/* HUD Ring */
+.hud-wrap {
+  position: relative;
+  width: 160px; height: 160px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.hud-ring-outer {
+  position: absolute; inset: 0;
+  animation: spinCCW 18s linear infinite;
+}
+.hud-ring-inner {
+  position: absolute; inset: 0;
+  animation: spinCW 10s linear infinite;
+}
+.hud-ring-pulse {
+  position: absolute; inset: 0;
+  animation: spinCW 4s linear infinite;
+}
+
+@keyframes spinCW  { to { transform: rotate( 360deg); } }
+@keyframes spinCCW { to { transform: rotate(-360deg); } }
+
+.hud-center {
+  position: relative; z-index: 2;
+  text-align: center;
+  line-height: 1.5;
+}
+.hud-logo {
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+}
+.hud-ver {
+  font-size: 0.5rem;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+}
+
+/* Title block */
+.title-block { text-align: center; }
+.title-block h1 {
+  font-size: 1.6rem;
+  letter-spacing: 0.35em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+}
+.title-block .tagline {
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: 1.6;
+}
+
+/* Welcome speech box */
+.speech-box {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  padding: 1.1rem 1.2rem;
+  position: relative;
+}
+.speech-box::before {
+  content: 'SPRICHT:';
+  position: absolute;
+  top: -0.55rem; left: 1rem;
+  background: var(--bg);
+  padding: 0 0.4rem;
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+}
+.speech-box p {
+  font-size: 0.78rem;
+  line-height: 1.75;
+  color: var(--text);
+}
+.speech-box .quote-id {
+  font-size: 0.55rem;
+  color: var(--muted);
+  margin-top: 0.75rem;
+  letter-spacing: 0.12em;
+}
+
+/* CTA button */
+.cta-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--green);
+  color: var(--green);
+  font-family: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.cta-btn:hover {
+  background: var(--green);
+  color: var(--bg);
+  box-shadow: 0 0 24px rgba(0,255,157,0.35);
+}
+
+.reopen-note {
+  font-size: 0.58rem;
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.1em;
+  line-height: 1.6;
+}
+.reopen-note a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ── RIGHT COLUMN ── */
+.right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.section-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.25em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 0.6rem;
+  padding-left: 0.2rem;
+}
+
+/* Feature item */
+.feat {
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  overflow: hidden;
+  transition: border-color 0.25s;
+  animation: slideIn 0.4s ease both;
+}
+.feat:nth-child(2) { animation-delay: 0.05s; }
+.feat:nth-child(3) { animation-delay: 0.10s; }
+.feat:nth-child(4) { animation-delay: 0.15s; }
+.feat:nth-child(5) { animation-delay: 0.20s; }
+.feat:nth-child(6) { animation-delay: 0.25s; }
+.feat:nth-child(7) { animation-delay: 0.30s; }
+.feat:nth-child(8) { animation-delay: 0.35s; }
+.feat:nth-child(9) { animation-delay: 0.40s; }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.feat:hover { border-color: rgba(42,158,226,0.5); }
+.feat.open  { border-color: var(--accent); }
+
+.feat-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.2rem;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.feat-header::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transition: transform 0.25s;
+  transform-origin: bottom;
+}
+.feat.open .feat-header::before { transform: scaleY(1); }
+
+.feat-num {
+  font-size: 0.58rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  min-width: 1.8em;
+}
+.feat.open .feat-num { color: var(--accent); }
+
+.feat-icon {
+  font-size: 0.9rem;
+  width: 1.4em;
+  text-align: center;
+  opacity: 0.6;
+}
+.feat.open .feat-icon { opacity: 1; }
+
+.feat-title {
+  flex: 1;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  color: var(--text);
+  text-transform: uppercase;
+}
+.feat.open .feat-title { color: var(--green); }
+
+.feat-arrow {
+  font-size: 0.55rem;
+  color: var(--muted);
+  transition: transform 0.25s, color 0.25s;
+}
+.feat.open .feat-arrow { transform: rotate(90deg); color: var(--accent); }
+
+.feat-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+}
+.feat.open .feat-body { max-height: 300px; }
+
+.feat-body-inner {
+  padding: 0.8rem 1.2rem 1rem 4rem;
+  font-size: 0.76rem;
+  line-height: 1.75;
+  color: #7090b0;
+  border-top: 1px solid var(--border);
+}
+.feat-body-inner strong { color: var(--text); }
+.feat-body-inner code {
+  font-family: inherit;
+  color: var(--accent);
+  background: rgba(42,158,226,0.1);
+  padding: 0.1em 0.4em;
+  border-radius: 2px;
+}
+.feat-body-inner .cmd {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--green);
+  letter-spacing: 0.05em;
+}
+.feat-body-inner .cmd::before { content: '» '; color: var(--muted); }
+
+/* Divider between feature groups */
+.feat-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.6rem 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 780px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .left {
+    position: static;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Corner brackets -->
+<div class="corner corner-tl"></div>
+<div class="corner corner-tr"></div>
+<div class="corner corner-bl"></div>
+<div class="corner corner-br"></div>
+
+<!-- Status bar -->
+<div class="statusbar">
+  <div class="status-left">
+    <span>J.A.R.V.I.S. v2.4.2</span>
+    <span>PORT 8340</span>
+    <span>LOCALHOST</span>
+  </div>
+  <div class="status-right">
+    <span class="blink">● SYSTEM ONLINE</span>
+    <span id="clock">--:--:--</span>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="wrapper">
+<div class="layout">
+
+  <!-- ── LEFT ── -->
+  <div class="left">
+
+    <!-- HUD Ring -->
+    <div class="hud-wrap">
+      <svg class="hud-ring-outer" viewBox="0 0 160 160" fill="none">
+        <circle cx="80" cy="80" r="74" stroke="#2a9ee2" stroke-width="1"
+                stroke-dasharray="5 7" opacity="0.35"/>
+        <circle cx="80" cy="80" r="74" stroke="#2a9ee2" stroke-width="1.5"
+                stroke-dasharray="60 200" stroke-dashoffset="0" opacity="0.8"/>
+        <line x1="80" y1="6"   x2="80" y2="18"  stroke="#2a9ee2" stroke-width="1.5"/>
+        <line x1="80" y1="142" x2="80" y2="154" stroke="#2a9ee2" stroke-width="1.5"/>
+        <line x1="6"  y1="80"  x2="18"  y2="80" stroke="#2a9ee2" stroke-width="1.5"/>
+        <line x1="142" y1="80" x2="154" y2="80" stroke="#2a9ee2" stroke-width="1.5"/>
+      </svg>
+      <svg class="hud-ring-inner" viewBox="0 0 160 160" fill="none">
+        <circle cx="80" cy="80" r="60" stroke="#00ff9d" stroke-width="1"
+                stroke-dasharray="8 5" opacity="0.3"/>
+        <circle cx="80" cy="80" r="60" stroke="#00ff9d" stroke-width="1"
+                stroke-dasharray="30 200" opacity="0.7"/>
+      </svg>
+      <svg class="hud-ring-pulse" viewBox="0 0 160 160" fill="none">
+        <circle cx="80" cy="80" r="46" stroke="#2a9ee2" stroke-width="0.8"
+                stroke-dasharray="4 12" opacity="0.5"/>
+      </svg>
+      <div class="hud-center">
+        <div class="hud-logo">J.A.R.V.I.S.</div>
+        <div class="hud-ver">v2.4.2 // INIT</div>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <div class="title-block">
+      <h1>Willkommen</h1>
+      <div class="tagline">
+        Just A Rather Very<br>Intelligent System
+      </div>
+    </div>
+
+    <!-- Speech box -->
+    <div class="speech-box">
+      <p id="welcome-speech">
+        Guten Tag, <span id="address-display">Sir</span>.
+        Ich bin J.A.R.V.I.S. — Ihr persönlicher KI-Assistent,
+        konzipiert nach dem Vorbild von Tony Starks legendärem System.
+        Gestatten Sie mir, Ihnen die wichtigsten Funktionen in Kürze vorzustellen.
+        Sagen Sie anschließend einfach <em>„Jarvis activate"</em> — ich bin bereit.
+      </p>
+      <div class="quote-id">WELCOME_SPEECH_V1 // TTS-FREIGABE AUSSTEHEND</div>
+    </div>
+
+    <!-- CTA -->
+    <button class="cta-btn" onclick="dismiss()">
+      Verstanden &mdash; System freigeben
+    </button>
+
+    <div class="reopen-note">
+      Diese Seite kann jederzeit über<br>
+      <a href="/welcome">Config → Intro erneut anzeigen</a><br>
+      aufgerufen werden.
+    </div>
+
+  </div><!-- /left -->
+
+  <!-- ── RIGHT ── -->
+  <div class="right">
+
+    <div class="section-label">Systemfunktionen — Übersicht (Klick zum Aufklappen)</div>
+
+    <!-- 01 -->
+    <div class="feat"
+         data-speech="Sprachsteuerung. Sagen Sie Jarvis activate, um mich zu wecken. Ich höre via Web Speech API direkt im Browser — kein externes Setup nötig.">
+      <div class="feat-header" onclick="toggle(this)">
+        <span class="feat-num">01</span>
+        <span class="feat-icon">◎</span>
+        <span class="feat-title">Sprachsteuerung</span>
+        <span class="feat-arrow">▶</span>
+      </div>
+      <div class="feat-body"><div class="feat-body-inner">
+        Sagen Sie <strong>„Jarvis activate"</strong> um mich zu wecken. Ich höre via
+        <strong>Web Speech API</strong> direkt im Chrome-Browser — kein externes Mikrofon-Setup nötig.
+        Sprechen Sie frei auf Deutsch oder Englisch, ich verstehe beides.
+        <br><span class="cmd">„Jarvis activate"</span>
+        <br><span class="cmd">Klick auf den animierten Ring → Mikrofon stumm/aktiv</span>
+      </div></div>
+    </div>
+
+    <!-- 02 -->
+    <div class="feat"
+         data-speech="Ihr persönliches Dashboard. Mails, Aufgaben, Kalendertermine, Neuigkeiten und Programme — immer im Blick.">
+      <div class="feat-header" onclick="toggle(this)">
+        <span class="feat-num">02</span>
+        <span class="feat-icon">⊞</span>
+        <span class="feat-title">Dashboard</span>
+        <span class="feat-arrow">▶</span>
+      </div>
+      <div class="feat-body"><div class="feat-body-inner">
+        Das Dashboard unter <code>/</code> zeigt <strong>Posteingang</strong>, <strong>Aufgaben</strong>
+        (Apple Reminders + CalDAV-Kalender), <strong>RSS-Neuigkeiten</strong> und Ihre Programme.
+        Alles aktualisiert sich alle 20 Sekunden automatisch.
+        <br><span class="cmd">Kalendertermine erscheinen direkt neben Reminders</span>
+      </div></div>
+    </div>
+
+    <!-- 03 -->
+    <div class="feat"
+         data-speech="Smart Home Integration. Steuern Sie Ihre Lichter per Stimme über Home Assistant — mit über dreißig Raum-Synonymen.">
+      <div class="feat-header" onclick="toggle(this)">
+        <span class="feat-num">03</span>
+        <span class="feat-icon">◈</span>
+        <span class="feat-title">Smart Home &amp; Lichter</span>
+        <span class="feat-arrow">▶</span>
+      </div>
+      <div class="feat-body"><div class="feat-body-inner">
+        Über <strong>Home Assistant</strong> steuern Sie Lichter per Raumname —
+        mit über 30 Synonymen. Helligkeit, Farbe, An/Aus.
+        Konfigurieren Sie HA-URL und Token einmalig unter <code>/config</code>.
+        <br><span class="cmd">„Schalte das Wohnzimmerlicht auf 40 Prozent"</span>
+        <br><span class="cmd">„Küche aus"</span>
+      </div></div>
+    </div>
+
+    <!-- 04 -->
+    <div class="feat"
+         data-speech="Browser-Automatisierung. Ich steuere einen echten Browser im Hintergrund — suche, öffne Seiten und lese Inhalte für Sie vor.">
+      <div class="feat-header" onclick="toggle(this)">
+        <span class="feat-num">04</span>
+        <span class="feat-icon">⊙</span>
+        <span class="feat-title">Browser-Automatisierung</span>
+        <span class="feat-arrow">▶</span>
+      </div>
+      <div class="feat-body"><div class="feat-body-inner">
+        Ich steuere einen echten <strong>Playwright-Browser</strong> im Hintergrund —
+        suche im Internet, öffne URLs, lese Seiteninhalte vor.
+        Mit <strong>„Was ist auf meinem Bildschirm?"</strong> analysiere ich via Claude Vision.
+        <br><span class="cmd">„Was stand heute in der Tagesschau?"</span>
+        <br><span class="cmd">„Öffne github.com"</span>
+      </div></div>
+    </div>
+
+    <div class="feat-divider"></div>
+
+    <!-- 05 -->
+    <div class="feat"
+         data-speech="Obsidian-Notizen. Gedanken per Stimme festhalten, lesen und erledigen — direkt in Ihrem Vault.">
+      <div class="feat-header" onclick="toggle(this)">
+        <span class="feat-num">05</span>
+        <span class="feat-icon">◇</span>
+        <span class="feat-title">Obsidian-Notizen</span>
+        <span class="feat-arrow">▶</span>
+      </div>
+      <div class="feat-body"><div class="feat-body-inner">
+        Sagen Sie <strong>„Schreib eine Notiz: …"</strong> und ich lege eine Markdown-Datei
+        direkt in Ihrem Obsidian-Vault ab. Fertige Notizen wandern ins Archiv, nicht in den Papierkorb.
+        Inbox- und Archiv-Pfad einmalig unter <code>/config → Obsidian</code>.
+        <br><span class="cmd">„Schreib eine Notiz: Morgen Zahnarzt um 10 Uhr"</span>
+      </div></div>
+    </div>
+
+    <!-- 06 -->
+    <div class="feat"
+         data-speech="RSS-Neuigkeiten. Ihre persönlichen Feeds — zusammengefasst, archiviert und auf den Punkt gebracht.">
+      <div class="feat-header" onclick="toggle(this)">
+        <span class="feat-num">06</span>
+        <span class="feat-icon">◉</span>
+        <span class="feat-title">RSS-Neuigkeiten</span>
+        <span class="feat-arrow">▶</span>
+      </div>
+      <div class="feat-body"><div class="feat-body-inner">
+        Ich abonniere Ihre <strong>RSS-Feeds</strong> und halte ein lokales Archiv mit bis zu 10.000 Artikeln.
+        Neue Artikel werden beim Fragen als gelesen markiert. Feeds verwalten unter <code>/config → RSS-Feeds</code>.
+        <br><span class="cmd">„Gibt es was Neues?"</span>
+        <br><span class="cmd">„Suche in den News nach KI"</span>
+      </div></div>
+    </div>
+
+    <!-- 07 -->
+    <div class="feat"
+         data-speech="Daily Brief. Morgens begrüße ich Sie mit Wetter, Mails und heutigen Aufgaben. Ich merke mir, was ich bereits gesagt habe.">
+      <div class="feat-header" onclick="toggle(this)">
+        <span class="feat-num">07</span>
+        <span class="feat-icon">◑</span>
+        <span class="feat-title">Daily Brief</span>
+        <span class="feat-arrow">▶</span>
+      </div>
+      <div class="feat-body"><div class="feat-body-inner">
+        Morgens: Wetter, Mails, heutige Aufgaben. Nach Abwesenheit: Pause-Brief.
+        Ab 17 Uhr: Abend-Modus. Nach Schlaf-Modus: automatischer Wake-Brief.
+        Das System merkt sich, was es bereits gesagt hat — keine Wiederholungen.
+        <br><span class="cmd">Automatisch beim Start / Wake-from-Sleep</span>
+      </div></div>
+    </div>
+
+    <!-- 08 -->
+    <div class="feat"
+         data-speech="Konfiguration. Alle Einstellungen bequem im Browser. Kein Texteditor, kein Terminal. Sprache, Stimme, API-Keys — alles per Klick.">
+      <div class="feat-header" onclick="toggle(this)">
+        <span class="feat-num">08</span>
+        <span class="feat-icon">◧</span>
+        <span class="feat-title">Konfiguration</span>
+        <span class="feat-arrow">▶</span>
+      </div>
+      <div class="feat-body"><div class="feat-body-inner">
+        API-Keys, Stimme, Sprache (DE/EN), Stadt, Obsidian-Pfade, Programme, RSS-Feeds —
+        alles unter <strong>/config</strong>. Änderungen sofort wirksam, kein Neustart nötig.
+        Die Sprachumschaltung Deutsch ↔ Englisch erfolgt per Klick.
+        <br><span class="cmd">Aufruf: localhost:8340/config</span>
+      </div></div>
+    </div>
+
+  </div><!-- /right -->
+
+</div><!-- /layout -->
+</div><!-- /wrapper -->
+
+<script>
+  // ── Clock ──
+  function tick() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('de-DE', { hour12: false });
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  // ── TTS ──
+  let _speaking = false;
+  async function speak(text) {
+    if (!text) return;
+    _speaking = true;
+    try {
+      const r = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      if (!r.ok) return;
+      const { audio } = await r.json();
+      if (!audio) return;
+      const bytes = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+      const blob  = new Blob([bytes], { type: 'audio/mpeg' });
+      const url   = URL.createObjectURL(blob);
+      const a     = new Audio(url);
+      await new Promise(res => { a.onended = a.onerror = res; a.play().catch(res); });
+      URL.revokeObjectURL(url);
+    } catch {}
+    _speaking = false;
+  }
+
+  // ── Init: load address + auto-speak ──
+  let _userAddress = 'Sir';
+  (async () => {
+    try {
+      const r = await fetch('/api/config');
+      if (r.ok) {
+        const cfg = await r.json();
+        _userAddress = cfg.user_address || 'Sir';
+        document.getElementById('address-display').textContent = _userAddress;
+      }
+    } catch {}
+
+    // Auto-speak welcome after short delay
+    const welcomeText =
+      `Guten Tag, ${_userAddress}. Ich bin J.A.R.V.I.S. — Ihr persönlicher KI-Assistent, ` +
+      `konzipiert nach dem Vorbild von Tony Starks legendärem System. ` +
+      `Gestatten Sie mir, Ihnen die wichtigsten Funktionen in Kürze vorzustellen. ` +
+      `Sagen Sie anschließend einfach Jarvis activate — ich bin bereit.`;
+    setTimeout(() => speak(welcomeText), 800);
+  })();
+
+  // ── Accordion + Feature-Speech ──
+  function toggle(header) {
+    const feat    = header.closest('.feat');
+    const wasOpen = feat.classList.contains('open');
+    document.querySelectorAll('.feat.open').forEach(f => f.classList.remove('open'));
+    if (!wasOpen) {
+      feat.classList.add('open');
+      const text = feat.dataset.speech;
+      if (text) speak(text);
+    }
+  }
+
+  // ── Dismiss ──
+  function dismiss() {
+    localStorage.setItem('jarvis_welcome_shown', '1');
+    speak(`Zu Ihren Diensten, ${_userAddress}.`).then(() => {
+      window.location.href = '/';
+    });
+    // Fallback: navigate after 3s even if TTS fails
+    setTimeout(() => { window.location.href = '/'; }, 3000);
+  }
+</script>
+
+</body>
+</html>

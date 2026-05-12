@@ -1,0 +1,21 @@
+{
+  "anthropic_api_key": "YOUR_ANTHROPIC_API_KEY",
+  "elevenlabs_api_key": "YOUR_ELEVENLABS_API_KEY",
+  "user_name": "YOUR_NAME",
+  "user_address": "Sir",
+  "_user_address_hint": "Männlich: Sir, Chef, Boss | Weiblich: Ms. Nachname, Mrs. Nachname, Miss Nachname, Madam",
+  "city": "YOUR_CITY",
+  "lat": 53.55,
+  "lon": 10.00,
+  "kachelmann_api_key": "",
+  "ha_url": "http://YOUR_HA_IP:8123",
+  "ha_token": "YOUR_HA_LONG_LIVED_TOKEN",
+  "ha_enabled": false,
+  "workspace_path": "/Users/YOUR_USERNAME/jarvis-voice-assistant",
+  "obsidian_inbox_path": "",
+  "obsidian_archive_path": "",
+  "programs": [null, null, null, null, null, null],
+  "wake_greeting_enabled": true,
+  "language": "de",
+  "_language_hint": "Sprache für Antworten und Spracherkennung: 'de' oder 'en'"
+}

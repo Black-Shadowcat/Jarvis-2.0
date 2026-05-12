@@ -1,0 +1,39 @@
+{
+  "feeds": [
+    {
+      "id": "feed_001",
+      "name": "iFun.de",
+      "url": "https://www.ifun.de/feed",
+      "category": "apple",
+      "enabled": true
+    },
+    {
+      "id": "feed_002",
+      "name": "TechCrunch",
+      "url": "https://techcrunch.com/feed/",
+      "category": "tech",
+      "enabled": true
+    },
+    {
+      "id": "feed_003",
+      "name": "Hacker News",
+      "url": "https://news.ycombinator.com/rss",
+      "category": "tech",
+      "enabled": true
+    },
+    {
+      "id": "feed_004",
+      "name": "ArXiv AI",
+      "url": "http://arxiv.org/rss/cs.AI",
+      "category": "science",
+      "enabled": true
+    },
+    {
+      "id": "feed_005",
+      "name": "Nature News",
+      "url": "https://www.nature.com/feed.rss",
+      "category": "science",
+      "enabled": false
+    }
+  ]
+}

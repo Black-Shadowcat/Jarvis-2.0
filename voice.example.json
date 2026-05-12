@@ -1,0 +1,6 @@
+{
+  "active_voice_id": "YOUR_VOICE_ID",
+  "voices": [
+    {"name": "Meine Stimme", "voice_id": "YOUR_VOICE_ID"}
+  ]
+}

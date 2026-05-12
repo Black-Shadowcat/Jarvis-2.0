@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. — Einstellungen</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230a0e27' stroke='%2300aaff' stroke-width='2'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='%2300aaff' font-size='10' font-family='monospace'>J</text></svg>">
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+    background:#0a0e27;
+    color:#e0e0e0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    padding:20px;
+    min-height:100vh;
+}
+
+.container {
+    max-width:900px;
+    margin:0 auto;
+}
+
+/* ── Header ── */
+.header {
+    text-align:center;
+    margin-bottom:40px;
+}
+
+.header-link {
+    display:inline-block;
+    margin-bottom:16px;
+    font-size:0.75rem;
+    letter-spacing:.08em;
+    color:#2a9ee2;
+    text-decoration:none;
+    opacity:0.6;
+    transition:opacity 0.2s;
+}
+.header-link:hover { opacity:1; }
+
+.header h1 {
+    font-size:1.8rem;
+    letter-spacing:.15em;
+    color:#2a9ee2;
+    margin-bottom:8px;
+    font-weight:300;
+}
+
+.header-sub {
+    font-size:0.75rem;
+    letter-spacing:.08em;
+    color:#555;
+    text-transform:uppercase;
+}
+
+/* ── Panel/Card ── */
+.panel {
+    background:rgba(13,27,42,0.6);
+    border:1px solid rgba(42,158,226,0.15);
+    border-radius:10px;
+    padding:18px;
+    margin-bottom:16px;
+    backdrop-filter:blur(6px);
+}
+
+.panel-title {
+    font-size:0.8rem;
+    letter-spacing:.08em;
+    color:#2a9ee2;
+    text-transform:uppercase;
+    margin-bottom:16px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+/* ── Form Fields ── */
+.field-group {
+    margin-bottom:14px;
+}
+
+.label {
+    display:block;
+    font-size:0.75rem;
+    letter-spacing:.08em;
+    color:#888;
+    text-transform:uppercase;
+    margin-bottom:6px;
+}
+
+input, select {
+    width:100%;
+    background:rgba(6,13,24,0.8);
+    border:1px solid rgba(42,158,226,0.2);
+    color:#e0e0e0;
+    padding:10px 12px;
+    border-radius:6px;
+    font-size:0.85rem;
+    font-family:inherit;
+    outline:none;
+    transition:border-color 0.2s;
+}
+
+input:focus, select:focus {
+    border-color:rgba(42,158,226,0.5);
+    box-shadow:0 0 0 2px rgba(42,158,226,0.1);
+}
+
+input::placeholder { color:#3a3a5a; }
+input[type="password"] { font-family:monospace; }
+
+/* ── Inline Field Row ── */
+.field-row {
+    display:flex;
+    gap:8px;
+}
+
+.field-row input, .field-row select {
+    flex:1;
+}
+
+.field-row-action {
+    flex-shrink:0;
+    padding:10px 12px;
+    background:rgba(42,158,226,0.15);
+    border:1px solid rgba(42,158,226,0.3);
+    color:#2a9ee2;
+    border-radius:6px;
+    font-size:0.8rem;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:all 0.2s;
+}
+
+.field-row-action:hover {
+    background:rgba(42,158,226,0.25);
+}
+
+.field-row-action:disabled {
+    opacity:0.5;
+    cursor:default;
+}
+
+.eye-btn {
+    padding:10px 10px;
+    font-size:1rem;
+    opacity:0.5;
+    transition:opacity 0.2s;
+}
+.eye-btn:hover { opacity:1; background:rgba(42,158,226,0.08); }
+
+.field-row-action.ok {
+    border-color:#4cbf7e;
+    color:#4cbf7e;
+    background:rgba(76,191,126,0.08);
+}
+
+.field-row-action.err {
+    border-color:#e05252;
+    color:#e05252;
+    background:rgba(224,82,82,0.08);
+}
+
+/* ── Grid Layout ── */
+.field-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+}
+
+@media (max-width:600px) {
+    .field-grid { grid-template-columns:1fr; }
+}
+
+/* ── Toggles ── */
+.toggle-row {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px;
+    background:rgba(42,158,226,0.04);
+    border-radius:6px;
+}
+
+.toggle-row-label {
+    flex:1;
+}
+
+.toggle-row-label .text {
+    font-size:0.9rem;
+    margin-bottom:4px;
+}
+
+.toggle-row-label .sub {
+    font-size:0.75rem;
+    color:#888;
+}
+
+.toggle {
+    width:44px;
+    height:24px;
+    background:#1a2535;
+    border:1px solid rgba(42,158,226,0.2);
+    border-radius:999px;
+    cursor:pointer;
+    position:relative;
+    transition:background 0.2s;
+    flex-shrink:0;
+}
+
+.toggle.on {
+    background:#2a9ee2;
+    border-color:#2a9ee2;
+}
+
+.toggle::after {
+    content:'';
+    position:absolute;
+    top:3px;
+    left:3px;
+    width:16px;
+    height:16px;
+    background:#e0e0e0;
+    border-radius:50%;
+    transition:transform 0.2s;
+}
+
+.toggle.on::after {
+    transform:translateX(20px);
+}
+
+/* ── Chip Grid ── */
+.chip-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));
+    gap:8px;
+}
+
+.chip {
+    padding:10px 12px;
+    background:rgba(42,158,226,0.04);
+    border:1px solid rgba(42,158,226,0.1);
+    color:#666;
+    border-radius:6px;
+    font-size:0.85rem;
+    cursor:pointer;
+    transition:all 0.2s;
+    text-align:left;
+}
+
+.chip:hover {
+    border-color:rgba(42,158,226,0.3);
+    color:#888;
+}
+
+.chip.active {
+    background:rgba(42,158,226,0.1);
+    border-color:#2a9ee2;
+    color:#e0e0e0;
+}
+
+/* ── Info Text ── */
+.info-text {
+    font-size:0.75rem;
+    color:#666;
+    margin-top:6px;
+}
+
+/* ── Buttons ── */
+.btn-group {
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+    margin-top:20px;
+}
+
+.btn {
+    padding:10px 16px;
+    border:none;
+    border-radius:6px;
+    font-size:0.85rem;
+    cursor:pointer;
+    transition:all 0.2s;
+    font-weight:500;
+}
+
+.btn-primary {
+    background:#d4af37;
+    color:#0a0e27;
+}
+
+.btn-primary:hover {
+    background:#e0bb42;
+}
+
+.btn-secondary {
+    background:transparent;
+    border:1px solid rgba(42,158,226,0.25);
+    color:#666;
+}
+
+.btn-secondary:hover {
+    border-color:#2a9ee2;
+    color:#2a9ee2;
+}
+
+/* ── Modal ── */
+.modal {
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    background:rgba(0,0,0,0.75);
+    z-index:100;
+    justify-content:center;
+    align-items:center;
+}
+
+.modal.show { display:flex; }
+
+.modal-content {
+    background:rgba(13,27,42,0.95);
+    border:1px solid rgba(42,158,226,0.2);
+    border-radius:10px;
+    padding:24px;
+    max-width:400px;
+    width:90%;
+}
+
+.modal-title {
+    font-size:0.8rem;
+    letter-spacing:.08em;
+    color:#d4af37;
+    text-transform:uppercase;
+    margin-bottom:12px;
+}
+
+.modal-text {
+    font-size:0.85rem;
+    color:#aaa;
+    margin-bottom:16px;
+    line-height:1.5;
+}
+
+/* ── Toast ── */
+.toast {
+    display:none;
+    position:fixed;
+    top:20px;
+    right:20px;
+    padding:12px 16px;
+    background:rgba(13,27,42,0.95);
+    border-left:3px solid #2a9ee2;
+    border-radius:6px;
+    font-size:0.85rem;
+    z-index:200;
+}
+
+.toast.show { display:block; }
+.toast.success { border-color:#4cbf7e; }
+.toast.error { border-color:#e05252; }
+
+/* ── Feeds Modal ── */
+.feeds-modal-content {
+    max-width:720px;
+    width:95%;
+    max-height:85vh;
+    display:flex;
+    flex-direction:column;
+}
+
+.feeds-table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.82rem;
+    flex:1;
+}
+
+.feeds-table th {
+    text-align:left;
+    font-size:0.68rem;
+    letter-spacing:.08em;
+    color:#2a9ee2;
+    text-transform:uppercase;
+    padding:6px 8px 10px;
+    border-bottom:1px solid rgba(42,158,226,0.2);
+}
+
+.feeds-table td {
+    padding:10px 8px;
+    border-bottom:1px solid rgba(42,158,226,0.07);
+    vertical-align:middle;
+}
+
+.feeds-table tbody tr:hover td { background:rgba(42,158,226,0.04); }
+
+.feeds-table .col-name { font-weight:500; min-width:90px; }
+.feeds-table .col-url {
+    font-family:monospace;
+    font-size:0.73rem;
+    color:#666;
+    max-width:220px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.feed-cat-badge {
+    font-size:0.68rem;
+    padding:2px 7px;
+    border-radius:10px;
+    white-space:nowrap;
+}
+
+.btn-icon {
+    padding:4px 9px;
+    border:1px solid transparent;
+    border-radius:4px;
+    font-size:0.78rem;
+    cursor:pointer;
+    transition:all 0.15s;
+    font-family:inherit;
+    background:transparent;
+}
+
+.btn-edit { border-color:rgba(42,158,226,0.3); color:#2a9ee2; }
+.btn-edit:hover { background:rgba(42,158,226,0.12); border-color:#2a9ee2; }
+.btn-del { border-color:rgba(224,82,82,0.3); color:#e05252; margin-left:4px; }
+.btn-del:hover { background:rgba(224,82,82,0.1); border-color:#e05252; }
+
+.feeds-table-wrap { overflow-y:auto; max-height:340px; }
+
+.feed-form-box {
+    background:rgba(6,13,24,0.7);
+    border:1px solid rgba(212,175,55,0.2);
+    border-radius:8px;
+    padding:14px;
+    margin-top:12px;
+    flex-shrink:0;
+}
+
+.feed-form-header {
+    font-size:0.72rem;
+    letter-spacing:.08em;
+    color:#d4af37;
+    text-transform:uppercase;
+    margin-bottom:12px;
+}
+
+.feed-form-grid {
+    display:grid;
+    grid-template-columns:1fr 2fr 1fr;
+    gap:8px;
+    margin-bottom:10px;
+}
+
+@media (max-width:600px) { .feed-form-grid { grid-template-columns:1fr; } }
+
+.feed-add-btn {
+    font-size:0.8rem;
+    padding:7px 13px;
+    border:1px dashed rgba(42,158,226,0.3);
+    border-radius:6px;
+    background:transparent;
+    color:#2a9ee2;
+    cursor:pointer;
+    transition:all 0.2s;
+    font-family:inherit;
+}
+
+.feed-add-btn:hover { border-color:#2a9ee2; background:rgba(42,158,226,0.08); }
+
+/* ── Maintenance Modal ── */
+.maintenance-row {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 12px;
+    background:rgba(42,158,226,0.04);
+    border-radius:6px;
+    gap:12px;
+}
+
+.maintenance-label { flex:1; font-size:0.85rem; }
+.maintenance-sub { font-size:0.73rem; color:#666; margin-top:2px; }
+
+.maintenance-section {
+    border-top:1px solid rgba(42,158,226,0.12);
+    padding-top:14px;
+    margin-top:14px;
+}
+
+.maintenance-section-title {
+    font-size:0.72rem;
+    letter-spacing:.08em;
+    color:#2a9ee2;
+    text-transform:uppercase;
+    margin-bottom:10px;
+}
+
+.maintenance-status-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    background:rgba(42,158,226,0.04);
+    padding:12px;
+    border-radius:6px;
+    margin-bottom:14px;
+}
+
+.maintenance-status-label {
+    font-size:0.68rem;
+    color:#555;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    margin-bottom:3px;
+}
+
+.maintenance-status-value {
+    font-size:1rem;
+    font-weight:500;
+}
+
+.maintenance-status-sub { font-size:0.72rem; color:#666; margin-top:1px; }
+
+/* ── Danger Zone ── */
+.danger-zone {
+    border-color:rgba(224,82,82,0.25);
+    background:rgba(224,82,82,0.03);
+}
+
+.danger-zone .panel-title { color:#e05252; }
+
+.danger-btn {
+    padding:8px 14px;
+    border:1px solid rgba(224,82,82,0.4);
+    border-radius:6px;
+    background:transparent;
+    color:#e05252;
+    font-size:0.82rem;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:all 0.2s;
+    font-family:inherit;
+    flex-shrink:0;
+}
+
+.danger-btn:hover { background:rgba(224,82,82,0.1); border-color:#e05252; }
+
+.brain-modal-content {
+    max-width:460px;
+    width:95%;
+    border-color:rgba(224,82,82,0.25);
+}
+
+.brain-warning-box {
+    background:rgba(224,82,82,0.06);
+    border:1px solid rgba(224,82,82,0.15);
+    border-radius:8px;
+    padding:14px 16px;
+    font-size:0.83rem;
+    color:#ccc;
+    line-height:1.6;
+    margin-bottom:14px;
+}
+
+.brain-warning-box ul {
+    margin:8px 0 8px 18px;
+    color:#aaa;
+}
+
+.brain-warning-box li { margin-bottom:3px; }
+
+.brain-warning-box strong {
+    color:#e05252;
+    display:block;
+    margin-top:10px;
+}
+
+.brain-check-label {
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    font-size:0.82rem;
+    color:#ccc;
+    cursor:pointer;
+    padding:10px 12px;
+    background:rgba(224,82,82,0.04);
+    border:1px solid rgba(224,82,82,0.15);
+    border-radius:6px;
+    margin-bottom:16px;
+    line-height:1.5;
+}
+
+.brain-check-label input[type="checkbox"] {
+    width:16px;
+    height:16px;
+    margin-top:2px;
+    flex-shrink:0;
+    accent-color:#e05252;
+    cursor:pointer;
+}
+
+.brain-delete-btn {
+    background:rgba(224,82,82,0.12);
+    color:#e05252;
+    border:1px solid rgba(224,82,82,0.4);
+}
+
+.brain-delete-btn:not(:disabled):hover {
+    background:#e05252;
+    color:#fff;
+}
+
+.brain-delete-btn:disabled { opacity:0.35; cursor:not-allowed; }
+
+/* ── Layout Grid ── */
+.layout-section {
+    margin-top:20px;
+    font-size:0.75rem;
+    color:#666;
+    margin-bottom:8px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+}
+
+.layout-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1px;
+    background:rgba(42,158,226,0.25);
+    border-radius:8px;
+    overflow:hidden;
+}
+
+.layout-cell {
+    background:#0d1b2a;
+    padding:16px;
+    min-height:60px;
+    display:flex;
+    align-items:center;
+    font-size:0.8rem;
+}
+
+.layout-cell-fixed {
+    background:#060f1c;
+    font-weight:600;
+    color:#2a9ee2;
+    letter-spacing:.08em;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container" id="app">
+
+    <!-- Header -->
+    <div class="header">
+        <div style="display:flex;justify-content:center;gap:24px;margin-bottom:8px;">
+            <a href="/" class="header-link" data-i18n="back_to_jarvis">← Zurück zu Jarvis</a>
+            <a href="/handbuch" class="header-link" target="_blank">📖 Handbuch</a>
+            <a href="/welcome" class="header-link" onclick="localStorage.removeItem('jarvis_welcome_shown')" title="Intro erneut anzeigen">◎ Intro</a>
+        </div>
+        <h1>J.A.R.V.I.S.</h1>
+        <p class="header-sub"><span data-i18n="settings_subtitle">Einstellungen</span> &nbsp;<span id="app-version" style="opacity:0.85;font-size:0.85em;"></span></p>
+    </div>
+
+    <!-- API Keys & Services -->
+    <div class="panel">
+        <div class="panel-title" onclick="togglePanel('apiKeysBody','apiKeysChevron')" style="cursor:pointer;user-select:none;">
+            <span>API Keys &amp; Services</span>
+            <span id="apiKeysChevron" style="font-size:12px;color:#888;">▼</span>
+        </div>
+        <div id="apiKeysBody">
+
+        <div class="field-group">
+            <label class="label">Anthropic API Key</label>
+            <div class="field-row">
+                <input id="anthropicKey" type="password" placeholder="sk-ant-api03-…">
+                <button class="field-row-action eye-btn" onclick="toggleVisibility('anthropicKey', this)" title="Key anzeigen">👁</button>
+                <button class="field-row-action" onclick="testKey('anthropic')" id="anthropicBtn">Testen</button>
+            </div>
+        </div>
+
+        <div class="field-group">
+            <label class="label">ElevenLabs API Key</label>
+            <div class="field-row">
+                <input id="elevenlabsKey" type="password" placeholder="sk_…">
+                <button class="field-row-action eye-btn" onclick="toggleVisibility('elevenlabsKey', this)" title="Key anzeigen">👁</button>
+                <button class="field-row-action" onclick="testKey('elevenlabs')" id="elevenlabsBtn">Testen</button>
+            </div>
+        </div>
+
+        <div class="field-group">
+            <label class="label">Aktive Stimme</label>
+            <div class="field-row">
+                <div id="activeVoiceDisplay" style="flex:1;padding:10px 12px;background:rgba(6,13,24,0.8);border:1px solid rgba(42,158,226,0.2);border-radius:6px;font-size:0.85rem;color:#e0e0e0;">Wird geladen…</div>
+                <button class="field-row-action" onclick="previewActiveVoice()" id="previewBtn">▶ Preview</button>
+                <button class="field-row-action" onclick="openVoiceModal()" style="white-space:nowrap;">⚙ Verwalten</button>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- User Profile -->
+    <div class="panel">
+        <div class="panel-title" onclick="togglePanel('userProfileBody','userProfileChevron')" style="cursor:pointer;user-select:none;">
+            <span>Nutzer-Profil</span>
+            <span id="userProfileChevron" style="font-size:12px;color:#888;">▼</span>
+        </div>
+        <div id="userProfileBody">
+
+        <div class="field-grid">
+            <div class="field-group">
+                <label class="label">Name</label>
+                <input id="userName" type="text" placeholder="Matthias">
+            </div>
+            <div class="field-group">
+                <label class="label">Anrede</label>
+                <input id="userAddress" type="text" placeholder="z.B. Sir, Ms. Schmidt, Chef">
+                <div style="font-size:11px; color:#888; margin-top:4px;">
+                    Männlich: Sir · Chef · Boss<br>
+                    Weiblich: Ms. Schmidt · Mrs. Johnson · Miss Brown · Madam
+                </div>
+            </div>
+            <div class="field-group">
+                <label class="label">Stadt</label>
+                <input id="city" type="text" placeholder="Hamburg">
+            </div>
+            <div class="field-group">
+                <label class="label">Timezone</label>
+                <input id="timezone" type="text" placeholder="Europe/Berlin">
+            </div>
+            <div class="field-group">
+                <label class="label">Sprache / Language</label>
+                <select id="language">
+                    <option value="de">Deutsch</option>
+                    <option value="en">English</option>
+                </select>
+                <div style="font-size:11px;color:#888;margin-top:4px;">Sprache für Jarvis-Antworten &amp; Spracherkennung</div>
+            </div>
+        </div>
+
+        <div class="field-group">
+            <label class="label">Breitengrad / Längengrad</label>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <input id="lat" type="number" step="0.0001" placeholder="53.55">
+                <input id="lon" type="number" step="0.0001" placeholder="10.00">
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- Obsidian -->
+    <div class="panel">
+        <div class="panel-title" onclick="toggleObsidian()" style="cursor:pointer; user-select:none;">
+            <span>Obsidian</span>
+            <span id="obsidianChevron" style="font-size:12px; color:#888; transition:transform 0.2s;">▶</span>
+        </div>
+        <div id="obsidianFields" style="display:none;">
+            <div class="field-group">
+                <label class="label">Inbox Pfad</label>
+                <input id="obsidianPath" type="text" placeholder="/Users/…/01 J.A.R.V.I.S PROJEKT/01 Inbox">
+                <div style="font-size:11px; color:#888; margin-top:4px;">Hier landen neue Jarvis-Notizen</div>
+            </div>
+            <div class="field-group">
+                <label class="label">Erledigt Pfad</label>
+                <input id="obsidianArchivePath" type="text" placeholder="/Users/…/01 J.A.R.V.I.S PROJEKT/02 Erledigt">
+                <div style="font-size:11px; color:#888; margin-top:4px;">Hierhin verschiebt Jarvis erledigte Notizen</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Home Assistant -->
+    <div class="panel">
+        <div class="panel-title" onclick="togglePanel('haBody','haChevron')" style="cursor:pointer;user-select:none;">
+            <span>Home Assistant</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div class="toggle" id="haToggle" onclick="event.stopPropagation();toggleHA()"></div>
+                <span id="haChevron" style="font-size:12px;color:#888;">▼</span>
+            </div>
+        </div>
+        <div id="haBody">
+
+        <div id="haFields" style="opacity:0.3; pointer-events:none; transition:opacity 0.2s;">
+            <div class="field-group">
+                <label class="label">Home Assistant URL</label>
+                <input id="haUrl" type="text" placeholder="http://10.0.0.190:8123">
+            </div>
+            <div class="field-group">
+                <label class="label">Long-Lived Access Token</label>
+                <div class="field-row">
+                    <input id="haToken" type="password" placeholder="eyJhbGci…">
+                    <button class="field-row-action eye-btn" onclick="toggleVisibility('haToken', this)" title="Token anzeigen">👁</button>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- Services & Paths -->
+    <div class="panel">
+        <div class="panel-title" onclick="togglePanel('servicesBody','servicesChevron')" style="cursor:pointer;user-select:none;">
+            <span>Dienste &amp; Pfade</span>
+            <span id="servicesChevron" style="font-size:12px;color:#888;">▶</span>
+        </div>
+        <div id="servicesBody" style="display:none;">
+
+        <div class="field-group">
+            <label class="label">Kachelmann Wetter API Key</label>
+            <div class="field-row">
+                <input id="kachelmannKey" type="password" placeholder="ZNkF…">
+                <button class="field-row-action eye-btn" onclick="toggleVisibility('kachelmannKey', this)" title="Key anzeigen">👁</button>
+            </div>
+        </div>
+
+        <div class="field-group">
+            <label class="label">Workspace Pfad</label>
+            <input id="workspacePath" type="text" placeholder="/Users/matthias/jarvis">
+        </div>
+
+        <div class="field-group">
+            <label class="label">Browser Start-URL</label>
+            <input id="browserUrl" type="text" placeholder="https://google.com">
+        </div>
+
+        <div class="field-group">
+            <label class="label">Spotify Track URI</label>
+            <input id="spotifyTrack" type="text" placeholder="spotify:track:…">
+        </div>
+        </div>
+    </div>
+
+    <!-- Behavior -->
+    <div class="panel">
+        <div class="panel-title" onclick="togglePanel('behaviorBody','behaviorChevron')" style="cursor:pointer;user-select:none;">
+            <span>Verhalten</span>
+            <span id="behaviorChevron" style="font-size:12px;color:#888;">▼</span>
+        </div>
+        <div id="behaviorBody">
+        <div class="toggle-row">
+            <div class="toggle-row-label">
+                <div class="text">Begrüßung nach Standby</div>
+                <div class="sub">Jarvis meldet sich automatisch beim Aufwachen</div>
+            </div>
+            <div class="toggle" id="wakeGreetingToggle" onclick="toggleWakeGreeting()"></div>
+        </div>
+        </div>
+    </div>
+
+    <!-- Programs (Dropdown) -->
+    <div class="panel">
+        <div class="panel-title" onclick="togglePanel('programsBody','programsChevron')" style="cursor:pointer;user-select:none;">
+            <span>Programme</span>
+            <span id="programsChevron" style="font-size:12px;color:#888;">▶</span>
+        </div>
+        <div id="programsBody" style="display:none;">
+        <p style="font-size:0.75rem; color:#888; margin-bottom:12px;">Wähle bis zu 6 Apps, die beim Start geöffnet werden sollen.</p>
+        <div class="field-grid" id="programsGrid">
+            <div class="field-group">
+                <label class="label">Programm 1</label>
+                <select id="program-0"></select>
+            </div>
+            <div class="field-group">
+                <label class="label">Programm 2</label>
+                <select id="program-1"></select>
+            </div>
+            <div class="field-group">
+                <label class="label">Programm 3</label>
+                <select id="program-2"></select>
+            </div>
+            <div class="field-group">
+                <label class="label">Programm 4</label>
+                <select id="program-3"></select>
+            </div>
+            <div class="field-group">
+                <label class="label">Programm 5</label>
+                <select id="program-4"></select>
+            </div>
+            <div class="field-group">
+                <label class="label">Programm 6</label>
+                <select id="program-5"></select>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- RSS Feeds -->
+    <div class="panel">
+        <div class="panel-title">RSS-Feeds</div>
+        <button class="feed-add-btn" style="width:100%;text-align:left;" onclick="openFeedsModal()">📡 RSS-Feeds verwalten →</button>
+    </div>
+
+    <!-- Wartung -->
+    <div class="panel">
+        <div class="panel-title">Wartung</div>
+        <button class="feed-add-btn" style="width:100%;text-align:left;" onclick="openMaintenanceModal()">🔧 Wartung &amp; Reset →</button>
+    </div>
+
+    <!-- Back link bottom -->
+    <div style="text-align:center;margin-bottom:4px;display:flex;justify-content:center;gap:24px;">
+        <a href="/" class="header-link" data-i18n="back_to_jarvis">← Zurück zu Jarvis</a>
+        <a href="/handbuch" class="header-link" target="_blank">📖 Handbuch</a>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="btn-group">
+        <button class="btn btn-secondary" onclick="loadDefaults()" style="margin-right:auto;" data-i18n="btn_reset">Zurücksetzen</button>
+        <button class="btn btn-primary" onclick="saveConfig()" data-i18n="btn_save">Speichern</button>
+        <button class="btn btn-secondary" onclick="restart()" style="color:#e05252; border-color:#e05252;" data-i18n="btn_restart">⟳ Neu starten</button>
+    </div>
+</div>
+
+<!-- Modals & Toast -->
+<!-- ── Voice Modal ── -->
+<div class="modal" id="voiceModal" onclick="if(event.target===this)closeVoiceModal()">
+    <div class="modal-content" style="max-width:560px;width:95%;">
+        <div class="modal-title">Stimmen-Bibliothek</div>
+
+        <!-- Voice List -->
+        <div id="voiceList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:280px;overflow-y:auto;"></div>
+
+        <!-- Add New Voice -->
+        <div style="border-top:1px solid rgba(42,158,226,0.15);padding-top:16px;">
+            <div style="font-size:0.75rem;letter-spacing:.08em;color:#2a9ee2;text-transform:uppercase;margin-bottom:10px;">Neue Stimme hinzufügen</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                <input id="newVoiceName"    type="text"     placeholder="Name (z.B. English Butler)" style="width:100%">
+                <input id="newVoiceId"      type="text"     placeholder="Voice ID (von ElevenLabs)"  style="width:100%;font-family:monospace;font-size:0.8rem;">
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="field-row-action" onclick="testNewVoice()" id="testNewVoiceBtn">▶ Testen</button>
+                <button class="field-row-action" onclick="addVoice()" style="border-color:#4cbf7e;color:#4cbf7e;">+ Hinzufügen</button>
+            </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button class="btn btn-secondary" onclick="closeVoiceModal()">Schließen</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="restartModal">
+    <div class="modal-content">
+        <div class="modal-title">Server neu starten?</div>
+        <p class="modal-text">Der Prozess wird beendet. launchd startet ihn automatisch neu. Jarvis ist 10–15 Sekunden nicht erreichbar.</p>
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+            <button class="btn btn-secondary" style="color:#e05252; border-color:#e05252;" onclick="confirmRestart()">⟳ Neu starten</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ── Feeds Modal ── -->
+<div class="modal" id="feedsModal" onclick="if(event.target===this)closeFeedsModal()">
+    <div class="modal-content feeds-modal-content">
+        <div class="modal-title">📡 RSS-Feeds verwalten</div>
+
+        <div class="feeds-table-wrap">
+            <table class="feeds-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>URL</th>
+                        <th>Kategorie</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody id="feedsTableBody">
+                    <tr><td colspan="5" style="color:#555;text-align:center;padding:20px;">Wird geladen…</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="feedFormBox" class="feed-form-box" style="display:none;">
+            <div class="feed-form-header" id="feedFormTitle">Neuer Feed</div>
+            <div class="feed-form-grid">
+                <div>
+                    <label class="label" style="margin-bottom:4px;">Name</label>
+                    <input id="feedFormName" type="text" placeholder="iFun.de">
+                </div>
+                <div>
+                    <label class="label" style="margin-bottom:4px;">URL</label>
+                    <input id="feedFormUrl" type="text" placeholder="https://www.ifun.de/feed">
+                </div>
+                <div>
+                    <label class="label" style="margin-bottom:4px;">Kategorie</label>
+                    <input id="feedFormCategory" type="text" placeholder="apple / tech / science">
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="hideFeedForm()">Abbrechen</button>
+                <button class="btn btn-primary" onclick="saveFeedForm()">Speichern</button>
+            </div>
+        </div>
+
+        <div class="btn-group" style="margin-top:16px;flex-shrink:0;">
+            <button class="feed-add-btn" onclick="showFeedForm(null)">+ Neuer Feed</button>
+            <button class="btn btn-secondary" onclick="closeFeedsModal()">Zurück</button>
+            <button class="btn btn-primary" id="feedsSaveBtn" onclick="bulkSaveFeeds()">💾 Speichern</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Maintenance Modal ── -->
+<div class="modal" id="maintenanceModal" onclick="if(event.target===this)closeMaintenanceModal()">
+    <div class="modal-content" style="max-width:500px;width:95%;">
+        <div class="modal-title">🔧 Wartung &amp; Reset</div>
+
+        <!-- Status -->
+        <div class="maintenance-status-grid">
+            <div>
+                <div class="maintenance-status-label">News-Archiv</div>
+                <div class="maintenance-status-value" id="mStatusNews">—</div>
+                <div class="maintenance-status-sub" id="mStatusNewsSub">Artikel</div>
+            </div>
+            <div>
+                <div class="maintenance-status-label">Daily Brief</div>
+                <div class="maintenance-status-value" id="mStatusBrief">—</div>
+                <div class="maintenance-status-sub" id="mStatusBriefSub">—</div>
+            </div>
+        </div>
+
+        <!-- Gehirne leeren -->
+        <div class="maintenance-section">
+            <div class="maintenance-section-title">Gehirne leeren</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+
+                <div class="maintenance-row">
+                    <div class="maintenance-label">
+                        News-Archiv
+                        <div class="maintenance-sub">Alle archivierten Artikel löschen</div>
+                    </div>
+                    <div id="mBtnNews">
+                        <button class="btn btn-secondary" style="font-size:0.8rem;padding:7px 12px;" onclick="mAskConfirm('news')">🗑 Leeren</button>
+                    </div>
+                </div>
+
+                <div class="maintenance-row">
+                    <div class="maintenance-label">
+                        Daily Brief
+                        <div class="maintenance-sub">Morgen-Brief und Pausen-Status zurücksetzen</div>
+                    </div>
+                    <div id="mBtnBrief">
+                        <button class="btn btn-secondary" style="font-size:0.8rem;padding:7px 12px;" onclick="mAskConfirm('brief')">🗑 Leeren</button>
+                    </div>
+                </div>
+
+                <div class="maintenance-row">
+                    <div class="maintenance-label">
+                        Alles leeren
+                        <div class="maintenance-sub">News-Archiv + Daily Brief auf einmal</div>
+                    </div>
+                    <div id="mBtnAll">
+                        <button class="btn btn-secondary" style="font-size:0.8rem;padding:7px 12px;border-color:rgba(224,82,82,0.4);color:#e05252;" onclick="mAskConfirm('all')">🗑 Alles</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Pause-Schwellenwert -->
+        <div class="maintenance-section">
+            <div class="maintenance-section-title">Pause-Schwellenwert</div>
+            <div style="font-size:0.8rem;color:#888;margin-bottom:10px;">Wie lange muss Jarvis inaktiv sein, damit er beim Aufwachen einen Bericht gibt.</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input id="mThresholdInput" type="number" min="1" max="480" style="width:80px;" placeholder="30">
+                <span style="font-size:0.85rem;color:#888;">Minuten</span>
+                <button class="field-row-action" id="mThresholdBtn" onclick="mSaveThreshold()" style="margin-left:auto;">Speichern</button>
+            </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+            <button class="btn btn-secondary" onclick="closeMaintenanceModal()">Schließen</button>
+        </div>
+    </div>
+</div>
+
+<script>(async () => {
+    try {
+        const lr = await fetch('/api/language');
+        const ld = await lr.json();
+        const ir = await fetch(`/static/i18n/${ld.language || 'de'}.json`);
+        const t  = await ir.json();
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            if (t[el.dataset.i18n]) el.textContent = t[el.dataset.i18n];
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            if (t[el.dataset.i18nPlaceholder]) el.placeholder = t[el.dataset.i18nPlaceholder];
+        });
+    } catch {}
+})();</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+<script defer src="/static/config.js?v=lang-step3"></script>
+
+</body>
+</html>

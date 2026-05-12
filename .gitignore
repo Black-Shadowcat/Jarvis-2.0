@@ -1,0 +1,20 @@
+# Persönliche Konfiguration — niemals committen
+config.json
+voice.json
+
+# Laufzeitdaten
+data/
+*.pid
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
