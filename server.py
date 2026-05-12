@@ -1376,8 +1376,13 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     if "jarvis activate" in user_text.lower():
         # Debounce: suppress rapid duplicates from WS reconnects / multiple tabs
         now = datetime.now()
-        if _last_activate_spoken and (now - _last_activate_spoken).total_seconds() < 30:
+        if _last_activate_spoken and (now - _last_activate_spoken).total_seconds() < 5:
             print(f"  Activate debounced — suppressed", flush=True)
+            for conn in list(active_connections):
+                try:
+                    await conn.send_json({"type": "ptt_stop"})
+                except Exception:
+                    pass
             return
         _last_activate_spoken = now
 
