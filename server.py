@@ -30,6 +30,7 @@ from systems.news_system import NewsSystem
 # Load config
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 VOICE_PATH  = os.path.join(os.path.dirname(__file__), "voice.json")
+INTRO_FLAG  = os.path.join(os.path.dirname(__file__), "data", "intro_shown.flag")
 
 try:
     with open(CONFIG_PATH, "r") as f:
@@ -760,6 +761,8 @@ def parse_structured_action(reply: str) -> Optional[ActionModel]:
 async def synthesize_speech(text: str, voice_id: Optional[str] = None) -> bytes:
     if not text.strip():
         return b""
+
+    text = text.replace("J.A.R.V.I.S.", "Jarvis")
 
     # Split long text into chunks at sentence boundaries to avoid ElevenLabs cutoff
     chunks = []
@@ -2403,7 +2406,16 @@ async def update_check():
 
 @app.get("/")
 async def serve_index():
+    if not os.path.exists(INTRO_FLAG):
+        return RedirectResponse(url="/welcome", status_code=302)
     return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "index.html"))
+
+
+@app.post("/api/intro_done")
+async def mark_intro_done():
+    os.makedirs(os.path.dirname(INTRO_FLAG), exist_ok=True)
+    open(INTRO_FLAG, "w").close()
+    return {"ok": True}
 
 
 @app.get("/dashboard")

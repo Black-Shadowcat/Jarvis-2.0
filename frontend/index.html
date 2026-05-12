@@ -956,12 +956,6 @@ document.addEventListener('click', e => {
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
-    // Welcome page — show once on first visit
-    if (!localStorage.getItem('jarvis_welcome_shown')) {
-        window.location.href = '/welcome';
-        return;
-    }
-
     setOrbState('idle');
 
     try {

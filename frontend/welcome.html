@@ -676,11 +676,10 @@ body::before {
 
   // ── Dismiss ──
   function dismiss() {
-    localStorage.setItem('jarvis_welcome_shown', '1');
+    fetch('/api/intro_done', { method: 'POST' }).catch(() => {});
     speak(`Zu Ihren Diensten, ${_userAddress}.`).then(() => {
       window.location.href = '/';
     });
-    // Fallback: navigate after 3s even if TTS fails
     setTimeout(() => { window.location.href = '/'; }, 3000);
   }
 </script>
