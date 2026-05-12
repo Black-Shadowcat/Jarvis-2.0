@@ -7,6 +7,7 @@ Verbindet sich mit dem Jarvis-Server via WebSocket und sendet transkribierten Te
 import asyncio
 import threading
 import json
+import urllib.request
 import numpy as np
 import sounddevice as sd
 import mlx_whisper
@@ -16,6 +17,7 @@ import websockets
 SAMPLE_RATE   = 16000
 PTT_KEY       = keyboard.Key.f19
 SERVER_URL    = "ws://localhost:8341/ws"
+PTT_API       = "http://localhost:8341/api/ptt"
 WHISPER_MODEL = "mlx-community/whisper-large-v3-mlx"
 
 _audio_buffer: list  = []
@@ -23,6 +25,16 @@ _recording:    bool  = False
 _buffer_lock         = threading.Lock()
 _loop:  asyncio.AbstractEventLoop = None
 _queue: asyncio.Queue             = None
+
+
+# ── PTT-State an Browser melden ───────────────────────────────────────────
+
+def _notify_ptt(state: str):
+    try:
+        req = urllib.request.Request(f"{PTT_API}/{state}", method="POST")
+        urllib.request.urlopen(req, timeout=1)
+    except Exception:
+        pass
 
 
 # ── Audio ─────────────────────────────────────────────────────────────────
@@ -42,12 +54,14 @@ def _on_press(key):
         with _buffer_lock:
             _audio_buffer.clear()
         print("● Aufnahme läuft...", flush=True)
+        threading.Thread(target=_notify_ptt, args=("start",), daemon=True).start()
 
 
 def _on_release(key):
     global _recording
     if key == PTT_KEY and _recording:
         _recording = False
+        threading.Thread(target=_notify_ptt, args=("stop",), daemon=True).start()
         with _buffer_lock:
             chunks = list(_audio_buffer)
         if chunks:

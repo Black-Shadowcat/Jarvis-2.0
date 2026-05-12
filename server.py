@@ -2418,6 +2418,19 @@ async def mark_intro_done():
     return {"ok": True}
 
 
+@app.post("/api/ptt/{state}")
+async def ptt_state(state: str):
+    if state not in ("start", "stop"):
+        return {"ok": False}
+    msg_type = "ptt_start" if state == "start" else "ptt_stop"
+    for conn in list(active_connections):
+        try:
+            await conn.send_json({"type": msg_type})
+        except Exception:
+            pass
+    return {"ok": True}
+
+
 @app.get("/dashboard")
 async def serve_dashboard():
     return RedirectResponse(url="/", status_code=301)

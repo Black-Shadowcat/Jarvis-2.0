@@ -550,6 +550,7 @@ function setOrbState(state) {
         speaking:  { stroke:'#00ff00', opacity:'0.8' },
         thinking:  { stroke:'#ff9500', opacity:'0.7' },
         muted:     { stroke:'#cc3333', opacity:'0.7' },
+        recording: { stroke:'#ff2222', opacity:'1'   },
     };
     const labels = {
         idle:      _i18n.status_idle      || 'Warte auf Eingabe…',
@@ -557,6 +558,7 @@ function setOrbState(state) {
         speaking:  _i18n.status_speaking  || '◉ Spricht…',
         thinking:  _i18n.status_thinking  || '◌ Denkt…',
         muted:     _i18n.status_muted     || '🎙 Mikrofon stumm',
+        recording: '⬤ Aufnahme…',
     };
 
     const c = colors[state] || colors.idle;
@@ -564,7 +566,7 @@ function setOrbState(state) {
     ring.style.opacity  = c.opacity;
     if (status) status.textContent = labels[state] || '';
 
-    if (state === 'listening' || state === 'speaking') startAudioAnalysis(state);
+    if (state === 'listening' || state === 'speaking' || state === 'recording') startAudioAnalysis(state);
     else stopAudioAnalysis();
 }
 
@@ -578,6 +580,15 @@ function startAudioAnalysis(state) {
         const loop = () => {
             animationId = requestAnimationFrame(loop);
             ring.style.transform = `rotate(-90deg) scale(${1 + Math.sin(Date.now()/150)*0.1})`;
+        };
+        loop();
+        return;
+    }
+
+    if (state === 'recording') {
+        const loop = () => {
+            animationId = requestAnimationFrame(loop);
+            ring.style.transform = `rotate(-90deg) scale(${1 + Math.sin(Date.now()/250)*0.2})`;
         };
         loop();
         return;
@@ -677,6 +688,10 @@ function initWS() {
             addMsg('jarvis', data.text);
             if (data.audio?.length > 0) queueAudio(data.audio);
             else setTimeout(() => setOrbState('idle'), 1000);
+        } else if (data.type === 'ptt_start') {
+            setOrbState('recording');
+        } else if (data.type === 'ptt_stop') {
+            setOrbState('thinking');
         } else if (data.type === 'refresh_tasks') {
             loadTasks();
         }
