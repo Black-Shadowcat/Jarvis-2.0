@@ -514,7 +514,8 @@ let analyser     = null;
 let animationId  = null;
 let currentAudio = null;
 let _wsDelay     = 3000;
-let _wsIsFirst   = true;   // nur beim ersten Verbindungsaufbau "Jarvis activate" senden
+// sessionStorage überlebt Reload aber nicht Tab-Close → Greeting nur einmal pro Browser-Session
+const _wsIsFirst = !sessionStorage.getItem('jarvis_session_active');
 
 
 const SPEECH_CORRECTIONS = {
@@ -673,11 +674,10 @@ function initWS() {
     dashboardWs.onopen = () => {
         _wsDelay = 3000;
         if (_wsIsFirst) {
-            _wsIsFirst = false;
+            sessionStorage.setItem('jarvis_session_active', '1');
             setOrbState('thinking');
             wsSend({ text: 'Jarvis activate' });
         } else {
-            // Reconnect nach Sleep
             setOrbState('idle');
         }
     };
