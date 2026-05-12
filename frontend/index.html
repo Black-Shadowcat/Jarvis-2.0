@@ -507,10 +507,8 @@ let _i18n        = {};
 let dashboardWs  = null;
 let audioQueue   = [];
 let isPlaying    = false;
-let isListening  = false;
 let audioEndTime = 0;
 let isMuted      = false;
-let recognition  = null;
 let audioContext = null;
 let analyser     = null;
 let animationId  = null;
@@ -622,12 +620,10 @@ function playNext() {
         isPlaying = false;
         audioEndTime = Date.now();
         setOrbState('idle');
-        setTimeout(startListening, 1200);
         return;
     }
     isPlaying = true;
     setOrbState('speaking');
-    if (isListening) { try { recognition.abort(); } catch(_){} isListening = false; }
 
     const b64 = audioQueue.shift();
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
@@ -649,56 +645,9 @@ function playNext() {
     });
 }
 
-// ── Spracherkennung ──
-function initSpeechRecognition() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return console.warn('[Jarvis] Speech Recognition nicht unterstützt');
+// ── Spracherkennung: Web Speech API entfernt — Eingabe via F19 + Whisper (speech_input.py) ──
 
-    recognition = new SR();
-    recognition.lang = window.JARVIS_SPEECH_LANG || 'de-DE';
-    recognition.continuous = true;
-    recognition.interimResults = false;
-
-    recognition.onresult = e => {
-        if (isPlaying || Date.now() - audioEndTime < 2000) return;
-        const last = e.results[e.results.length - 1];
-        if (!last.isFinal) return;
-        const text = correctTranscript(last[0].transcript.trim());
-        if (!text) return;
-        addMsg('user', text);
-        setOrbState('thinking');
-        wsSend({ text });
-    };
-    recognition.onstart = () => { isListening = true; setOrbState('listening'); };
-    recognition.onend   = () => {
-        isListening = false;
-        if (!isPlaying) setTimeout(startListening, 300);
-        else setOrbState('idle');
-    };
-    recognition.onerror = e => {
-        isListening = false;
-        const retry = (e.error === 'no-speech' || e.error === 'aborted') ? 300 : 1000;
-        if (!isPlaying) setTimeout(startListening, retry);
-    };
-}
-
-function startListening() {
-    if (isPlaying || isMuted || !recognition) return;
-    try { recognition.start(); isListening = true; }
-    catch(e) { isListening = false; if (!isPlaying) setTimeout(startListening, 800); }
-}
-
-// ── HUD klickbar — Mute-Toggle ──
-document.getElementById('hud').addEventListener('click', () => {
-    if (!recognition) return;
-    isMuted = !isMuted;
-    if (isMuted) {
-        if (isListening) { recognition.stop(); isListening = false; }
-        setOrbState('muted');
-    } else {
-        if (!isPlaying) { setOrbState('idle'); startListening(); }
-    }
-});
+// ── HUD klickbar — reserviert für zukünftige Funktionen ──
 
 // ── WebSocket ──
 function wsSend(obj) {
@@ -717,10 +666,8 @@ function initWS() {
             setOrbState('thinking');
             wsSend({ text: 'Jarvis activate' });
         } else {
-            // Reconnect nach Sleep: HUD aus 'thinking', Recognition sauber neu anstoßen
+            // Reconnect nach Sleep
             setOrbState('idle');
-            if (recognition) { try { recognition.abort(); } catch(e) {} }
-            setTimeout(() => { if (!isListening) startListening(); }, 1200);
         }
     };
     dashboardWs.onmessage = e => {
@@ -729,7 +676,7 @@ function initWS() {
             setOrbState('speaking');
             addMsg('jarvis', data.text);
             if (data.audio?.length > 0) queueAudio(data.audio);
-            else setTimeout(() => { setOrbState('idle'); setTimeout(startListening, 1200); }, 1000);
+            else setTimeout(() => setOrbState('idle'), 1000);
         } else if (data.type === 'refresh_tasks') {
             loadTasks();
         }
@@ -1032,8 +979,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (_i18n[el.dataset.i18nPlaceholder]) el.placeholder = _i18n[el.dataset.i18nPlaceholder];
     });
     setOrbState('idle');
-
-    initSpeechRecognition();
 
     // Load data first, THEN initialize WebSocket
     await Promise.all([loadMails(), loadTasks(), loadPrograms(), loadUnreadNews()]);
