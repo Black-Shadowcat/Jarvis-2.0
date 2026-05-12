@@ -182,6 +182,9 @@ daily_brief = DailyBrief()
 daily_brief.set_locale(_L)
 _last_activate_spoken: Optional[datetime] = None
 _last_wake_spoken: Optional[datetime] = None
+_mail_cache:  dict = {"data": None, "ts": 0.0}
+_tasks_cache: dict = {"data": None, "ts": 0.0}
+_DASHBOARD_CACHE_TTL = 30.0  # seconds
 _morning_news_text: str = ""  # spoken after morning brief — set in morning trigger path
 _dismissed_cal: set[str] = set()  # calendar event titles dismissed by user this session
 _last_search_url: str = ""        # URL des letzten NEWS_SEARCH-Treffers — für Follow-up-Fragen
@@ -1623,9 +1626,14 @@ async def websocket_endpoint(ws: WebSocket):
 
 @app.get("/api/get_mails_unread")
 async def get_mails_unread():
-    """Return unread emails — always fetched live from Mail.app."""
+    now = time.time()
+    if _mail_cache["data"] is not None and now - _mail_cache["ts"] < _DASHBOARD_CACHE_TTL:
+        return _mail_cache["data"]
     loop = asyncio.get_event_loop()
     fresh = await loop.run_in_executor(None, get_mail_sync)
+    async with _mail_lock:
+        global MAIL_INFO
+        MAIL_INFO = fresh
     mails = []
     for mail_str in fresh:
         parts = mail_str.split(" || ", 1)
@@ -1638,12 +1646,18 @@ async def get_mails_unread():
                 "timestamp": "",
                 "unread": True
             })
-    return {"mails": mails, "total": len(mails)}
+    result = {"mails": mails, "total": len(mails)}
+    _mail_cache["data"] = result
+    _mail_cache["ts"] = now
+    return result
 
 
 @app.get("/api/get_tasks")
 async def get_tasks():
     """Return reminders and today+tomorrow calendar events."""
+    now = time.time()
+    if _tasks_cache["data"] is not None and now - _tasks_cache["ts"] < _DASHBOARD_CACHE_TTL:
+        return _tasks_cache["data"]
     loop = asyncio.get_event_loop()
     fresh = await loop.run_in_executor(None, get_tasks_sync)
     if HA_URL and HA_TOKEN:
@@ -1673,7 +1687,10 @@ async def get_tasks():
             "source": "calendar",
             "completed": None
         })
-    return {"tasks": tasks, "total": len(tasks)}
+    result = {"tasks": tasks, "total": len(tasks)}
+    _tasks_cache["data"] = result
+    _tasks_cache["ts"] = now
+    return result
 
 
 @app.get("/api/get_obsidian_notes")
@@ -1739,6 +1756,7 @@ end tell'''
         if result.returncode == 0:
             global TASKS_INFO
             TASKS_INFO = await asyncio.get_event_loop().run_in_executor(None, get_tasks_sync)
+            _tasks_cache["ts"] = 0.0  # invalidate
             return {"success": True, "message": f"Task '{task_title}' marked as complete"}
         return {"success": False, "message": "Failed to mark task as complete"}
     except Exception as e:
