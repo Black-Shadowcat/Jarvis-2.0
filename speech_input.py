@@ -28,7 +28,7 @@ from pynput import keyboard
 import websockets
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(message)s",
     datefmt="%H:%M:%S",
 )
@@ -340,7 +340,7 @@ async def _receiver(ws):
         except Exception:
             continue
         msg_type = data.get("type")
-        log.info(f"← WS-Msg: {msg_type}")
+        log.debug(f"← WS-Msg: {msg_type}")
 
         if msg_type == "speaking_start":
             _jarvis_speaking = True

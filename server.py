@@ -29,7 +29,7 @@ from systems.daily_brief import DailyBrief
 from systems.news_system import NewsSystem
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(message)s",
     datefmt="%H:%M:%S",
 )
@@ -1162,20 +1162,16 @@ _TEMPLATE_ACTIONS = {"LICHT", "REMINDER_ADD", "REMINDER_DONE", "KALENDER_DONE", 
 
 async def _send_stt(msg: dict):
     """Sendet Nachricht an alle verbundenen STT-Clients (speech_input.py)."""
-    n = len(stt_connections)
-    log.info(f"  _send_stt → {msg['type']} ({n} STT-conn)")
     for stt in list(stt_connections):
         try:
             await stt.send_json(msg)
-        except Exception as e:
-            log.warning(f"  _send_stt FEHLER: {e}")
+        except Exception:
+            pass
 
 
 async def _send_listen_open(delay: float):
     """Nach TTS: sendet speaking_end + listen_open nach geschätzter Abspieldauer."""
-    log.info(f"  _send_listen_open: warte {delay:.1f}s…")
     await asyncio.sleep(delay)
-    log.info(f"  _send_listen_open: sende speaking_end")
     await _send_stt({"type": "speaking_end"})
     await _send_stt({"type": "listen_open", "timeout": 6})
 
