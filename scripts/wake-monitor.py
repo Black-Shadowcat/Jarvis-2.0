@@ -8,7 +8,7 @@ import os
 import atexit
 import threading
 
-JARVIS_WAKE_URL = "http://localhost:8340/api/wake"
+JARVIS_WAKE_URL = "http://localhost:8341/api/wake"
 _LOCK = "/tmp/jarvis-wake-monitor.pid"
 
 if os.path.exists(_LOCK):
