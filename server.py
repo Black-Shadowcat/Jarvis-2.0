@@ -8,6 +8,7 @@ import asyncio
 import base64
 import io
 import json
+import logging
 import os
 import random
 import re
@@ -27,6 +28,13 @@ from fastapi.responses import FileResponse, StreamingResponse, RedirectResponse,
 from systems.daily_brief import DailyBrief
 from systems.news_system import NewsSystem
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("jarvis")
+
 # Load config
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 VOICE_PATH  = os.path.join(os.path.dirname(__file__), "voice.json")
@@ -36,10 +44,10 @@ try:
     with open(CONFIG_PATH, "r") as f:
         config = json.load(f)
 except FileNotFoundError:
-    print("[jarvis] FEHLER: config.json nicht gefunden. Bitte 'cp config.example.json config.json' ausführen.", flush=True)
+    log.error("[jarvis] FEHLER: config.json nicht gefunden. Bitte 'cp config.example.json config.json' ausführen.")
     raise SystemExit(1)
 except json.JSONDecodeError as e:
-    print(f"[jarvis] FEHLER: config.json ist kein gültiges JSON: {e}", flush=True)
+    log.error(f"[jarvis] FEHLER: config.json ist kein gültiges JSON: {e}")
     raise SystemExit(1)
 
 def _load_voice_db() -> dict:
@@ -59,8 +67,8 @@ ELEVENLABS_VOICE_ID = _voice_db.get("active_voice_id", "")
 
 _missing = [k for k, v in [("anthropic_api_key", ANTHROPIC_API_KEY), ("elevenlabs_api_key", ELEVENLABS_API_KEY)] if not v or v.startswith("YOUR_")]
 if _missing:
-    print(f"[jarvis] FEHLER: Pflicht-Keys fehlen in config.json: {', '.join(_missing)}", flush=True)
-    print("[jarvis] Bitte config.json befüllen oder Config UI unter http://localhost:8340/config aufrufen.", flush=True)
+    log.error(f"[jarvis] FEHLER: Pflicht-Keys fehlen in config.json: {', '.join(_missing)}")
+    log.info("[jarvis] Bitte config.json befüllen oder Config UI unter http://localhost:8340/config aufrufen.")
     raise SystemExit(1)
 
 USER_NAME = config.get("user_name", "")
@@ -191,9 +199,9 @@ _last_search_url: str = ""        # URL des letzten NEWS_SEARCH-Treffers — fü
 _last_search_published: str = ""  # ISO-Datum des letzten Treffers — für Display-Formatierung
 
 class _PrintLogger:
-    def info(self, msg):    print(f"[news] {msg}", flush=True)
-    def warning(self, msg): print(f"[news] WARN: {msg}", flush=True)
-    def error(self, msg):   print(f"[news] ERROR: {msg}", flush=True)
+    def info(self, msg):    log.info(f"[news] {msg}")
+    def warning(self, msg): log.warning(f"[news] WARN: {msg}")
+    def error(self, msg):   log.error(f"[news] ERROR: {msg}")
 
 news = NewsSystem(config, _PrintLogger())
 
@@ -336,7 +344,7 @@ def get_weather_sync():
             "sun_hours": sun,
         }
     except Exception as e:
-        print(f"[jarvis] Wetter-Fehler: {e}", flush=True)
+        log.info(f"[jarvis] Wetter-Fehler: {e}")
         return None
 
 
@@ -553,10 +561,10 @@ def refresh_data():
     TASKS_INFO = get_tasks_sync()
     MAIL_INFO = get_mail_sync()
     CALENDAR_INFO = get_calendar_sync(days=7)
-    print(f"[jarvis] Wetter: {WEATHER_INFO}", flush=True)
-    print(f"[jarvis] Tasks: {len(TASKS_INFO)} geladen", flush=True)
-    print(f"[jarvis] Mails: {len(MAIL_INFO)} ungelesen", flush=True)
-    print(f"[jarvis] Kalender: {len(CALENDAR_INFO)} Termine (7 Tage)", flush=True)
+    log.info(f"[jarvis] Wetter: {WEATHER_INFO}")
+    log.info(f"[jarvis] Tasks: {len(TASKS_INFO)} geladen")
+    log.info(f"[jarvis] Mails: {len(MAIL_INFO)} ungelesen")
+    log.info(f"[jarvis] Kalender: {len(CALENDAR_INFO)} Termine (7 Tage)")
 
 WEATHER_INFO = None
 TASKS_INFO = []
@@ -800,18 +808,18 @@ async def synthesize_speech(text: str, voice_id: Optional[str] = None) -> bytes:
             try:
                 resp = await http.post(url, headers=headers, json=payload)
                 if resp.status_code == 200:
-                    print(f"  TTS OK: {len(resp.content)} bytes", flush=True)
+                    log.debug(f"  TTS OK: {len(resp.content)} bytes")
                     return resp.content
-                print(f"  TTS error ({attempt+1}/2): {resp.status_code} {resp.text[:100]}", flush=True)
+                log.warning(f"  TTS error ({attempt+1}/2): {resp.status_code} {resp.text[:100]}")
             except Exception as e:
-                print(f"  TTS EXCEPTION ({attempt+1}/2): {e}", flush=True)
+                log.error(f"  TTS EXCEPTION ({attempt+1}/2): {e}")
             if attempt == 0:
                 await asyncio.sleep(1)
         return b""
 
     parts = await asyncio.gather(*[_tts_chunk(c) for c in chunks])
     total = b"".join(parts)
-    print(f"  TTS final: {len(total)} bytes total", flush=True)
+    log.debug(f"  TTS final: {len(total)} bytes total")
     return total
 
 
@@ -1090,7 +1098,7 @@ end tell'''
             filepath = os.path.join(OBSIDIAN_INBOX, filename)
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(text + "\n")
-            print(f"[jarvis] Notiz gespeichert: {filepath}", flush=True)
+            log.info(f"[jarvis] Notiz gespeichert: {filepath}")
             return f"Notiz gespeichert: {text}"
         except Exception as e:
             return f"Fehler beim Speichern der Notiz: {e}"
@@ -1154,7 +1162,7 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
     """TTS, append to history, broadcast to all connections.
     display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet."""
     audio = await synthesize_speech(text)
-    print(f"  Jarvis: {text[:100]}", flush=True)
+    log.info(f"  Jarvis: {text[:100]}")
     conversations[session_id].append({"role": "assistant", "content": text})
     payload = {
         "type": "response",
@@ -1305,7 +1313,7 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
             params = LichtParameters(**structured.parameters)
             result = await handle_licht_structured(params)
         except Exception as e:
-            print(f"  Structured LICHT failed ({e}), falling back to legacy parser", flush=True)
+            log.warning(f"  Structured LICHT failed ({e}), falling back to legacy parser")
             p = structured.parameters
             payload_parts = [str(p.get("raum", ""))]
             if p.get("zustand"):
@@ -1336,9 +1344,9 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
 
     try:
         action_result = await execute_action(legacy)
-        print(f"  Result: {action_result}", flush=True)
+        log.debug(f"  Result: {action_result}")
     except Exception as e:
-        print(f"  Structured action error: {e}", flush=True)
+        log.error(f"  Structured action error: {e}")
         action_result = f"Fehler: {e}"
 
     # Template actions — result is already speakable
@@ -1380,7 +1388,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         # Debounce: suppress rapid duplicates from WS reconnects / multiple tabs
         now = datetime.now()
         if _last_activate_spoken and (now - _last_activate_spoken).total_seconds() < 5:
-            print(f"  Activate debounced — suppressed", flush=True)
+            log.debug(f"  Activate debounced — suppressed")
             for conn in list(active_connections):
                 try:
                     await conn.send_json({"type": "ptt_stop"})
@@ -1433,7 +1441,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
                         asyncio.ensure_future(news.mark_as_read(a["id"]))
             else:
                 _morning_news_text = ""
-            print(f"[jarvis] Activate → Morning Brief via LLM (news: {len(NEWS_INFO)} Artikel)", flush=True)
+            log.info(f"[jarvis] Activate → Morning Brief via LLM (news: {len(NEWS_INFO)} Artikel)")
             _llm_morning = True
 
         # Morning brief already done today → check pause/absence, else short acknowledgment
@@ -1488,12 +1496,12 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         messages=history,
     )
     reply = response.content[0].text
-    print(f"  LLM raw: {reply[:200]}", flush=True)
+    log.debug(f"  LLM raw: {reply[:200]}")
 
     # ── Try structured JSON path first
     structured = parse_structured_action(reply)
     if structured:
-        print(f"  Structured action: {structured.action}", flush=True)
+        log.debug(f"  Structured action: {structured.action}")
         if user_text.lower().startswith("jarvis activate"):
             await _speak(ws, session_id, structured.response or reply)
             _lmb = daily_brief._data.get("last_morning_brief")
@@ -1530,7 +1538,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         return
 
     # ── Action present — pre-action LLM text is NOT spoken
-    print(f"  Action: {action['type']} -> {action['payload'][:100]}", flush=True)
+    log.info(f"  Action: {action['type']} -> {action['payload'][:100]}")
 
     # Brief audio hint only for SCREEN (screenshot + vision API takes a few seconds)
     if action["type"] == "SCREEN":
@@ -1542,9 +1550,9 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
 
     try:
         action_result = await execute_action(action)
-        print(f"  Result: {action_result}", flush=True)
+        log.debug(f"  Result: {action_result}")
     except Exception as e:
-        print(f"  Action error: {e}", flush=True)
+        log.error(f"  Action error: {e}")
         action_result = f"Fehler: {e}"
 
     if action["type"] == "OPEN":
@@ -1603,7 +1611,7 @@ async def stt_endpoint(ws: WebSocket):
     """Dedizierter Endpoint für speech_input.py — empfängt nur Text, bekommt kein Audio."""
     await ws.accept()
     session_id = f"stt_{id(ws)}"
-    print(f"[jarvis] STT connected  session={session_id}", flush=True)
+    log.info(f"[jarvis] STT connected  session={session_id}")
     # Einen Dummy-Browser-WS finden für _speak (Audio geht NUR an Browser)
     try:
         while True:
@@ -1611,14 +1619,14 @@ async def stt_endpoint(ws: WebSocket):
             user_text = data.get("text", "").strip()
             if not user_text:
                 continue
-            print(f"  You:    {user_text}", flush=True)
+            log.info(f"  You:    {user_text}")
             # Antworte über den ersten aktiven Browser (active_connections)
             browser_ws = next(iter(active_connections), None)
             await process_message(session_id, user_text, browser_ws or ws)
     except WebSocketDisconnect:
         conversations.pop(session_id, None)
     finally:
-        print(f"[jarvis] STT disconnected session={session_id}", flush=True)
+        log.info(f"[jarvis] STT disconnected session={session_id}")
 
 
 @app.websocket("/ws")
@@ -1626,7 +1634,7 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     session_id = str(id(ws))
     active_connections.add(ws)
-    print(f"[jarvis] WS connected  session={session_id} active={len(active_connections)}", flush=True)
+    log.info(f"[jarvis] WS connected  session={session_id} active={len(active_connections)}")
 
     try:
         while True:
@@ -1635,14 +1643,14 @@ async def websocket_endpoint(ws: WebSocket):
             if not user_text:
                 continue
 
-            print(f"  You:    {user_text}", flush=True)
+            log.info(f"  You:    {user_text}")
             await process_message(session_id, user_text, ws)
 
     except WebSocketDisconnect:
         conversations.pop(session_id, None)
     finally:
         active_connections.discard(ws)
-        print(f"[jarvis] WS disconnected session={session_id} active={len(active_connections)}", flush=True)
+        log.info(f"[jarvis] WS disconnected session={session_id} active={len(active_connections)}")
 
 
 # ── Dashboard API Endpoints ──────────────────────────────────────────────
@@ -1856,7 +1864,7 @@ async def _ensure_weather(loop) -> str:
         for attempt in range(3):
             WEATHER_INFO = await loop.run_in_executor(None, get_weather_sync)
             if WEATHER_INFO is not None:
-                print(f"[jarvis] Wetter on-demand geladen: {WEATHER_INFO['temp']}° (Versuch {attempt+1})", flush=True)
+                log.info(f"[jarvis] Wetter on-demand geladen: {WEATHER_INFO['temp']}° (Versuch {attempt+1})")
                 break
             if attempt < 2:
                 await asyncio.sleep(3)
@@ -1870,12 +1878,12 @@ async def _ensure_calendar(loop) -> None:
         for attempt in range(3):
             CALENDAR_INFO = await loop.run_in_executor(None, lambda: get_calendar_sync(days=7))
             if CALENDAR_INFO:
-                print(f"[jarvis] Kalender on-demand geladen: {len(CALENDAR_INFO)} Termine (Versuch {attempt+1})", flush=True)
+                log.info(f"[jarvis] Kalender on-demand geladen: {len(CALENDAR_INFO)} Termine (Versuch {attempt+1})")
                 break
             if attempt < 2:
                 await asyncio.sleep(3)
         if not CALENDAR_INFO:
-            print("[jarvis] Kalender on-demand: keine Termine oder HA nicht erreichbar", flush=True)
+            log.info("[jarvis] Kalender on-demand: keine Termine oder HA nicht erreichbar")
 
 
 async def _ensure_news() -> None:
@@ -1892,9 +1900,9 @@ async def _ensure_news() -> None:
                 reverse=True
             )[:10]
             if NEWS_INFO:
-                print(f"[jarvis] RSS on-demand geladen: {len(NEWS_INFO)} Artikel", flush=True)
+                log.info(f"[jarvis] RSS on-demand geladen: {len(NEWS_INFO)} Artikel")
         except Exception as e:
-            print(f"[jarvis] RSS on-demand Fehler: {e}", flush=True)
+            log.info(f"[jarvis] RSS on-demand Fehler: {e}")
 
 
 @app.get("/api/daily_brief")
@@ -1979,22 +1987,22 @@ async def wake_notification():
     global OBSIDIAN_INFO, _last_wake_spoken, _last_activate_spoken
     now = datetime.now()
     if _last_wake_spoken and (now - _last_wake_spoken).total_seconds() < 300:
-        print(f"[jarvis] Wake debounced — suppressed", flush=True)
+        log.debug(f"[jarvis] Wake debounced — suppressed")
         return {"status": "debounced"}
     _last_wake_spoken = now
 
     OBSIDIAN_INFO = get_obsidian_info_sync()
-    print(f"[jarvis] Wake: {len(OBSIDIAN_INFO)} Obsidian-Notizen", flush=True)
+    log.info(f"[jarvis] Wake: {len(OBSIDIAN_INFO)} Obsidian-Notizen")
 
     if not active_connections:
         # Chrome may still be reconnecting — wait up to 15s before giving up
         for _ in range(5):
             await asyncio.sleep(3)
             if active_connections:
-                print(f"[jarvis] Wake: Browser nach Wartezeit verbunden", flush=True)
+                log.info(f"[jarvis] Wake: Browser nach Wartezeit verbunden")
                 break
         if not active_connections:
-            print(f"[jarvis] Wake: kein Browser verbunden — Brief übersprungen", flush=True)
+            log.info(f"[jarvis] Wake: kein Browser verbunden — Brief übersprungen")
             return {"status": "ok", "notes": len(OBSIDIAN_INFO)}
 
     daily_brief.load()
@@ -2005,7 +2013,7 @@ async def wake_notification():
         await _ensure_weather(loop)
         await _ensure_calendar(loop)
         await _ensure_news()
-        print(f"[jarvis] Wake → Morning Brief via LLM", flush=True)
+        log.info(f"[jarvis] Wake → Morning Brief via LLM")
         for ws in list(active_connections):
             try:
                 await process_message(str(id(ws)), "Jarvis activate", ws)
@@ -2017,13 +2025,13 @@ async def wake_notification():
     # Vor 6 Uhr: User schläft — kein Greeting, nur Activity updaten
     if datetime.now().hour < 6:
         daily_brief.update_activity()
-        print(f"[jarvis] Wake vor 6 Uhr — stille Rückkehr, kein Greeting", flush=True)
+        log.info(f"[jarvis] Wake vor 6 Uhr — stille Rückkehr, kein Greeting")
         return {"status": "ok", "notes": len(OBSIDIAN_INFO)}
     # Debounce: falls process_message() bereits kurz zuvor ein Activate-Greeting gesprochen hat
     # (z.B. Browser-Reconnect mit "Jarvis activate"), Wake-Greeting überspringen.
     # _last_wake_spoken wurde oben bereits gesetzt — Wake-Cooldown bleibt erhalten.
     if _last_activate_spoken and (datetime.now() - _last_activate_spoken).total_seconds() < 60:
-        print(f"[jarvis] Wake greeting debounced — activate already spoken, skipping", flush=True)
+        log.info(f"[jarvis] Wake greeting debounced — activate already spoken, skipping")
         return {"status": "ok", "notes": len(OBSIDIAN_INFO)}
     _last_activate_spoken = now
     _absence_no_mail = _L.get("absence_brief", {}).get("no_mail", [f"Willkommen zurück, {USER_ADDRESS}."])
@@ -2037,9 +2045,9 @@ async def wake_notification():
         try:
             await _speak(ws, sid, greeting)
         except Exception as e:
-            print(f"[jarvis] Wake _speak error: {e}", flush=True)
+            log.info(f"[jarvis] Wake _speak error: {e}")
             active_connections.discard(ws)
-    print(f"[jarvis] Wake → Greeting: '{greeting}'", flush=True)
+    log.info(f"[jarvis] Wake → Greeting: '{greeting}'")
 
     # Schritt 2: Mail.app Zeit zum Sync geben, dann neue Mails prüfen
     await asyncio.sleep(9)
@@ -2070,7 +2078,7 @@ async def wake_notification():
             mail_text = f"{n} neue Mails — unter anderem von {senders[0]}."
 
     if mail_text:
-        print(f"[jarvis] Wake → Mail Update: '{mail_text}'", flush=True)
+        log.info(f"[jarvis] Wake → Mail Update: '{mail_text}'")
         for ws in list(active_connections):
             sid = str(id(ws))
             if sid not in conversations:
@@ -2080,7 +2088,7 @@ async def wake_notification():
             except Exception:
                 active_connections.discard(ws)
     else:
-        print(f"[jarvis] Wake → Keine neuen Mails", flush=True)
+        log.info(f"[jarvis] Wake → Keine neuen Mails")
 
     return {"status": "ok", "notes": len(OBSIDIAN_INFO)}
 
@@ -2102,7 +2110,7 @@ async def get_news():
             "timestamp": datetime.now().isoformat(),
         }
     except Exception as e:
-        print(f"[news] ERROR in /api/news: {e}", flush=True)
+        log.error(f"[news] ERROR in /api/news: {e}")
         return {"error": str(e), "status_code": 500}
 
 
@@ -2115,7 +2123,7 @@ async def search_news(q: str = ""):
         results = await news.search_archive(q.strip())
         return {"found": len(results), "articles": results, "query": q}
     except Exception as e:
-        print(f"[news] ERROR in /api/news/search: {e}", flush=True)
+        log.error(f"[news] ERROR in /api/news/search: {e}")
         return {"error": str(e), "status_code": 500}
 
 
@@ -2132,7 +2140,7 @@ async def mark_news_read(request: Request):
             return {"status": "read", "article_id": article_id}
         return {"error": f"Article '{article_id}' not found", "status_code": 404}
     except Exception as e:
-        print(f"[news] ERROR in /api/news/read: {e}", flush=True)
+        log.error(f"[news] ERROR in /api/news/read: {e}")
         return {"error": str(e), "status_code": 500}
 
 
@@ -2145,7 +2153,7 @@ async def get_unread_news(limit: int = 20):
         unread.sort(key=lambda a: a.get("archived_at", ""), reverse=True)
         return {"articles": unread[:limit], "total_unread": len(unread)}
     except Exception as e:
-        print(f"[news] ERROR in /api/news/unread: {e}", flush=True)
+        log.error(f"[news] ERROR in /api/news/unread: {e}")
         return {"error": str(e), "status_code": 500}
 
 
@@ -2398,7 +2406,7 @@ async def save_config_api(request: Request):
     OBSIDIAN_ARCHIVE = cfg.get("obsidian_archive_path", OBSIDIAN_ARCHIVE)
     ai = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
-    print(f"[jarvis] Config gespeichert via UI", flush=True)
+    log.info(f"[jarvis] Config gespeichert via UI")
     return {"status": "saved", "errors": errors}
 
 
@@ -2416,7 +2424,7 @@ async def get_available_apps():
                     app_name = item[:-4]
                     apps.add(app_name)
     except Exception as e:
-        print(f"[jarvis] Error reading /Applications: {e}", flush=True)
+        log.info(f"[jarvis] Error reading /Applications: {e}")
 
     # Add key System apps (fast, no full scan)
     system_apps = ["Mail", "Reminders", "Notes", "Calendar", "Contacts", "Messages"]
@@ -2488,17 +2496,17 @@ async def startup_and_refresh():
     global WEATHER_INFO, TASKS_INFO, MAIL_INFO, CALENDAR_INFO, OBSIDIAN_INFO, NEWS_INFO
     loop = asyncio.get_event_loop()
 
-    print("[jarvis] Startup: Lade Daten...", flush=True)
+    log.info("[jarvis] Startup: Lade Daten...")
 
     # Tasks, mail, calendar, obsidian don't need external network — load immediately
     TASKS_INFO = await loop.run_in_executor(None, get_tasks_sync)
     MAIL_INFO = await loop.run_in_executor(None, get_mail_sync)
     CALENDAR_INFO = await loop.run_in_executor(None, lambda: get_calendar_sync(days=7))
     OBSIDIAN_INFO = await loop.run_in_executor(None, get_obsidian_info_sync)
-    print(f"[jarvis] Tasks: {len(TASKS_INFO)} geladen", flush=True)
-    print(f"[jarvis] Mails: {len(MAIL_INFO)} ungelesen", flush=True)
-    print(f"[jarvis] Kalender: {len(CALENDAR_INFO)} Termine (7 Tage)", flush=True)
-    print(f"[jarvis] Obsidian: {len(OBSIDIAN_INFO)} offene Notizen", flush=True)
+    log.info(f"[jarvis] Tasks: {len(TASKS_INFO)} geladen")
+    log.info(f"[jarvis] Mails: {len(MAIL_INFO)} ungelesen")
+    log.info(f"[jarvis] Kalender: {len(CALENDAR_INFO)} Termine (7 Tage)")
+    log.info(f"[jarvis] Obsidian: {len(OBSIDIAN_INFO)} offene Notizen")
 
     try:
         archive = await news.get_archive()
@@ -2509,33 +2517,33 @@ async def startup_and_refresh():
             key=lambda a: a.get("archived_at", a.get("published", "")),
             reverse=True
         )[:10]
-        print(f"[jarvis] RSS-Archiv: {len(NEWS_INFO)} Artikel geladen", flush=True)
+        log.info(f"[jarvis] RSS-Archiv: {len(NEWS_INFO)} Artikel geladen")
     except Exception:
         pass
 
     # Weather requires network — retry every 30s until ready (max 20 min)
     WEATHER_INFO = await loop.run_in_executor(None, get_weather_sync)
     if WEATHER_INFO is None:
-        print("[jarvis] Wetter nicht verfügbar — starte Retry alle 30s...", flush=True)
+        log.info("[jarvis] Wetter nicht verfügbar — starte Retry alle 30s...")
         for attempt in range(40):
             await asyncio.sleep(30)
             WEATHER_INFO = await loop.run_in_executor(None, get_weather_sync)
             if WEATHER_INFO is not None:
-                print(f"[jarvis] Wetter nach {(attempt+1)*30}s geladen: {WEATHER_INFO['temp']}°", flush=True)
+                log.info(f"[jarvis] Wetter nach {(attempt+1)*30}s geladen: {WEATHER_INFO['temp']}°")
                 break
     else:
-        print(f"[jarvis] Wetter: {WEATHER_INFO}", flush=True)
+        log.info(f"[jarvis] Wetter: {WEATHER_INFO}")
 
     # Normal 30-minute refresh loop
     while True:
         await asyncio.sleep(30 * 60)
-        print("[jarvis] Periodic refresh...", flush=True)
+        log.info("[jarvis] Periodic refresh...")
         WEATHER_INFO = await loop.run_in_executor(None, get_weather_sync)
         TASKS_INFO = await loop.run_in_executor(None, get_tasks_sync)
         MAIL_INFO = await loop.run_in_executor(None, get_mail_sync)
         CALENDAR_INFO = await loop.run_in_executor(None, lambda: get_calendar_sync(days=7))
         OBSIDIAN_INFO = await loop.run_in_executor(None, get_obsidian_info_sync)
-        print(f"[jarvis] Refresh done: Tasks={len(TASKS_INFO)}, Mails={len(MAIL_INFO)}, Kalender={len(CALENDAR_INFO)}, Obsidian={len(OBSIDIAN_INFO)}", flush=True)
+        log.info(f"[jarvis] Refresh done: Tasks={len(TASKS_INFO)}, Mails={len(MAIL_INFO)}, Kalender={len(CALENDAR_INFO)}, Obsidian={len(OBSIDIAN_INFO)}")
 
 
 from contextlib import asynccontextmanager
@@ -2553,7 +2561,7 @@ async def _startup_update_check():
     _update_cache["checked_at"] = time.time()
     if _update_cache["result"].get("has_update"):
         v = _update_cache["result"].get("latest_version", "")
-        print(f"[jarvis] Update verfügbar: v{v}", flush=True)
+        log.info(f"[jarvis] Update verfügbar: v{v}")
 
 app.router.lifespan_context = lifespan
 
@@ -2689,7 +2697,7 @@ async def activate_voice(request: Request):
     with open(VOICE_PATH, "w") as f:
         json.dump(_voice_db, f, indent=2, ensure_ascii=False)
     ELEVENLABS_VOICE_ID = voice_id
-    print(f"[jarvis] Voice aktiviert: {voice_id}", flush=True)
+    log.info(f"[jarvis] Voice aktiviert: {voice_id}")
     return {"success": True}
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -2698,8 +2706,8 @@ if __name__ == "__main__":
     import sys
     import uvicorn
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8340
-    print("=" * 50, flush=True)
-    print("  J.A.R.V.I.S. V2 Server", flush=True)
-    print(f"  http://localhost:{port}", flush=True)
-    print("=" * 50, flush=True)
+    log.info("=" * 50)
+    log.info("  J.A.R.V.I.S. V2 Server")
+    log.info(f"  http://localhost:{port}")
+    log.info("=" * 50)
     uvicorn.run(app, host="0.0.0.0", port=port)

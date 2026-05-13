@@ -5,6 +5,7 @@ Verbindet sich mit dem Jarvis-Server via WebSocket und sendet transkribierten Te
 """
 
 import asyncio
+import logging
 import threading
 import json
 import urllib.request
@@ -13,6 +14,13 @@ import sounddevice as sd
 import mlx_whisper
 from pynput import keyboard
 import websockets
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("stt")
 
 SAMPLE_RATE   = 16000
 PTT_KEY       = keyboard.Key.f19
@@ -62,7 +70,7 @@ def _on_press(key):
         _recording = True
         with _buffer_lock:
             _audio_buffer.clear()
-        print("● Aufnahme läuft...", flush=True)
+        log.info("● Aufnahme läuft...")
         threading.Thread(target=_notify_ptt, args=("start",), daemon=True).start()
 
 
@@ -77,17 +85,17 @@ def _on_release(key):
             audio = np.concatenate(chunks).flatten()
             duration = len(audio) / SAMPLE_RATE
             if duration < MIN_DURATION:
-                print(f"(zu kurz: {duration:.2f}s — verworfen)", flush=True)
+                log.debug(f"(zu kurz: {duration:.2f}s — verworfen)")
             else:
                 threading.Thread(target=_transcribe, args=(audio,), daemon=True).start()
         else:
-            print("(keine Aufnahme)", flush=True)
+            log.debug("(keine Aufnahme)")
 
 
 # ── Whisper ───────────────────────────────────────────────────────────────
 
 def _transcribe(audio: np.ndarray):
-    print("■ Transkribiere...", flush=True)
+    log.info("■ Transkribiere...")
     result = mlx_whisper.transcribe(
         audio,
         path_or_hf_repo=WHISPER_MODEL,
@@ -95,9 +103,9 @@ def _transcribe(audio: np.ndarray):
     )
     text = result["text"].strip()
     if not text or text.lower() in _HALLUCINATIONS:
-        print(f"(verworfen: '{text}')", flush=True)
+        log.debug(f"(verworfen: '{text}')")
         return
-    print(f"» {text}", flush=True)
+    log.info(f"» {text}")
     asyncio.run_coroutine_threadsafe(_queue.put(text), _loop)
 
 
@@ -126,20 +134,20 @@ async def _run():
     stream.start()
     listener.start()
 
-    print("─" * 42, flush=True)
-    print("  Jarvis V3 — Spracheingabe", flush=True)
-    print("─" * 42, flush=True)
-    print(f"  F19 halten → sprechen → loslassen", flush=True)
-    print(f"  Server: {SERVER_URL}", flush=True)
-    print("─" * 42, flush=True)
+    log.info("─" * 42)
+    log.info("  Jarvis V3 — Spracheingabe")
+    log.info("─" * 42)
+    log.info(f"  F19 halten → sprechen → loslassen")
+    log.info(f"  Server: {SERVER_URL}")
+    log.info("─" * 42)
 
     try:
         async for ws in websockets.connect(SERVER_URL, ping_interval=20):
-            print("  Server verbunden ✓\n", flush=True)
+            log.info("  Server verbunden ✓\n")
             try:
                 await asyncio.gather(_sender(ws), _receiver(ws))
             except websockets.ConnectionClosed:
-                print("Verbindung getrennt — versuche erneut...", flush=True)
+                log.warning("Verbindung getrennt — versuche erneut...")
                 continue
     finally:
         stream.stop()
