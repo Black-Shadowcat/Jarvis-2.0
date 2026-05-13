@@ -161,13 +161,13 @@ cp voice.example.json voice.json
 
 Prüfe ob der Server läuft:
 ```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8341/
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8340/
 # → 200 = OK
 ```
 
 API Keys testen (empfohlen):
 ```bash
-open http://localhost:8341/config
+open http://localhost:8340/config
 # → Testen-Buttons bei Anthropic und ElevenLabs klicken
 ```
 
@@ -217,8 +217,8 @@ In **Systemeinstellungen → Datenschutz & Sicherheit** eintragen:
 Setup fertig! Sag dem Nutzer:
 
 - **`~/Applications/Jarvis starten.app`** → manueller Start per Doppelklick
-- **`http://localhost:8341`** → Jarvis HUD im Browser
-- **`http://localhost:8341/config`** → Config UI (Einstellungen, Voices, Apps)
+- **`http://localhost:8340`** → Jarvis HUD im Browser
+- **`http://localhost:8340/config`** → Config UI (Einstellungen, Voices, Apps)
 - **Server-Log:** `tail -f ~/Library/Logs/jarvis-whisper/server.log`
 - **Spracheingabe-Log:** `tail -f ~/Library/Logs/jarvis-whisper/speech.log`
 - **Jarvis aktivieren:** Sag „Jarvis" + Befehl oder drücke F19
@@ -282,7 +282,7 @@ Du sprichst → RMS-VAD erkennt Stimme → blauer Ring leuchtet
 
 ```
 jarvis-whisper/
-├── server.py              # FastAPI Backend — Hauptlogik (Port 8341)
+├── server.py              # FastAPI Backend — Hauptlogik (Port 8340)
 ├── speech_input.py        # mlx-whisper STT + Wake Word + F19 PTT
 ├── browser_tools.py       # Playwright Browser-Steuerung
 ├── screen_capture.py      # Screenshot + Claude Vision
@@ -299,7 +299,7 @@ jarvis-whisper/
 │   ├── com.jarvis.whisper.speech.plist
 │   └── com.jarvis.whisper.session.plist
 ├── frontend/
-│   ├── index.html         # JARVIS HUD (Kiosk, Port 8341)
+│   ├── index.html         # JARVIS HUD (Kiosk, Port 8340)
 │   ├── config.html        # Config UI
 │   ├── config.js          # Config UI Logik
 │   ├── handbuch.html      # Benutzerhandbuch
@@ -340,7 +340,7 @@ tail -f ~/Library/Logs/jarvis-whisper/speech.log
 
 **Server startet nicht / Port belegt**
 ```bash
-lsof -i :8341
+lsof -i :8340
 kill <PID>
 /opt/homebrew/bin/python3.11 server.py
 ```
@@ -386,7 +386,7 @@ pkill -f "speech_input.py"
 bash ~/jarvis-v3/scripts/launch-session.sh
 
 # Config UI
-open http://localhost:8341/config
+open http://localhost:8340/config
 
 # Logs live
 tail -f ~/Library/Logs/jarvis-whisper/server.log

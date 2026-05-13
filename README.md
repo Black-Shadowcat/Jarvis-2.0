@@ -14,7 +14,7 @@
 | Chrome microphone permission | pynput + sounddevice (system-level) |
 | No wake word | Wake word **"Jarvis"** (say "Jarvis, …") |
 | F19 PTT only | F19 PTT **+** Wake Word |
-| Port 8340 | Port **8341** |
+| Port 8340 | Port **8340** |
 | `--app --start-fullscreen` | `--kiosk` (true kiosk mode) |
 | Cmd+Shift+J launch | Automator App + LaunchAgent |
 
@@ -61,7 +61,7 @@ speech_input.py
   → mlx-whisper large-v3 (local)
   → "jarvis" in text? → send command to server
         ↓
-FastAPI Server (localhost:8341)
+FastAPI Server (localhost:8340)
   → Claude Haiku (brain)
   → parse_structured_action()
         ↓
@@ -76,7 +76,7 @@ Audio chunks → Chrome (kiosk) → You
 | Component | Technology | Purpose |
 |---|---|---|
 | Wake Word + PTT | mlx-whisper large-v3 + pynput | Voice-to-text, local |
-| Server | FastAPI (Python 3.11), Port 8341 | Local orchestration |
+| Server | FastAPI (Python 3.11), Port 8340 | Local orchestration |
 | Brain | Claude Haiku (Anthropic) | Thinking, deciding, responding |
 | Voice | ElevenLabs TTS (eleven_turbo_v2_5) | Natural German speech |
 | Browser Control | Playwright | Real browser automation |
@@ -141,7 +141,7 @@ No STT API key needed — Whisper runs locally on Apple Silicon.
    launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.session.plist
    ```
 
-5. Open `http://localhost:8341` if Chrome doesn't open automatically.
+5. Open `http://localhost:8340` if Chrome doesn't open automatically.
 
 ---
 
@@ -177,7 +177,7 @@ bash ~/jarvis-v3/scripts/launch-session.sh
 
 ```
 jarvis-whisper/
-├── server.py              # FastAPI backend — brain + action system (Port 8341)
+├── server.py              # FastAPI backend — brain + action system (Port 8340)
 ├── speech_input.py        # mlx-whisper STT + wake word + F19 PTT
 ├── browser_tools.py       # Playwright browser automation
 ├── screen_capture.py      # Screenshot + Claude Vision
@@ -193,7 +193,7 @@ jarvis-whisper/
 ├── data/
 │   └── daily_brief_memory.json   # Daily state (gitignored, resets at midnight)
 ├── frontend/
-│   ├── index.html         # Jarvis Dashboard + HUD (kiosk, port 8341)
+│   ├── index.html         # Jarvis Dashboard + HUD (kiosk, port 8340)
 │   ├── config.html        # Config UI (/config)
 │   ├── config.js          # Config UI logic
 │   ├── handbuch.html      # User manual (/handbuch)

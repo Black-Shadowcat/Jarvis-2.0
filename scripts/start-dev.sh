@@ -1,7 +1,7 @@
 #!/bin/bash
 # ── Jarvis Whisper — Start ──────────────────────────────────────────────
 echo "════════════════════════════════════════"
-echo "  Starte jarvis-whisper (Port 8341)"
+echo "  Starte jarvis-whisper (Port 8340)"
 echo "════════════════════════════════════════"
 
 SERVER_PLIST=~/Library/LaunchAgents/com.jarvis.whisper.server.plist
@@ -20,10 +20,10 @@ fi
 # Warten bis Port offen
 echo "→ Warte auf Server..."
 for i in $(seq 1 15); do
-    lsof -i :8341 -sTCP:LISTEN &>/dev/null && break
+    lsof -i :8340 -sTCP:LISTEN &>/dev/null && break
     sleep 1
 done
-lsof -i :8341 -sTCP:LISTEN &>/dev/null && echo "  Port 8341 offen ✓" || echo "  Warnung: Server antwortet nicht"
+lsof -i :8340 -sTCP:LISTEN &>/dev/null && echo "  Port 8340 offen ✓" || echo "  Warnung: Server antwortet nicht"
 
 # Spracheingabe starten
 echo "→ Spracheingabe LaunchAgent..."
@@ -39,10 +39,10 @@ sleep 1
 
 # Browser öffnen
 echo "→ Öffne Dashboard..."
-open "http://localhost:8341"
+open "http://localhost:8340"
 
 echo ""
-echo "✓ jarvis-whisper läuft auf http://localhost:8341"
+echo "✓ jarvis-whisper läuft auf http://localhost:8340"
 echo "  F19 halten zum Sprechen"
 echo "  Logs: ~/Library/Logs/jarvis-whisper/"
 echo "════════════════════════════════════════"

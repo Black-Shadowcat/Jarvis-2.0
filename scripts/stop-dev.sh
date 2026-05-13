@@ -12,7 +12,7 @@ echo "→ Entlade Spracheingabe LaunchAgent..."
 launchctl unload ~/Library/LaunchAgents/com.jarvis.whisper.speech.plist 2>/dev/null && echo "  gestoppt" || echo "  (war nicht geladen)"
 
 # Sicherheitshalber Prozesse beenden falls noch aktiv
-pkill -f "server.py 8341" 2>/dev/null
+pkill -f "server.py 8340" 2>/dev/null
 pkill -f "speech_input.py" 2>/dev/null
 
 echo ""

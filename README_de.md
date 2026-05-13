@@ -14,7 +14,7 @@
 | Chrome-Mikrofonberechtigung | pynput + sounddevice (Systemebene) |
 | Kein Aktivierungswort | Aktivierungswort **„Jarvis"** (sag „Jarvis, …") |
 | Nur F19 PTT | F19 PTT **+** Aktivierungswort |
-| Port 8340 | Port **8341** |
+| Port 8340 | Port **8340** |
 | `--app --start-fullscreen` | `--kiosk` (echter Kiosk-Modus) |
 | Cmd+Shift+J Start | Automator-App + LaunchAgent |
 
@@ -61,7 +61,7 @@ speech_input.py
   → mlx-whisper large-v3 (lokal)
   → „jarvis" im Text? → Befehl an Server senden
         ↓
-FastAPI Server (localhost:8341)
+FastAPI Server (localhost:8340)
   → Claude Haiku (Gehirn)
   → parse_structured_action()
         ↓
@@ -76,7 +76,7 @@ Audio-Chunks → Chrome (Kiosk) → Du
 | Komponente | Technologie | Zweck |
 |---|---|---|
 | Aktivierungswort + PTT | mlx-whisper large-v3 + pynput | Sprache-zu-Text, lokal |
-| Server | FastAPI (Python 3.11), Port 8341 | Lokale Orchestrierung |
+| Server | FastAPI (Python 3.11), Port 8340 | Lokale Orchestrierung |
 | Gehirn | Claude Haiku (Anthropic) | Denken, entscheiden, antworten |
 | Stimme | ElevenLabs TTS (eleven_turbo_v2_5) | Natürliche deutsche Sprachausgabe |
 | Browser-Steuerung | Playwright | Echte Browser-Automatisierung |
@@ -141,7 +141,7 @@ Kein STT-API-Key nötig — Whisper läuft lokal auf Apple Silicon.
    launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.session.plist
    ```
 
-5. `http://localhost:8341` im Chrome öffnen, falls er sich nicht automatisch öffnet.
+5. `http://localhost:8340` im Chrome öffnen, falls er sich nicht automatisch öffnet.
 
 ---
 
@@ -177,7 +177,7 @@ bash ~/jarvis-v3/scripts/launch-session.sh
 
 ```
 jarvis-whisper/
-├── server.py              # FastAPI Backend — Gehirn + Action-System (Port 8341)
+├── server.py              # FastAPI Backend — Gehirn + Action-System (Port 8340)
 ├── speech_input.py        # mlx-whisper STT + Aktivierungswort + F19 PTT
 ├── browser_tools.py       # Playwright Browser-Automatisierung
 ├── screen_capture.py      # Screenshot + Claude Vision
@@ -193,7 +193,7 @@ jarvis-whisper/
 ├── data/
 │   └── daily_brief_memory.json   # Tagesgedächtnis (gitignored)
 ├── frontend/
-│   ├── index.html         # Jarvis Dashboard + HUD (Kiosk, Port 8341)
+│   ├── index.html         # Jarvis Dashboard + HUD (Kiosk, Port 8340)
 │   ├── config.html        # Config UI (/config)
 │   ├── config.js          # Config UI Logik
 │   ├── handbuch.html      # Benutzerhandbuch (/handbuch)
