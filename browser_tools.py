@@ -1,12 +1,11 @@
 """
-Jarvis V2 — Browser Tools
-Web search via DuckDuckGo, page visits via Playwright, URL opening.
+Jarvis V3 — Browser Tools
+Web search via DuckDuckGo HTML (httpx), page visits via Playwright, URL opening.
 """
 
 import re
 import webbrowser
-import subprocess
-from urllib.parse import unquote, parse_qs, urlparse
+from urllib.parse import quote_plus, urlparse, parse_qs, unquote as url_unquote
 import httpx
 from playwright.async_api import async_playwright
 
@@ -14,12 +13,21 @@ _pw = None
 _browser = None
 _context = None
 
+_DDG_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.7,en;q=0.6",
+}
+
 
 async def _get_browser():
     """Return a live browser context, reinitialising if closed or crashed."""
     global _pw, _browser, _context
 
-    # Check if existing browser is still alive
     if _browser is not None:
         try:
             if not _browser.is_connected():
@@ -38,58 +46,110 @@ async def _get_browser():
         _pw = await async_playwright().start()
         _browser = await _pw.chromium.launch(headless=True)
         _context = await _browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            user_agent=_DDG_HEADERS["User-Agent"],
             no_viewport=True,
         )
 
     return _context
 
 
-async def search_and_read(query: str) -> dict:
-    """Search DuckDuckGo, click first result, return page content."""
+async def _ddg_links(query: str) -> list[str]:
+    """Fetch top result URLs from DuckDuckGo HTML endpoint via httpx."""
     try:
-        ctx = await _get_browser()
-    except Exception as e:
-        return {"error": f"Browser konnte nicht gestartet werden: {e}"}
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            r = await client.get(
+                f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=de-de",
+                headers=_DDG_HEADERS,
+            )
+            html = r.text
+    except Exception:
+        return []
 
-    page = None
-    try:
-        page = await ctx.new_page()
-        await page.goto(f"https://duckduckgo.com/?q={query}", timeout=15000)
-        await page.wait_for_timeout(2000)
-
-        first_link = page.locator('[data-testid="result-title-a"]').first
-        if await first_link.count() > 0:
-            await first_link.click()
-            await page.wait_for_timeout(3000)
-            title = await page.title()
-            url = page.url
-            text = await page.evaluate("""
-                () => {
-                    const selectors = ['main', 'article', '[role="main"]', '.content', '#content', 'body'];
-                    for (const sel of selectors) {
-                        const el = document.querySelector(sel);
-                        if (el && el.innerText.trim().length > 100)
-                            return el.innerText.trim();
-                    }
-                    return document.body?.innerText?.trim() || '';
-                }
-            """)
-            return {"title": title, "url": url, "content": text[:3000]}
+    links = []
+    # DDG HTML result links: class="result__a" href="..."
+    # href is either a direct URL or a DDG redirect (/l/?uddg=encoded_url)
+    for m in re.finditer(r'class="result__a"[^>]*href="([^"]+)"', html):
+        raw = m.group(1)
+        if "uddg=" in raw:
+            parsed = urlparse(raw if raw.startswith("http") else "https:" + raw)
+            uddg = parse_qs(parsed.query).get("uddg", [""])[0]
+            url = url_unquote(uddg)
         else:
-            return {"title": "Keine Ergebnisse", "url": f"https://duckduckgo.com/?q={query}", "content": "Keine Ergebnisse gefunden."}
-    except Exception as e:
-        return {"error": f"Suche fehlgeschlagen: {e}"}
-    finally:
-        if page:
-            try:
-                await page.close()
-            except Exception:
-                pass
+            url = raw
+        if url.startswith("http") and "duckduckgo.com" not in url and url not in links:
+            links.append(url)
+        if len(links) >= 5:
+            break
+
+    return links
+
+
+async def _ddg_instant(query: str) -> dict | None:
+    """Try DuckDuckGo Instant Answer API — returns dict or None if no useful answer."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(
+                f"https://api.duckduckgo.com/?q={quote_plus(query)}&format=json&no_html=1&skip_disambig=1",
+                headers={"User-Agent": _DDG_HEADERS["User-Agent"]},
+            )
+            data = r.json()
+        abstract = data.get("AbstractText", "").strip()
+        if abstract and len(abstract) > 80:
+            return {
+                "title": data.get("Heading", query),
+                "url": data.get("AbstractURL", ""),
+                "content": abstract,
+            }
+    except Exception:
+        pass
+    return None
+
+
+def _extract_text(html_text: str) -> str:
+    """Clean up extracted page text — collapse whitespace, strip boilerplate."""
+    lines = [l.strip() for l in html_text.splitlines()]
+    lines = [l for l in lines if l and len(l) > 2]
+    return "\n".join(lines)
+
+
+async def search_and_read(query: str) -> dict:
+    """
+    Search DuckDuckGo for query, visit the best result page, return content.
+
+    Strategy:
+      1. DDG Instant Answer (fast path for factual queries)
+      2. DDG HTML via httpx → extract result links
+      3. Visit first 3 links via Playwright until one returns usable content
+    """
+    # Fast path: instant answer
+    instant = await _ddg_instant(query)
+    if instant:
+        return instant
+
+    # Get search result links
+    links = await _ddg_links(query)
+    if not links:
+        return {
+            "title": "Keine Ergebnisse",
+            "url": f"https://duckduckgo.com/?q={quote_plus(query)}",
+            "content": "Es wurden keine Suchergebnisse gefunden.",
+        }
+
+    # Visit up to 3 results, return first with usable content
+    for url in links[:3]:
+        result = await visit(url, max_chars=4000)
+        if "error" not in result and len(result.get("content", "")) > 150:
+            return result
+
+    return {
+        "title": "Keine verwertbaren Inhalte",
+        "url": links[0],
+        "content": "Die gefundenen Seiten konnten leider nicht ausgelesen werden.",
+    }
 
 
 async def visit(url: str, max_chars: int = 5000) -> dict:
-    """Visit a URL and extract main text content."""
+    """Visit a URL and extract main text content via Playwright."""
     try:
         ctx = await _get_browser()
     except Exception as e:
@@ -99,19 +159,27 @@ async def visit(url: str, max_chars: int = 5000) -> dict:
     try:
         page = await ctx.new_page()
         await page.goto(url, timeout=15000, wait_until="domcontentloaded")
-        text = await page.evaluate("""
+        raw = await page.evaluate("""
             () => {
-                const selectors = ['main', 'article', '[role="main"]', '.content', '#content', 'body'];
+                // Remove noise elements
+                ['script','style','nav','footer','header','aside',
+                 '[role="banner"]','[role="navigation"]'].forEach(sel => {
+                    document.querySelectorAll(sel).forEach(el => el.remove());
+                });
+                const selectors = ['main','article','[role="main"]',
+                                   '.content','#content','#main','.main',
+                                   '.article','#article','body'];
                 for (const sel of selectors) {
                     const el = document.querySelector(sel);
-                    if (el && el.innerText.trim().length > 100)
+                    if (el && el.innerText.trim().length > 150)
                         return el.innerText.trim();
                 }
                 return document.body?.innerText?.trim() || '';
             }
         """)
         title = await page.title()
-        return {"title": title, "url": url, "content": text[:max_chars]}
+        content = _extract_text(raw)
+        return {"title": title, "url": url, "content": content[:max_chars]}
     except Exception as e:
         return {"error": str(e), "url": url}
     finally:
