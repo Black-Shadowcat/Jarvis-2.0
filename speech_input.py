@@ -19,6 +19,15 @@ PTT_KEY       = keyboard.Key.f19
 SERVER_URL    = "ws://localhost:8341/ws/stt"
 PTT_API       = "http://localhost:8341/api/ptt"
 WHISPER_MODEL = "mlx-community/whisper-large-v3-mlx"
+MIN_DURATION  = 0.6  # Sekunden — kürzere Aufnahmen werden verworfen
+
+# Bekannte Whisper-Halluzinationen bei Stille
+_HALLUCINATIONS = {
+    "vielen dank.", "vielen dank", "danke.", "danke", "danke schön.",
+    "danke schön", "bitte.", "bitte", "tschüss.", "tschüss",
+    "thank you.", "thank you", "thanks.", "thanks", "bye.", "bye",
+    "you", "you.", ".", "..", "...",
+}
 
 _audio_buffer: list  = []
 _recording:    bool  = False
@@ -66,7 +75,11 @@ def _on_release(key):
             chunks = list(_audio_buffer)
         if chunks:
             audio = np.concatenate(chunks).flatten()
-            threading.Thread(target=_transcribe, args=(audio,), daemon=True).start()
+            duration = len(audio) / SAMPLE_RATE
+            if duration < MIN_DURATION:
+                print(f"(zu kurz: {duration:.2f}s — verworfen)", flush=True)
+            else:
+                threading.Thread(target=_transcribe, args=(audio,), daemon=True).start()
         else:
             print("(keine Aufnahme)", flush=True)
 
@@ -81,11 +94,11 @@ def _transcribe(audio: np.ndarray):
         language="de",
     )
     text = result["text"].strip()
-    if text:
-        print(f"» {text}", flush=True)
-        asyncio.run_coroutine_threadsafe(_queue.put(text), _loop)
-    else:
-        print("(nichts erkannt)", flush=True)
+    if not text or text.lower() in _HALLUCINATIONS:
+        print(f"(verworfen: '{text}')", flush=True)
+        return
+    print(f"» {text}", flush=True)
+    asyncio.run_coroutine_threadsafe(_queue.put(text), _loop)
 
 
 # ── WebSocket Client ──────────────────────────────────────────────────────
