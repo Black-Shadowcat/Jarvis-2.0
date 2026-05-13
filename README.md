@@ -1,97 +1,89 @@
-# J.A.R.V.I.S. — Personal AI Voice Assistant (macOS v2.4)
+# J.A.R.V.I.S. — jarvis-whisper (macOS v0.1.2)
 
-> **This project is based on the original idea and Windows implementation by [Julian Ivanov](https://github.com/Julian-Ivanov/jarvis-voice-assistant).**
-> What started as a macOS port has grown into a substantially expanded version — with Home Assistant integration, Apple Reminders, Obsidian, a Config UI, a Dashboard, and a new action system. The core concept, personality, and architecture remain Julian's. No support is provided. This fork is maintained for personal use only.
-
----
-
-## macOS Adaptations
-
-Built for macOS (Apple Silicon M4) with [Claude Code](https://claude.ai/code). Key differences from the original Windows project:
-
-| Original (Windows) | This Fork (macOS V2.1) |
-|--------------------|------------------------|
-| Double-clap trigger | Cmd+Shift+J via launchd |
-| PowerShell scripts | zsh shell scripts |
-| Windows Service | launchd KeepAlive (auto-restarts on crash) |
-| Manual task tracking | Apple Reminders via AppleScript (`whose` clause) |
-| No smart home | Home Assistant integration (30+ light synonyms) |
-| No calendar | iCal via HA CalDAV (today + tomorrow) |
-| No notes | Obsidian Inbox (write/read/delete) |
-| No config UI | Config UI at `/config` (no text editor needed) |
-| No dashboard | Dashboard at `/` (mail, tasks, news, app launcher) |
-| Window snapping | Chrome App Mode fullscreen (`--start-fullscreen`) |
+> **jarvis-whisper** replaces the browser-based Web Speech API of the original JARVIS with local Whisper STT running on Apple MLX.
+>
+> Based on the original idea by [Julian Ivanov](https://github.com/Julian-Ivanov/jarvis-voice-assistant) and jarvis-voice-assistant v2.6.2 by Matthias Schreiber. Built with [Claude Code](https://claude.ai/code). No support provided. Personal use only.
 
 ---
 
-> Press Cmd+Shift+J. Jarvis wakes up, greets you with the weather and your tasks, answers your questions, controls your browser, and sees your screen.
+## What Changed vs. v2.x
+
+| Old JARVIS (v2.x) | jarvis-whisper (v0.1.x) |
+|---|---|
+| Web Speech API (Chrome) | mlx-whisper large-v3 (local, Apple Silicon) |
+| Chrome microphone permission | pynput + sounddevice (system-level) |
+| No wake word | Wake word **"Jarvis"** (say "Jarvis, …") |
+| F19 PTT only | F19 PTT **+** Wake Word |
+| Port 8340 | Port **8341** |
+| `--app --start-fullscreen` | `--kiosk` (true kiosk mode) |
+| Cmd+Shift+J launch | Automator App + LaunchAgent |
 
 ---
 
-## Screenshots
-
-![Jarvis HUD](docs/screenshot_hud.png)
-*Jarvis HUD — voice conversation, mail inbox, tasks, and app launcher*
-
-![Config UI](docs/screenshot_config.png)
-*Config UI — all settings via browser, no text editor needed*
+> Say **"Jarvis, …"** — Jarvis recognizes your command locally with Whisper, thinks with Claude Haiku, and responds with ElevenLabs TTS. No cloud STT, no browser microphone permission.
 
 ---
 
 ## Features
 
-- **Voice Conversation** — Speak freely in German or English. Jarvis listens, thinks, responds with voice. Echo protection prevents feedback loops.
-- **Language Switching** — `language: "de"/"en"` in config switches system prompt, speech recognition locale, TTS phrasing, and all UI labels. No restart required.
-- **HUD Click Mute** — Click the animated SVG ring to mute/unmute the microphone. Ring turns red when muted.
-- **Text Input Toggle** — Pencil icon in the panel header reveals a text input field for typed commands.
-- **Sarcastic British Butler** — Dry, witty personality. Addresses you by your configured title (Sir, Ms. Smith, Chef, …).
-- **Weather & Tasks** — On startup: current weather (Kachelmann API + HA weather station) and today's open reminders.
-- **Apple Reminders** — Read, add, and complete reminders via AppleScript. Optimistic UI updates — no 25-second freeze.
+- **Wake Word "Jarvis"** — Say "Jarvis, …" to activate. No "Hey" prefix. VAD + Whisper, no external model.
+- **F19 Push-to-Talk** — Physical PTT key still works alongside wake word.
+- **Local STT** — mlx-whisper large-v3 on Apple MLX. Fully offline, no API key needed.
+- **Echo Protection** — Microphone muted while Jarvis speaks. No feedback loops.
+- **User Text in Chat** — Every recognized command appears as "Du:" in the chat history.
+- **Voice Conversation** — Speak freely in German. Jarvis listens, thinks, responds with voice.
+- **Weather & Tasks** — On greeting: current weather + today's open reminders.
+- **Apple Reminders** — Read, add, and complete reminders via AppleScript.
 - **Apple Mail** — Read unread mails on request.
 - **Calendar** — Today and tomorrow's events via Home Assistant CalDAV.
-- **Home Assistant Lights** — Control lights by room name with 30+ synonyms. Brightness, color, on/off.
+- **Home Assistant Lights** — Control lights by room name with 30+ synonyms.
 - **Obsidian Inbox** — Write notes, read notes, mark notes as done — all by voice.
 - **Browser Automation** — Playwright controls a real browser: search, open URLs, read page content.
 - **Screen Vision** — Screenshot + Claude Vision: "What's on my screen?"
-- **RSS News** — Fetch and read RSS articles by category. Manage feeds via Config UI modal.
-- **Daily Brief Memory System** — Event-driven intelligence: morning brief (weather, mails, tasks), pause brief after >30 min, absence brief after >90 min, evening brief from 17:00. Tracks mail IDs so Jarvis stays silent when nothing changed.
-- **Wake-from-Sleep** — Waits for screen unlock, then delivers the contextually appropriate brief.
-- **In-App Update Badge** — Dashboard shows a badge when a new GitHub release is available.
-- **Mic-Mute Menubar** — macOS menubar button to mute/unmute the microphone system-wide.
-- **Config UI** — All settings (API keys, voice, language, city, etc.) via browser at `/config`. No text editor.
-- **Dashboard** — At `/`: mails, tasks, Obsidian notes, RSS news, app launcher.
-- **launchd KeepAlive** — Server auto-restarts on crash. Session launches on login.
+- **RSS News** — Fetch and read RSS articles. Manage feeds via Config UI.
+- **Daily Brief Memory System** — Morning/pause/absence/evening briefs with state tracking.
+- **Wake-from-Sleep** — Detects screen unlock, delivers contextual brief.
+- **Update Badge** — All pages show a badge when a new GitHub release is available.
+- **Kiosk Mode** — Chrome opens in true kiosk mode (no browser chrome, full screen).
+- **Automator App** — `~/Applications/Jarvis starten.app` for manual start with custom icon.
+- **launchd Autostart** — Server, speech input, and session launch on login.
 
 ---
 
 ## Architecture
 
 ```
-You (speak) → Chrome Browser (Web Speech API de-DE) → FastAPI Server (localhost:8340)
-                                                                ↓
-                                                       Claude Haiku (thinks)
-                                                                ↓
-                                           parse_structured_action() [JSON-first]
-                                                                ↓
-                              ┌─────────────────────┬──────────┴───────────────┐
-                              ↓                     ↓                          ↓
-                       ElevenLabs TTS        Playwright Browser         AppleScript
-                       (speaks back)         (search/open/browse)    (Reminders/Mail)
-                              ↓
-                       Audio → Chrome → You (hear)
+You (speak "Jarvis, ...")
+        ↓
+speech_input.py
+  RMS-VAD detects voice onset
+  → HUD: listen_open (blue ring immediately)
+  → mlx-whisper large-v3 (local)
+  → "jarvis" in text? → send command to server
+        ↓
+FastAPI Server (localhost:8341)
+  → Claude Haiku (brain)
+  → parse_structured_action()
+        ↓
+    ┌──────────┬──────────────┬────────────────┐
+    ↓          ↓              ↓                ↓
+ElevenLabs  Playwright    AppleScript    Home Assistant
+  TTS        Browser      Reminders/Mail  Light control
+    ↓
+Audio chunks → Chrome (kiosk) → You
 ```
 
 | Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Speech Input | Web Speech API (Chrome, de-DE / en-US) | Voice to text |
-| Server | FastAPI (Python 3.11) | Local orchestration |
+|---|---|---|
+| Wake Word + PTT | mlx-whisper large-v3 + pynput | Voice-to-text, local |
+| Server | FastAPI (Python 3.11), Port 8341 | Local orchestration |
 | Brain | Claude Haiku (Anthropic) | Thinking, deciding, responding |
 | Voice | ElevenLabs TTS (eleven_turbo_v2_5) | Natural German speech |
 | Browser Control | Playwright | Real browser automation |
 | Screen Vision | Claude Vision + Pillow | Screenshot analysis |
 | Smart Home | Home Assistant REST API | Light control |
-| Reminders/Mail | AppleScript (`whose` clause) | macOS-native task access |
-| Auto-start | launchd (KeepAlive + session) | Server + session on login |
+| Reminders/Mail | AppleScript | macOS-native task access |
+| Auto-start | launchd (3 KeepAlive agents) | Server + speech + session on login |
 | Wake handling | wake-monitor.py → /api/wake | Post-sleep reactivation |
 
 ---
@@ -100,15 +92,18 @@ You (speak) → Chrome Browser (Web Speech API de-DE) → FastAPI Server (localh
 
 - **macOS 14+** (Apple Silicon, tested on M4)
 - **Python 3.11** via Homebrew (`/opt/homebrew/bin/python3.11`)
-- **Google Chrome** (for Web Speech API)
+- **Google Chrome**
+- **Accessibility permission** for speech_input.py (System Settings → Privacy → Accessibility)
 - **Home Assistant** (optional, for lights and CalDAV calendar)
 
 ### API Keys Needed
 
 | Service | What For | Link |
-|---------|----------|------|
+|---|---|---|
 | Anthropic | Claude Haiku (the brain) | [console.anthropic.com](https://console.anthropic.com) |
-| ElevenLabs | Voice (TTS, Pro Plan recommended) | [elevenlabs.io](https://elevenlabs.io) |
+| ElevenLabs | Voice (TTS, Starter plan minimum) | [elevenlabs.io](https://elevenlabs.io) |
+
+No STT API key needed — Whisper runs locally on Apple Silicon.
 
 ---
 
@@ -116,10 +111,10 @@ You (speak) → Chrome Browser (Web Speech API de-DE) → FastAPI Server (localh
 
 1. **Clone and install:**
    ```bash
-   git clone https://github.com/Black-Shadowcat/jarvis-voice-assistant.git
-   cd jarvis-voice-assistant
-   /opt/homebrew/bin/pip3.11 install -r requirements.txt
-   playwright install chromium
+   git clone https://github.com/Black-Shadowcat/jarvis-whisper.git jarvis-v3
+   cd jarvis-v3
+   /opt/homebrew/bin/python3.11 -m pip install -r requirements.txt
+   /opt/homebrew/bin/python3.11 -m playwright install chromium
    ```
 
 2. **Create config:**
@@ -127,48 +122,63 @@ You (speak) → Chrome Browser (Web Speech API de-DE) → FastAPI Server (localh
    cp config.example.json config.json
    ```
 
-3. **Edit `config.json`** — minimum required fields:
+3. **Edit `config.json`** — minimum required:
    ```json
    {
      "anthropic_api_key": "sk-ant-...",
      "elevenlabs_api_key": "sk_...",
      "elevenlabs_voice_id": "YOUR_VOICE_ID",
      "user_name": "Your Name",
-     "user_address": "Sir",          // Male: Sir, Boss | Female: Ms. Smith, Mrs. Johnson, Miss Brown, Madam
+     "user_address": "Sir",
      "city": "Your City"
    }
    ```
 
-4. **Start Jarvis:**
+4. **Load LaunchAgents:**
    ```bash
-   bash scripts/launch-session.sh
+   launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
+   launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.speech.plist
+   launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.session.plist
    ```
 
-5. Open `http://localhost:8340` in Chrome if it doesn't open automatically.
+5. Open `http://localhost:8341` if Chrome doesn't open automatically.
 
 ---
 
-## What You Can Say (German)
+## Manual Start
+
+**Option A — Automator App** (recommended):
+```
+Double-click: ~/Applications/Jarvis starten.app
+```
+
+**Option B — Terminal:**
+```bash
+bash ~/jarvis-v3/scripts/launch-session.sh
+```
+
+---
+
+## What You Can Say
 
 | Command | What Happens |
-|---------|-------------|
-| *"Guten Morgen, Jarvis"* | Weather + today's tasks |
-| *"Was steht heute an?"* | Reminders + calendar for today/tomorrow |
-| *"Schalte das Wohnzimmerlicht ein"* | HA light control by voice |
-| *"Dimme das Licht auf 30%"* | Brightness via Home Assistant |
-| *"Suche nach KI-Neuigkeiten"* | Browser opens, searches, summarizes |
-| *"Was ist auf meinem Bildschirm?"* | Screenshot + Claude Vision |
-| *"Schreib eine Notiz: ..."* | Obsidian Inbox entry |
-| *"Meine Erinnerungen"* | Read Apple Reminders aloud |
-| *Any question* | Jarvis answers in butler style |
+|---|---|
+| *"Jarvis, guten Morgen"* | Weather + today's tasks |
+| *"Jarvis, was steht heute an?"* | Reminders + calendar |
+| *"Jarvis, schalte das Wohnzimmerlicht ein"* | HA light control |
+| *"Jarvis, suche nach KI-Neuigkeiten"* | Browser opens, searches |
+| *"Jarvis, was ist auf meinem Bildschirm?"* | Screenshot + Claude Vision |
+| *"Jarvis, schreib eine Notiz: …"* | Obsidian Inbox entry |
+| *"Jarvis"* (alone) | Activates, waits for follow-up command |
 
 ---
 
 ## Project Structure
 
 ```
-jarvis-voice-assistant/
-├── server.py              # FastAPI backend — brain + action system
+jarvis-whisper/
+├── server.py              # FastAPI backend — brain + action system (Port 8341)
+├── speech_input.py        # mlx-whisper STT + wake word + F19 PTT
 ├── browser_tools.py       # Playwright browser automation
 ├── screen_capture.py      # Screenshot + Claude Vision
 ├── version.json           # Single source of truth for version number
@@ -176,35 +186,31 @@ jarvis-voice-assistant/
 ├── config.example.json    # Template for new users
 ├── requirements.txt       # Python dependencies
 ├── locales/
-│   ├── de.json            # German TTS strings (greetings, briefs, etc.)
+│   ├── de.json            # German TTS strings
 │   └── en.json            # English equivalents
 ├── systems/
-│   └── daily_brief.py     # Daily Brief Memory System (DailyBrief class)
+│   └── daily_brief.py     # Daily Brief Memory System
 ├── data/
-│   ├── daily_brief_memory.json   # Daily state (gitignored, resets at midnight)
-│   └── daily_brief_archive/      # Past days archive (gitignored)
+│   └── daily_brief_memory.json   # Daily state (gitignored, resets at midnight)
 ├── frontend/
-│   ├── index.html         # Jarvis Dashboard + HUD (Chrome App Mode, port 8340)
+│   ├── index.html         # Jarvis Dashboard + HUD (kiosk, port 8341)
 │   ├── config.html        # Config UI (/config)
 │   ├── config.js          # Config UI logic
 │   ├── handbuch.html      # User manual (/handbuch)
 │   └── i18n/
 │       ├── de.json        # German UI labels
 │       └── en.json        # English UI labels
+├── docs/
+│   ├── jarvis.icns        # App icon (all sizes)
+│   └── jarvis-icon.png    # App icon (PNG)
+├── launchagents/
+│   ├── com.jarvis.whisper.server.plist   # Server autostart
+│   ├── com.jarvis.whisper.speech.plist   # Speech input autostart
+│   └── com.jarvis.whisper.session.plist  # Browser session autostart
 └── scripts/
-    ├── launch-session.sh  # Starts server + Chrome + mic-mute button
-    ├── mic-mute-menubar.py # macOS menubar mute toggle
+    ├── launch-session.sh  # Starts Chrome in kiosk mode
     └── wake-monitor.py    # Wake-from-sleep → /api/wake
 ```
-
----
-
-## Important macOS Notes
-
-- **Chrome must be launched via `open -na`**, not the binary directly — launchd-started processes don't inherit the GUI bootstrap context needed for Chrome.
-- **AppleScript loops (`repeat with r in every reminder`) are unreliable** for property access — always use `whose` clause filters instead.
-- **`result` is a reserved word in AppleScript** — use `taskList` or similar variable names.
-- **REMINDER_DONE uses optimistic updates**: removes item from in-memory cache immediately, fires AppleScript in a background thread. Prevents 25-second UI freeze.
 
 ---
 
@@ -213,21 +219,32 @@ jarvis-voice-assistant/
 Three agents in `~/Library/LaunchAgents/`:
 
 | Agent | Purpose |
-|-------|---------|
-| `com.jarvis.server.plist` | FastAPI server with KeepAlive (auto-restarts on crash) |
-| `com.jarvis.session.plist` | Session launch on login (Chrome + mic-mute button) |
-| `com.jarvis.wake.plist` | Wake-from-sleep monitor |
+|---|---|
+| `com.jarvis.whisper.server.plist` | FastAPI server, KeepAlive (auto-restarts on crash) |
+| `com.jarvis.whisper.speech.plist` | speech_input.py (wake word + F19 PTT), KeepAlive |
+| `com.jarvis.whisper.session.plist` | Browser session on login (Chrome kiosk mode) |
+
+```bash
+# Reload
+launchctl unload ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
+launchctl load   ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
+
+# Logs
+tail -f ~/Library/Logs/jarvis-whisper/server.log
+tail -f ~/Library/Logs/jarvis-whisper/speech.log
+```
 
 ---
 
 ## Troubleshooting
 
 | Problem | Solution |
-|---------|----------|
-| Server not responding | `pkill -f "server.py"` — launchd restarts it automatically |
-| Chrome won't open | Run `bash scripts/launch-session.sh` manually |
-| Microphone not working | System Settings → Privacy → Microphone → allow Chrome |
-| Reminders not showing | Check server log: `tail -f /tmp/jarvis-server.log` |
+|---|---|
+| Server not responding | `pkill -f "server.py"` — launchd restarts automatically |
+| Wake word not working | Check `~/Library/Logs/jarvis-whisper/speech.log` |
+| Chrome won't open | Run `bash ~/jarvis-v3/scripts/launch-session.sh` manually |
+| Microphone permission | System Settings → Privacy → Accessibility → allow Terminal |
+| Reminders not showing | Check `~/Library/Logs/jarvis-whisper/server.log` |
 | Browser automation fails | Run `playwright install chromium` again |
 
 ---
@@ -235,10 +252,12 @@ Three agents in `~/Library/LaunchAgents/`:
 ## Tech Stack
 
 - **[FastAPI](https://fastapi.tiangolo.com/)** — Python web framework
+- **[mlx-whisper](https://github.com/ml-explore/mlx-examples)** — Local STT on Apple MLX
 - **[Claude Haiku](https://anthropic.com)** — AI model (brain)
 - **[ElevenLabs](https://elevenlabs.io)** — Natural text-to-speech
 - **[Playwright](https://playwright.dev)** — Browser automation
-- **[Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API)** — Browser-native speech recognition
+- **[pynput](https://pynput.readthedocs.io/)** — Global keyboard listener (F19 PTT)
+- **[sounddevice](https://python-sounddevice.readthedocs.io/)** — Audio capture
 - **[Home Assistant](https://www.home-assistant.io/)** — Smart home integration
 - **AppleScript** — macOS Reminders & Mail access
 
@@ -247,7 +266,7 @@ Three agents in `~/Library/LaunchAgents/`:
 ## Credits
 
 Original idea and Windows implementation by [Julian Ivanov](https://github.com/Julian-Ivanov) — built with [Claude Code](https://claude.ai/code).
-macOS v2.4 — substantially expanded by Matthias Schreiber, also built with [Claude Code](https://claude.ai/code).
+jarvis-whisper — built by Matthias Schreiber with [Claude Code](https://claude.ai/code).
 
 Inspired by Iron Man's J.A.R.V.I.S. — *"At your service, Sir."*
 

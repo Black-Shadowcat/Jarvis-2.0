@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jarvis.whisper.wake</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/matthiasschreiber/jarvis-v3/venv/bin/python3.11</string>
+        <string>/Users/matthiasschreiber/jarvis-v3/scripts/wake-monitor.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/matthiasschreiber/jarvis-v3</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/matthiasschreiber/Library/Logs/jarvis-whisper/wake.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/matthiasschreiber/Library/Logs/jarvis-whisper/wake.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/matthiasschreiber/jarvis-v3/venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin</string>
+    </dict>
+</dict>
+</plist>

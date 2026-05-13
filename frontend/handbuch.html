@@ -387,7 +387,7 @@ tr:hover td { background: rgba(42,158,226,0.03); }
         <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-size="7" letter-spacing="0.5">J.A.R.V.I.S.</text>
     </svg>
     <h1>J.A.R.V.I.S. Handbuch</h1>
-    <div class="version" id="handbuch-version">v2.1.1</div>
+    <div class="version" id="handbuch-version"></div>
     <div class="tagline">„Guten Tag. Womit kann ich Ihnen dienen?"</div>
 </div>
 
@@ -712,30 +712,31 @@ tr:hover td { background: rgba(42,158,226,0.03); }
 <!-- ═══════════════════════════════════════════════ -->
 <h2 id="starten">🚀 Schritt 6 — Jarvis starten</h2>
 
-<p>Nach dem Setup startet Jarvis über einen einzigen Tastendruck:</p>
+<p>Nach dem Setup startet Jarvis automatisch beim Login. Manuell starten:</p>
 
-<div class="card" style="text-align:center; padding:32px;">
-    <div style="font-size:2rem; margin-bottom:8px;">
-        <span class="key" style="font-size:1.2rem; padding:6px 12px;">⌘ Cmd</span>
-        &nbsp;+&nbsp;
-        <span class="key" style="font-size:1.2rem; padding:6px 12px;">⇧ Shift</span>
-        &nbsp;+&nbsp;
-        <span class="key" style="font-size:1.2rem; padding:6px 12px;">J</span>
+<div class="grid-2">
+    <div class="card" style="text-align:center; padding:24px;">
+        <div style="font-size:1rem; font-weight:600; color:var(--blue); margin-bottom:8px;">Option A — Automator App</div>
+        <div style="color:var(--text); font-size:0.9rem;">Doppelklick auf</div>
+        <div style="color:var(--gold); font-size:0.88rem; margin-top:6px; font-family:monospace;">~/Applications/Jarvis starten.app</div>
+        <div style="color:var(--muted); font-size:0.8rem; margin-top:8px;">Eigenes Icon im Dock — empfohlen</div>
     </div>
-    <div style="color:var(--muted); font-size:0.9rem; margin-top:8px;">Startet Server, Chrome, Mic-Mute und alle konfigurierten Apps</div>
+    <div class="card" style="text-align:center; padding:24px;">
+        <div style="font-size:1rem; font-weight:600; color:var(--blue); margin-bottom:8px;">Option B — Terminal</div>
+        <div class="cmd" style="text-align:left; margin-top:8px;">bash ~/jarvis-v3/scripts/launch-session.sh</div>
+    </div>
 </div>
 
 <p>Was beim Start passiert:</p>
 <table>
-    <tr><td>1.</td><td>Der Jarvis-Server startet im Hintergrund</td></tr>
-    <tr><td>2.</td><td>Chrome öffnet sich im App-Modus (ohne Adressleiste) — das ist das Jarvis HUD</td></tr>
-    <tr><td>3.</td><td>Deine konfigurierten Programme öffnen sich</td></tr>
-    <tr><td>4.</td><td>Jarvis begrüßt dich mit Wetter, Aufgaben und Kalender</td></tr>
+    <tr><td>1.</td><td>Der Jarvis-Server läuft bereits (LaunchAgent startet ihn automatisch beim Login)</td></tr>
+    <tr><td>2.</td><td>Chrome öffnet sich im Kiosk-Modus (echter Vollbild ohne Adressleiste)</td></tr>
+    <tr><td>3.</td><td>Jarvis begrüßt dich mit Wetter, Aufgaben und Kalender</td></tr>
 </table>
 
 <div class="tip">
     <strong>✅ Autostart</strong>
-    Nach dem ersten Setup startet Jarvis bei jedem Mac-Login automatisch. Du musst nichts manuell tun.
+    Server, Spracheingabe (Wake Word + F19) und Browser-Session starten automatisch bei jedem Mac-Login über drei LaunchAgents — du musst nichts manuell tun.
 </div>
 
 <!-- ═══════════════════════════════════════════════ -->
@@ -768,28 +769,32 @@ tr:hover td { background: rgba(42,158,226,0.03); }
 <!-- ═══════════════════════════════════════════════ -->
 <h2 id="sprechen">💬 Erste Schritte — Mit Jarvis sprechen</h2>
 
-<p>Jarvis hört dauerhaft zu. Sprich einfach — du musst kein Aktivierungswort sagen (außer <code>Jarvis activate</code> für die Begrüßung). Sprich Deutsch, natürlich und in ganzen Sätzen.</p>
+<p>Es gibt zwei Wege um mit Jarvis zu sprechen:</p>
 
-<div class="say-example">
-    <div class="say-label">Du</div>
-    <div class="say-text">Wie wird das Wetter morgen?</div>
-</div>
-<div class="say-example">
-    <div class="say-label">Du</div>
-    <div class="say-text">Suche nach den neuesten iPhone Preisen.</div>
-</div>
-<div class="say-example">
-    <div class="say-label">Du</div>
-    <div class="say-text">Erinnere mich daran Mama anzurufen.</div>
-</div>
-<div class="say-example">
-    <div class="say-label">Du</div>
-    <div class="say-text">Schalte das Licht im Wohnzimmer auf 40 Prozent.</div>
+<div class="grid-2">
+    <div class="card">
+        <div class="card-title">Aktivierungswort — „Jarvis"</div>
+        <p style="font-size:0.88rem;">Sage einfach <strong>„Jarvis"</strong> gefolgt von deinem Befehl — oder nur „Jarvis", dann wartet Jarvis auf den Folgebefehl.</p>
+        <div class="say-example"><div class="say-label">Du</div><div class="say-text">Jarvis, wie wird das Wetter morgen?</div></div>
+        <div class="say-example"><div class="say-label">Du</div><div class="say-text">Jarvis, schalte das Wohnzimmerlicht ein.</div></div>
+        <div class="say-example"><div class="say-label">Du</div><div class="say-text">Jarvis</div></div>
+        <div class="say-example"><div class="say-label">Jarvis</div><div class="say-text" style="color:var(--green);">… (wartet auf Befehl)</div></div>
+        <div class="say-example"><div class="say-label">Du</div><div class="say-text">Suche nach iPhone Preisen.</div></div>
+    </div>
+    <div class="card">
+        <div class="card-title">F19 Push-to-Talk</div>
+        <p style="font-size:0.88rem;">Taste <strong>F19 gedrückt halten</strong> → sprechen → loslassen. Kein Aktivierungswort nötig.</p>
+        <table style="margin-top:8px;">
+            <tr><td><span style="color:#cc3333;">●</span> Rot</td><td>F19 gedrückt — Aufnahme läuft</td></tr>
+            <tr><td><span style="color:#ff9500;">●</span> Orange</td><td>Jarvis denkt nach</td></tr>
+            <tr><td><span style="color:#00ff00;">●</span> Grün</td><td>Jarvis spricht</td></tr>
+        </table>
+    </div>
 </div>
 
 <div class="tip">
-    <strong>💡 Hinweis zum Mikrofon</strong>
-    Beim ersten Mal fragt Chrome nach der Mikrofon-Berechtigung — <strong>Zulassen</strong> klicken. Ohne Mikrofon-Zugriff kann Jarvis nicht zuhören.
+    <strong>💡 Kein Browser-Mikrofon nötig</strong>
+    Die Spracherkennung läuft lokal über <code>speech_input.py</code> und mlx-whisper — Chrome braucht keine Mikrofon-Berechtigung. Nur das macOS-System (Terminal/Python) benötigt Mikrofon-Zugriff.
 </div>
 
 <!-- ═══════════════════════════════════════════════ -->
@@ -803,11 +808,15 @@ tr:hover td { background: rgba(42,158,226,0.03); }
         <table>
             <tr>
                 <td><span style="color:#d4af37;">●</span> Gold</td>
-                <td>Wartet auf dich (bereit)</td>
+                <td>Bereit — wartet auf „Jarvis"</td>
             </tr>
             <tr>
-                <td><span style="color:#00aaff;">●</span> Blau</td>
-                <td>Hört zu — sprich jetzt</td>
+                <td><span style="color:#00aaff;">●</span> Blau (hell)</td>
+                <td>Hört zu — Aktivierungswort erkannt, sprich jetzt</td>
+            </tr>
+            <tr>
+                <td><span style="color:#cc3333;">●</span> Rot (pulsierend)</td>
+                <td>F19 gedrückt — Aufnahme läuft</td>
             </tr>
             <tr>
                 <td><span style="color:#ff9500;">●</span> Orange</td>
@@ -818,8 +827,8 @@ tr:hover td { background: rgba(42,158,226,0.03); }
                 <td>Spricht gerade</td>
             </tr>
             <tr>
-                <td><span style="color:#cc3333;">●</span> Rot</td>
-                <td>Mikrofon stumm</td>
+                <td><span style="color:#e050e0;">●</span> Magenta</td>
+                <td>TTS-Fehler (ElevenLabs nicht erreichbar)</td>
             </tr>
         </table>
     </div>
@@ -834,8 +843,8 @@ tr:hover td { background: rgba(42,158,226,0.03); }
     </div>
 </div>
 
-<h3>Mikrofon stummschalten</h3>
-<p>Klick auf den <strong>J.A.R.V.I.S. Ring</strong> im HUD → Mikrofon stumm (roter Ring). Nochmal klicken → wieder aktiv. Oder nutze den Mic-Mute-Button in der macOS Menüleiste.</p>
+<h3>Aufgezeichneter Text im Chat</h3>
+<p>Jede Spracheingabe erscheint als <strong>„Du:"</strong>-Zeile im Chatverlauf — so siehst du direkt was Jarvis verstanden hat.</p>
 
 <h3>Text eingeben statt sprechen</h3>
 <p>Klick auf das Stift-Symbol oben rechts im Jarvis-Panel → Textfeld erscheint → tippen + Enter.</p>
@@ -891,7 +900,7 @@ tr:hover td { background: rgba(42,158,226,0.03); }
 <p>Alle Einstellungen lassen sich über die Config UI im Browser ändern — kein Programmieren nötig.</p>
 
 <h3>Config UI öffnen</h3>
-<p>Im Browser aufrufen: <code>http://localhost:8340/config</code><br>
+<p>Im Browser aufrufen: <code>http://localhost:8341/config</code><br>
 Oder: Klick auf das Zahnrad-Symbol oben rechts im Jarvis HUD.</p>
 
 <h3>Was du einstellen kannst</h3>
@@ -943,7 +952,7 @@ Oder: Klick auf das Zahnrad-Symbol oben rechts im Jarvis HUD.</p>
         <div class="step-num"></div>
         <div class="step-body">
             <strong>Config UI öffnen</strong>
-            <code>http://localhost:8340/config</code>
+            <code>http://localhost:8341/config</code>
         </div>
     </div>
     <div class="step">
@@ -1017,12 +1026,13 @@ Oder: Klick auf das Zahnrad-Symbol oben rechts im Jarvis HUD.</p>
     <tr><td>Kein Guthaben bei Anthropic</td><td>console.anthropic.com → Billing → Credits aufladen</td></tr>
 </table>
 
-<h3>Jarvis hört nicht zu (kein blauer Ring)</h3>
+<h3>Jarvis hört nicht zu (kein Reaktion auf „Jarvis")</h3>
 <table>
     <tr><th>Mögliche Ursache</th><th>Lösung</th></tr>
-    <tr><td>Mikrofon-Berechtigung fehlt</td><td>Chrome fragt beim ersten Mal — <strong>Zulassen</strong> klicken</td></tr>
-    <tr><td>Mikrofon stumm</td><td>Auf den Ring klicken (roter Ring = stumm)</td></tr>
+    <tr><td>speech_input.py läuft nicht</td><td><code>launchctl list | grep jarvis.whisper.speech</code> — LaunchAgent neu laden</td></tr>
+    <tr><td>Bedienungshilfen-Berechtigung fehlt</td><td>Systemeinstellungen → Datenschutz → Bedienungshilfen → Terminal hinzufügen</td></tr>
     <tr><td>Falsches Mikrofon</td><td>macOS Systemeinstellungen → Ton → Eingabe → richtiges Mikrofon wählen</td></tr>
+    <tr><td>Log prüfen</td><td><code>tail -f ~/Library/Logs/jarvis-whisper/speech.log</code></td></tr>
 </table>
 
 <h3>Jarvis spricht nicht (keine Stimme)</h3>
@@ -1043,14 +1053,14 @@ Oder: Klick auf das Zahnrad-Symbol oben rechts im Jarvis HUD.</p>
 <p>macOS Berechtigung: <em>Systemeinstellungen → Datenschutz → Bildschirmaufnahme</em> → Terminal hinzufügen.</p>
 
 <h3>Chrome öffnet sich nicht beim Start</h3>
-<p>Manuell starten: Im Terminal <code>./scripts/launch-session.sh</code> eingeben. Oder in Claude Code fragen: <em>„Jarvis startet nicht, hilf mir"</em>.</p>
+<p>Manuell starten: Doppelklick auf <code>~/Applications/Jarvis starten.app</code> oder im Terminal <code>bash ~/jarvis-v3/scripts/launch-session.sh</code>. Oder in Claude Code fragen: <em>„Jarvis startet nicht, hilf mir"</em>.</p>
 
 <!-- ═══════════════════════════════════════════════ -->
 <h2 id="tipps">💡 Tipps & Tricks</h2>
 
 <h3>Jarvis neu starten</h3>
-<div class="cmd">Cmd + Shift + J</div>
-<p>Startet alles komplett neu falls etwas nicht reagiert.</p>
+<div class="cmd">bash ~/jarvis-v3/scripts/launch-session.sh</div>
+<p>Oder Doppelklick auf <code>~/Applications/Jarvis starten.app</code> — startet Chrome im Kiosk-Modus neu.</p>
 
 <h3>Nur den Server neu starten</h3>
 <p>Config UI → Neu starten (roter Button) → Jarvis ist nach 10–15 Sekunden wieder da.</p>
@@ -1064,7 +1074,7 @@ Oder: Klick auf das Zahnrad-Symbol oben rechts im Jarvis HUD.</p>
 </table>
 
 <h3>Jarvis auf Englisch umstellen</h3>
-<p>Das Sprachmodell ist auf Deutsch konfiguriert. Willst du Jarvis auf Englisch oder eine andere Sprache umstellen, sprich Claude Code an: <em>„Stelle Jarvis auf Englisch um"</em>.</p>
+<p>Das Sprachmodell und die STT-Sprache sind auf Deutsch konfiguriert. Zum Umstellen: Config UI → Sprache → oder Claude Code fragen: <em>„Stelle Jarvis auf Englisch um"</em>.</p>
 
 <h3>Neue Funktion hinzufügen</h3>
 <p>Jarvis ist offen für Erweiterungen. Öffne VS Code, starte Claude Code und beschreibe was du möchtest — Claude Code setzt es um.</p>

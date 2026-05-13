@@ -112,7 +112,7 @@ Frage nach Name, Taetigkeit und bevorzugter Anrede — diese Infos gehoeren in d
 - **Activate-Debounce**: "Jarvis activate" wird innerhalb von 10s nach der letzten Ausfuehrung still ignoriert (verhindert Doppel-Begruessung bei WS-Reconnect)
 - **Daily Brief Routing**: "Jarvis activate" geht NICHT mehr an den LLM fuer Morgen-Briefings — direkt durch `DailyBrief.generate_morning_brief()` → `_speak()`
 - **Action-System**: Structured Output (ActionModel via Pydantic) → `_structured_to_legacy_action()` → `execute_action()`. Nicht ohne Phase-7-Plan anfassen.
-- **Daily Brief Memory**: `data/daily_brief_memory.json` — gitignored, wird bei Datumswechsel automatisch archiviert und neu erstellt. Schwellenwerte (30/90 min) stehen in der JSON selbst.
+- **Daily Brief Memory**: `data/daily_brief_memory.json` — gitignored, wird bei Datumswechsel automatisch archiviert und neu erstellt. Schwellenwerte (`pause_threshold_minutes: 30`, `long_absence_threshold_minutes: 90`) werden beim Tages-Reset aus dem Default in `systems/daily_brief.py` (Zeilen 16–17) neu in die JSON geschrieben. Temporäre Änderung: Wert direkt in `data/daily_brief_memory.json` setzen (gilt bis Mitternacht). Dauerhafte Änderung: `_EMPTY_STATE` in `systems/daily_brief.py` Zeilen 16–17 anpassen.
 - **Language-System**: `LANGUAGE = config.get("language", "de")` → laedt `locales/{lang}.json` via `_load_locale()` → wird in `DailyBrief.set_locale()` injiziert. UI-Labels kommen aus `frontend/i18n/{lang}.json` via `/static/i18n/`. Live-Reload bei Config-Save.
 - **Update-Badge**: `_check_for_update()` per `httpx` gegen GitHub API, SemVer-Vergleich als int-Listen, 24h-Cache in `_update_cache`. Kein Auto-Update.
 

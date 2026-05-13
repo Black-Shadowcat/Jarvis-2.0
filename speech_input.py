@@ -43,8 +43,8 @@ WHISPER_MODEL  = "mlx-community/whisper-large-v3-mlx"
 MIN_DURATION   = 0.6    # Sekunden — kürzere Aufnahmen werden verworfen
 
 # Wake-Word VAD-Schwellwerte
-WW_VOICE_RMS    = 0.018  # Sprache erkannt (oberhalb)
-WW_SILENCE_RMS  = 0.015  # Stille (unterhalb)
+WW_VOICE_RMS    = 0.012  # Sprache erkannt (oberhalb) — MateView Monitor-Mikrofon
+WW_SILENCE_RMS  = 0.008  # Stille (unterhalb)
 WW_MAX_SECS     = 5.0    # Maximale Länge des Erkennung-Snippets
 WW_SILENCE_SECS = 0.8    # Stille nach letztem Wort → Snippet fertig
 WW_CMD_SILENCE  = 1.5    # Stille nach Befehl → Aufnahme beenden
@@ -240,7 +240,15 @@ def _ww_thread():
 
     while True:
         # 1. Warte auf Sprachbeginn (RMS-VAD)
-        chunk = _detect_q.get()
+        # Timeout nötig: wenn _jarvis_speaking=True füllt _audio_cb die Queue nicht —
+        # ohne Timeout würde .get() ewig blockieren und der Auto-Reset nie greifen.
+        try:
+            chunk = _detect_q.get(timeout=1.0)
+        except queue.Empty:
+            if _jarvis_speaking and time.time() - _speaking_started_at > 25:
+                log.warning("speaking_start timeout (>25s) — _jarvis_speaking auto-reset")
+                _jarvis_speaking = False
+            continue
         rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
         if _recording or _ww_muted:
             continue

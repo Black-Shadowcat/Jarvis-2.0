@@ -218,7 +218,7 @@ class ActionModel(BaseModel):
         "licht", "reminder_add", "reminder_done", "kalender_done",
         "search", "open", "open_app", "browse",
         "mail_read", "notiz", "notiz_erledigt", "kalender", "tasks_list",
-        "notiz_list", "screen", "news", "news_brief", "news_search", "none"
+        "notiz_list", "screen", "news", "news_brief", "news_search", "wetter", "none"
     ]
     parameters: dict = Field(default_factory=dict)
     response: Optional[str] = None
@@ -346,6 +346,55 @@ def get_weather_sync():
     except Exception as e:
         log.info(f"[jarvis] Wetter-Fehler: {e}")
         return None
+
+
+def get_wetter_action_sync() -> str:
+    """Fetch all current weather fields from Kachelmann + HA sensor for WETTER action."""
+    if not KACHELMANN_KEY:
+        return "Kein Kachelmann API-Key konfiguriert."
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"https://api.kachelmannwetter.com/v02/current/{LAT}/{LON}",
+            headers={"X-API-Key": KACHELMANN_KEY}
+        )
+        resp = urllib.request.urlopen(req, timeout=10)
+        data = json.loads(resp.read())["data"]
+        def v(k): return data[k]["value"] if k in data else None
+
+        ha_temp = get_ha_temperature()
+        temp = ha_temp if ha_temp is not None else v("temp")
+        temp_src = "Wetterstation" if ha_temp is not None else "Kachelmann"
+
+        symbol = v("weatherSymbol") or ""
+        desc = SYMBOL_DE.get(symbol.lower(), symbol)
+        sun = v("sunHours")
+        if sun is not None and sun >= 0.8:
+            desc = "Sonnig"
+        elif sun is not None and sun >= 0.3:
+            desc = "Teilweise bewoelkt"
+
+        parts = [f"Standort: {CITY}", f"Temperatur: {temp} °C ({temp_src})", f"Wetter: {desc}"]
+        if v("humidityRelative") is not None:
+            parts.append(f"Luftfeuchtigkeit: {v('humidityRelative')} %")
+        if v("windSpeed") is not None:
+            parts.append(f"Wind: {v('windSpeed')} km/h")
+        if v("windGust") is not None:
+            parts.append(f"Windböen: {v('windGust')} km/h")
+        if v("prec1h") is not None:
+            parts.append(f"Niederschlag (letzte Stunde): {v('prec1h')} mm")
+        if v("cloudCoverage") is not None:
+            parts.append(f"Bewölkung: {v('cloudCoverage')} %")
+        if v("pressureMsl") is not None:
+            parts.append(f"Luftdruck: {v('pressureMsl')} hPa")
+        if v("dewpoint") is not None:
+            parts.append(f"Taupunkt: {v('dewpoint')} °C")
+        if v("snowHeight") is not None and v("snowHeight") > 0:
+            parts.append(f"Schneehöhe: {v('snowHeight')} cm")
+        parts.append("Hinweis: Nur aktuelle Wetterdaten verfügbar, keine Vorhersage.")
+        return "\n".join(parts)
+    except Exception as e:
+        return f"Wetter-Fehler: {e}"
 
 
 def get_tasks_sync():
@@ -694,6 +743,7 @@ AKTIONEN - Wenn eine Aktion noetig ist, schreibe NUR die Aktion — keinen Text 
 [ACTION:NOTIZ] text - Notiz in Obsidian Inbox speichern. Nutze diese Aktion wenn {USER_ADDRESS} etwas notieren, aufschreiben oder in Obsidian speichern moechte. Der gesamte Notiztext kommt nach dem Tag. Beispiel: "[ACTION:NOTIZ] Idee fuer das Projekt: neues Dashboard mit Echtzeit-Daten"
 [ACTION:NOTIZ_LIST] - Alle Notizen in der Obsidian Inbox auflisten und vorlesen. Nutze diese Aktion IMMER wenn {USER_ADDRESS} fragt welche Notizen, Erinnerungen oder Aufzeichnungen in Obsidian sind.
 [ACTION:NOTIZ_ERLEDIGT] stichwort - Notiz(en) aus der Obsidian Inbox als erledigt markieren (loeschen). Nutze "alle" um alle Notizen zu loeschen. Nutze diese Aktion IMMER wenn {USER_ADDRESS} Obsidian-Notizen als erledigt, abgehakt oder fertig markieren moechte — NIEMALS REMINDER_DONE dafuer verwenden.
+[ACTION:WETTER] - Aktuelles Wetter abrufen (Kachelmann). Nutze diese Aktion IMMER wenn {USER_ADDRESS} nach Wetter, Temperatur, Regen, Wind, Schnee oder Wettervorhersage fragt. Hinweis: Es sind nur aktuelle Wetterdaten verfügbar, keine mehrtägige Vorhersage.
 
 AUSGABEFORMAT — Bevorzuge JSON:
 Antworte IMMER als JSON-Objekt. Bei normaler Antwort ohne Aktion:
@@ -702,7 +752,7 @@ Bei Lichtsteuerung:
 {{"action": "licht", "parameters": {{"raum": "buero", "zustand": "an", "helligkeit": null}}, "response": null}}
 Raeume fuer licht (kanonisch): alle, wohnzimmer, kueche, buero, flur, schlafzimmer, balkon, sideboard, nachtschrank, iris, go. Zustand: "an" oder "aus". Helligkeit: 1-100 oder null.
 Bei open_app: parameters: {{"app": "App-Name"}}. Bei allen anderen Aktionen: parameters: {{"payload": "bisheriger payload-text"}}
-Alle action-Werte: none, licht, reminder_add, reminder_done, search, open, open_app, browse, mail_read, notiz, notiz_erledigt, kalender, tasks_list, notiz_list, screen, news, news_brief, news_search
+Alle action-Werte: none, licht, reminder_add, reminder_done, search, open, open_app, browse, mail_read, notiz, notiz_erledigt, kalender, tasks_list, notiz_list, screen, news, news_brief, news_search, wetter
 Bei news_search: parameters: {{"stichwort": "suchbegriff"}}
 Falls JSON nicht moeglich: altes Format [ACTION:TYP] payload bleibt gueltig.
 
@@ -771,11 +821,51 @@ def parse_structured_action(reply: str) -> Optional[ActionModel]:
         return None
 
 
+def _tts_sanitize(text: str) -> str:
+    """Convert symbols and number formats to speakable text before ElevenLabs TTS."""
+    if LANGUAGE == "de":
+        # °C mit Dezimalstelle: "12.5°C" → "12 Komma 5 Grad"
+        text = re.sub(r'(-?\d+)\.(\d+)\s*°[CcKk]', lambda m: f"{m.group(1)} Komma {m.group(2)} Grad", text)
+        # °C ganzzahlig: "12°C" → "12 Grad"
+        text = re.sub(r'(-?\d+)\s*°[CcKk]', r'\1 Grad', text)
+        text = text.replace('°', '')
+        # % → Prozent
+        text = re.sub(r'(\d+)\s*%', r'\1 Prozent', text)
+        # € → Euro
+        text = re.sub(r'€\s*(\d+)', r'\1 Euro', text)
+        text = re.sub(r'(\d+)\s*€', r'\1 Euro', text)
+        # HH:MM → "H Uhr" / "H Uhr M"
+        def _fmt_time(m):
+            h, mi = int(m.group(1)), int(m.group(2))
+            return f"{h} Uhr {mi}" if mi else f"{h} Uhr"
+        text = re.sub(r'\b([01]?\d|2[0-3]):([0-5]\d)\b(?!\s*Uhr)', _fmt_time, text)
+        # Kurzdatum "07.05." oder "07.05" am Satzende → "7. Mai"
+        def _fmt_short_date(m):
+            d, mo = int(m.group(1)), int(m.group(2))
+            if 1 <= mo <= 12 and 1 <= d <= 31:
+                return f"{d}. {_DE_MONTHS[mo]}"
+            return m.group(0)
+        text = re.sub(r'\b(\d{1,2})\.(\d{1,2})\.\B', _fmt_short_date, text)
+        # Dezimalpunkt in Zahlen: "12.5" → "12 Komma 5" (nicht bei Versionsnummern wie 3.11)
+        text = re.sub(r'\b(\d+)\.(\d{1,2})\b(?!\.\d)', r'\1 Komma \2', text)
+    else:
+        # °C → degrees
+        text = re.sub(r'(-?\d+(?:\.\d+)?)\s*°[CcKk]', r'\1 degrees', text)
+        text = text.replace('°', '')
+        # % → percent
+        text = re.sub(r'(\d+)\s*%', r'\1 percent', text)
+        # € → Euro
+        text = re.sub(r'€\s*(\d+)', r'\1 Euro', text)
+        text = re.sub(r'(\d+)\s*€', r'\1 Euro', text)
+    return text
+
+
 async def synthesize_speech(text: str, voice_id: Optional[str] = None) -> bytes:
     if not text.strip():
         return b""
 
     text = text.replace("J.A.R.V.I.S.", "Jarvis")
+    text = _tts_sanitize(text)
 
     # Split long text into chunks at sentence boundaries to avoid ElevenLabs cutoff
     chunks = []
@@ -830,7 +920,11 @@ async def execute_action(action: dict) -> str:
     t = action["type"]
     p = action["payload"]
 
-    if t == "SEARCH":
+    if t == "WETTER":
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, get_wetter_action_sync)
+
+    elif t == "SEARCH":
         result = await browser_tools.search_and_read(p)
         if "error" not in result:
             return f"Seite: {result.get('title', '')}\nURL: {result.get('url', '')}\n\n{result.get('content', '')[:2000]}"
@@ -1248,6 +1342,7 @@ def _structured_to_legacy_action(structured: ActionModel) -> Optional[dict]:
         "kalender":       ("KALENDER",       p.get("zeitraum", str(p.get("tage", "woche")))),
         "notiz":          ("NOTIZ",          p.get("text", p.get("payload", ""))),
         "notiz_erledigt": ("NOTIZ_ERLEDIGT", p.get("stichwort", p.get("keyword", p.get("payload", "")))),
+        "wetter":         ("WETTER",         ""),
     }
     if structured.action in _map:
         t, payload = _map[structured.action]

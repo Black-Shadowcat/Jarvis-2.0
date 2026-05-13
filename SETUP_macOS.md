@@ -1,6 +1,6 @@
-# JARVIS Setup (macOS)
+# JARVIS Setup (macOS) — jarvis-whisper
 
-Dein persönlicher KI-Sprachassistent — optimiert für macOS.
+Dein persönlicher KI-Sprachassistent — optimiert für macOS Apple Silicon.
 
 ---
 
@@ -8,7 +8,7 @@ Dein persönlicher KI-Sprachassistent — optimiert für macOS.
 
 **VS Code + Claude Code** ist der schnellste Weg:
 
-1. Repo klonen: `git clone https://github.com/Black-Shadowcat/jarvis-voice-assistant`
+1. Repo klonen: `git clone https://github.com/Black-Shadowcat/jarvis-whisper.git jarvis-v3`
 2. Ordner in VS Code öffnen
 3. Claude Code starten (`Cmd+Shift+C` oder Terminal → `claude`)
 4. Tippe: **„Richte Jarvis ein"**
@@ -19,8 +19,6 @@ Claude Code liest diese Datei und führt dich interaktiv durch den kompletten Se
 
 ## Bevor du anfängst — API Keys besorgen
 
-Claude Code wird dich nach diesen Keys fragen. Besorge sie vorab:
-
 | Service | Wo | Pflicht | Kosten |
 |---|---|---|---|
 | **Anthropic** (Claude Haiku) | console.anthropic.com | ✅ | ~$0.25 / 1M Tokens |
@@ -28,7 +26,7 @@ Claude Code wird dich nach diesen Keys fragen. Besorge sie vorab:
 | **Kachelmann** (Wetter) | kachelmannwetter.com/api | ⚡ | kostenpflichtig |
 | **Home Assistant** Token | HA → Profil → Long-Lived Access Tokens | ⚡ | Nur wenn HA vorhanden |
 
-> **ElevenLabs Voice ID:** Nach dem Login unter *My Voices* oder *Voice Library* — die ID steht in der URL oder unter Voice Settings.
+> **Kein STT-Key nötig** — Whisper läuft lokal auf Apple Silicon. Keine Cloud-Kosten für Spracherkennung.
 
 ---
 
@@ -44,8 +42,6 @@ Claude Code wird dich nach diesen Keys fragen. Besorge sie vorab:
 
 ## Schritt 1: Voraussetzungen prüfen
 
-Prüfe und installiere falls nötig:
-
 ```bash
 # Python 3.11
 /opt/homebrew/bin/python3.11 --version
@@ -54,7 +50,7 @@ Prüfe und installiere falls nötig:
 ls "/Applications/Google Chrome.app" 2>/dev/null && echo "OK" || echo "FEHLT"
 ```
 
-Falls Python 3.11 fehlt → installieren:
+Falls Python 3.11 fehlt:
 ```bash
 brew install python@3.11
 ```
@@ -67,14 +63,13 @@ Falls Chrome fehlt → den Nutzer bitten Chrome zu installieren (google.com/chro
 
 Stelle diese Fragen **einzeln nacheinander**:
 
-1. **„Wie heißt du?"** → `user_name` (z.B. „Matthias")
+1. **„Wie heißt du?"** → `user_name`
 2. **„Wie soll Jarvis dich ansprechen?"** → `user_address`
    - Männlich: „Sir", „Chef", „Boss", „Kapitän"
    - Weiblich: „Ms. Schmidt", „Mrs. Müller", „Miss Brown", „Madam"
-3. **„In welcher Stadt wohnst du?"** → `city` (z.B. „Hamburg")
+3. **„In welcher Stadt wohnst du?"** → `city`
 4. **„Was sind deine GPS-Koordinaten?"** → `lat` / `lon`
    - Tipp: maps.google.com → rechtsklick auf Standort → Koordinaten kopieren
-   - Oder: „Ich schau das für [Stadt] nach" → du kannst typische Koordinaten vorschlagen
 5. **„Hast du Obsidian? Falls ja, was ist der Pfad zu deiner Inbox?"** → `obsidian_inbox_path`
    - Typisch: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/<VaultName>/01 Inbox`
    - Optional — kann leer bleiben
@@ -83,28 +78,23 @@ Stelle diese Fragen **einzeln nacheinander**:
 
 ## Schritt 3: API Keys erfragen
 
-Stelle diese Fragen **einzeln**, erkläre kurz wozu der Key dient:
-
-1. **Anthropic API Key** (Pflicht — Jarvis' Gehirn)
+1. **Anthropic API Key** (Pflicht)
    - Format: beginnt mit `sk-ant-`
    - Hole ihn: console.anthropic.com → API Keys
 
-2. **ElevenLabs API Key** (Pflicht — Jarvis' Stimme)
+2. **ElevenLabs API Key** (Pflicht)
    - Format: beginnt mit `sk_`
    - Hole ihn: elevenlabs.io → Profile → API Keys
 
-3. **ElevenLabs Voice ID** (Pflicht — welche Stimme)
+3. **ElevenLabs Voice ID** (Pflicht)
    - elevenlabs.io → My Voices → Voice auswählen → ID kopieren
-   - Alternativ: nach dem Start in der Config UI auswählen (dann `YOUR_VOICE_ID` lassen und später setzen)
-   - Frage nach dem **Namen** der Stimme (z.B. „Felix Serenitas") — für voice.json
+   - Alternativ: nach dem Start in der Config UI auswählen
 
-4. **Kachelmann Wetter API Key** (Optional — für präzises lokales Wetter)
-   - kachelmannwetter.com/api → Account erstellen (kostenpflichtig)
-   - Ohne Key: kein Wetter in der Begrüßung
+4. **Kachelmann Wetter API Key** (Optional)
 
-5. **Home Assistant** (Optional — für Lichtsteuerung, Kalender, Wetterdaten)
+5. **Home Assistant** (Optional)
    - **URL**: z.B. `http://10.0.0.190:8123`
-   - **Token**: HA → Profil → ganz unten → Long-Lived Access Tokens → Token erstellen
+   - **Token**: HA → Profil → Long-Lived Access Tokens erstellen
 
 ---
 
@@ -113,8 +103,6 @@ Stelle diese Fragen **einzeln**, erkläre kurz wozu der Key dient:
 ```bash
 cp config.example.json config.json
 ```
-
-Trage alle gesammelten Werte ein:
 
 ```json
 {
@@ -135,7 +123,7 @@ Trage alle gesammelten Werte ein:
 }
 ```
 
-> `workspace_path` = absoluter Pfad zum geklonten Ordner, z.B. `/Users/matthias/jarvis-voice-assistant V_2.1`
+> `workspace_path` = absoluter Pfad zum geklonten Ordner, z.B. `/Users/matthias/jarvis-v3`
 
 ---
 
@@ -145,8 +133,6 @@ Trage alle gesammelten Werte ein:
 cp voice.example.json voice.json
 ```
 
-Trage die Voice ID und den Namen ein:
-
 ```json
 {
   "active_voice_id": "<Voice ID>",
@@ -155,8 +141,6 @@ Trage die Voice ID und den Namen ein:
   ]
 }
 ```
-
-> Falls der Nutzer noch keine Voice ID hat: `YOUR_VOICE_ID` stehen lassen — nach dem Start in der Config UI unter **⚙ Verwalten** ergänzen.
 
 ---
 
@@ -177,64 +161,67 @@ Trage die Voice ID und den Namen ein:
 
 Prüfe ob der Server läuft:
 ```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8340/
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8341/
 # → 200 = OK
 ```
 
 API Keys testen (empfohlen):
 ```bash
-open http://localhost:8340/config
+open http://localhost:8341/config
 # → Testen-Buttons bei Anthropic und ElevenLabs klicken
 ```
 
 ---
 
-## Schritt 8: LaunchAgents prüfen und laden
+## Schritt 8: LaunchAgents laden
 
-Die Plist-Dateien müssen auf den korrekten Projektpfad zeigen:
-
-```bash
-# Vorhandene LaunchAgents prüfen
-ls ~/Library/LaunchAgents/com.jarvis.*.plist 2>/dev/null || echo "Keine vorhanden"
-```
-
-Falls vorhanden — Pfade prüfen und ggf. anpassen. Falls nicht vorhanden — mit dem Nutzer klären ob Auto-Start gewünscht ist.
+Die Plist-Dateien liegen im Repo unter `launchagents/` und müssen nach `~/Library/LaunchAgents/` kopiert und auf den korrekten Projektpfad angepasst werden.
 
 ```bash
-# Laden
-launchctl load ~/Library/LaunchAgents/com.jarvis.server.plist
-launchctl load ~/Library/LaunchAgents/com.jarvis.session.plist
-launchctl load ~/Library/LaunchAgents/com.jarvis.wake.plist
+# Ins LaunchAgents-Verzeichnis kopieren
+cp launchagents/com.jarvis.whisper.server.plist ~/Library/LaunchAgents/
+cp launchagents/com.jarvis.whisper.speech.plist ~/Library/LaunchAgents/
+cp launchagents/com.jarvis.whisper.session.plist ~/Library/LaunchAgents/
+
+# Pfade in den Plists anpassen (falls nötig)
+# Lade anschließend
+launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
+launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.speech.plist
+launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.session.plist
 
 # Status prüfen
-launchctl list | grep jarvis
+launchctl list | grep jarvis.whisper
 ```
 
 ---
 
 ## Schritt 9: macOS Berechtigungen
 
-Erinnere den Nutzer an folgende Berechtigungen in **Systemeinstellungen → Datenschutz & Sicherheit**:
-
 | Berechtigung | Wofür | Pflicht |
 |---|---|---|
-| **Mikrofon** | Spracherkennung im Browser | ✅ |
+| **Bedienungshilfen** | speech_input.py (Wake Word + F19 PTT) | ✅ |
+| **Mikrofon** | speech_input.py (Audioaufnahme) | ✅ |
 | **Bildschirmaufnahme** | „Was siehst du?" Feature | ⚡ |
-| **Bedienungshilfen** | Hotkey `Cmd+Shift+J` | ⚡ |
 
-Chrome und Terminal jeweils hinzufügen.
+In **Systemeinstellungen → Datenschutz & Sicherheit** eintragen:
+- **Bedienungshilfen**: Terminal (und ggf. Python) hinzufügen
+- **Mikrofon**: Terminal hinzufügen
+- **Bildschirmaufnahme**: Terminal hinzufügen (optional)
+
+> **Wichtig:** Ohne Bedienungshilfen-Berechtigung kann `speech_input.py` weder F19 erkennen noch das Aktivierungswort abhören.
 
 ---
 
 ## Abschluss
 
-Setup fertig! Sage dem Nutzer:
+Setup fertig! Sag dem Nutzer:
 
-- **`Cmd+Shift+J`** → startet Jarvis komplett (Server + Chrome + Apps)
-- **`http://localhost:8340`** → Jarvis HUD direkt im Browser
-- **`http://localhost:8340/config`** → Config UI (Einstellungen, Voices, Apps)
-- **Server-Log:** `tail -f /tmp/jarvis-server.log`
-- **Jarvis starten:** sag „Jarvis activate"
+- **`~/Applications/Jarvis starten.app`** → manueller Start per Doppelklick
+- **`http://localhost:8341`** → Jarvis HUD im Browser
+- **`http://localhost:8341/config`** → Config UI (Einstellungen, Voices, Apps)
+- **Server-Log:** `tail -f ~/Library/Logs/jarvis-whisper/server.log`
+- **Spracheingabe-Log:** `tail -f ~/Library/Logs/jarvis-whisper/speech.log`
+- **Jarvis aktivieren:** Sag „Jarvis" + Befehl oder drücke F19
 
 ---
 
@@ -244,8 +231,9 @@ Setup fertig! Sage dem Nutzer:
 
 ## Was Jarvis kann
 
-- `Cmd+Shift+J` → komplettes Arbeits-Setup startet automatisch
-- Sprachsteuerung auf Deutsch
+- Aktivierungswort „Jarvis" → hands-free Steuerung
+- F19 Push-to-Talk
+- Lokale Spracherkennung (mlx-whisper, kein Cloud-STT)
 - Begrüßung mit Wetter, Aufgaben und Kalender
 - Browser steuern (suchen, Seiten öffnen, Seite vorlesen)
 - Bildschirm analysieren via Claude Vision
@@ -254,7 +242,21 @@ Setup fertig! Sage dem Nutzer:
 - Notizen direkt in Obsidian Inbox schreiben/lesen/löschen
 - iCloud Mails lesen
 - Kalendertermine via Home Assistant CalDAV
-- Mic-Mute-Button in der macOS Menüleiste
+
+---
+
+## Aktivierungswort — Wie es funktioniert
+
+```
+Du sprichst → RMS-VAD erkennt Stimme → blauer Ring leuchtet
+→ Whisper transkribiert Snippet (lokal)
+→ „jarvis" im Text?
+  Ja + Befehl im gleichen Satz → Befehl direkt senden
+  Ja, nur „Jarvis" → Jarvis activate → Auto-Listen wartet auf Folgebefehl
+  Nein → Ring zurück zu idle
+```
+
+**Kein „Hey" nötig.** Kurze Pause nach „Jarvis" ist OK — Jarvis wartet auf den Folgebefehl (6s Auto-Listen mit Stille-Erkennung).
 
 ---
 
@@ -262,28 +264,26 @@ Setup fertig! Sage dem Nutzer:
 
 | Spracheingabe (Beispiele) | Was passiert |
 |---|---|
-| „Suche nach...", „Was ist..." | DuckDuckGo + erste Seite lesen |
-| „Öffne google.com" | URL im Browser öffnen |
-| „Öffne Mail / VS Code / Obsidian" | macOS App starten |
-| „Was siehst du?", „Schau auf den Bildschirm" | Screenshot + Claude Vision |
-| „Aktuelle Nachrichten" | Weltnachrichten laden |
-| „Erinnere mich an...", „Füge hinzu..." | Apple Reminders Inbox |
-| „Erledigt: Stichwort" | Reminder abhaken |
-| „Was steht an?", „Aufgaben?" | Reminders live laden |
-| „Meine Mails", „Mail von..." | Ungelesene Mails / Inhalt |
-| „Termine heute / diese Woche" | Kalender via Home Assistant |
-| „Licht an", „Wohnzimmer 50%", „Alles aus" | Home Assistant Lichter |
-| „Notiere...", „Merke dir..." | Markdown in Obsidian Inbox |
-| „Welche Notizen hast du?" | Alle Inbox-Notizen vorlesen |
-| „Erledigt: Notiz-Stichwort" | Obsidian Notiz löschen |
+| „Jarvis, suche nach...", „Jarvis, was ist..." | DuckDuckGo + erste Seite lesen |
+| „Jarvis, öffne google.com" | URL im Browser öffnen |
+| „Jarvis, öffne Mail / VS Code / Obsidian" | macOS App starten |
+| „Jarvis, was siehst du?" | Screenshot + Claude Vision |
+| „Jarvis, aktuelle Nachrichten" | Weltnachrichten laden |
+| „Jarvis, erinnere mich an..." | Apple Reminders Inbox |
+| „Jarvis, was steht an?" | Reminders live laden |
+| „Jarvis, meine Mails" | Ungelesene Mails vorlesen |
+| „Jarvis, Termine heute" | Kalender via Home Assistant |
+| „Jarvis, Licht an", „Wohnzimmer 50%" | Home Assistant Lichter |
+| „Jarvis, notiere..." | Markdown in Obsidian Inbox |
 
 ---
 
 ## Projektstruktur
 
 ```
-jarvis-voice-assistant/
-├── server.py              # FastAPI Backend — Hauptlogik
+jarvis-whisper/
+├── server.py              # FastAPI Backend — Hauptlogik (Port 8341)
+├── speech_input.py        # mlx-whisper STT + Wake Word + F19 PTT
 ├── browser_tools.py       # Playwright Browser-Steuerung
 ├── screen_capture.py      # Screenshot + Claude Vision
 ├── requirements.txt       # Python Dependencies
@@ -294,15 +294,20 @@ jarvis-voice-assistant/
 ├── version.json           # Versionsnummer (Single Source of Truth)
 ├── CLAUDE.md              # Anweisungen für Claude Code
 ├── SETUP_macOS.md         # Diese Datei
+├── launchagents/
+│   ├── com.jarvis.whisper.server.plist
+│   ├── com.jarvis.whisper.speech.plist
+│   └── com.jarvis.whisper.session.plist
 ├── frontend/
-│   ├── index.html         # JARVIS HUD (Hauptansicht)
+│   ├── index.html         # JARVIS HUD (Kiosk, Port 8341)
 │   ├── config.html        # Config UI
 │   ├── config.js          # Config UI Logik
-│   ├── main.js            # Speech Recognition (nicht anfassen!)
-│   └── style.css          # Dark/Light Theme
+│   ├── handbuch.html      # Benutzerhandbuch
+│   └── i18n/
+│       ├── de.json
+│       └── en.json
 └── scripts/
-    ├── launch-session.sh  # Vollständiger Start
-    ├── mic-mute-menubar.py
+    ├── launch-session.sh  # Chrome im Kiosk-Modus starten
     └── wake-monitor.py    # Wake-from-Sleep → /api/wake
 ```
 
@@ -312,17 +317,21 @@ jarvis-voice-assistant/
 
 | Plist | Funktion |
 |---|---|
-| `com.jarvis.server.plist` | Server KeepAlive (startet bei Absturz neu) |
-| `com.jarvis.session.plist` | Chrome + Apps beim Login (wartet auf Dock+Finder) |
-| `com.jarvis.wake.plist` | Wake-from-Sleep Monitor |
+| `com.jarvis.whisper.server.plist` | Server KeepAlive (startet bei Absturz neu) |
+| `com.jarvis.whisper.speech.plist` | speech_input.py KeepAlive (Wake Word + F19 PTT) |
+| `com.jarvis.whisper.session.plist` | Chrome Kiosk beim Login |
 
 ```bash
 # Status
-launchctl list | grep jarvis
+launchctl list | grep jarvis.whisper
 
 # Neu laden
-launchctl unload ~/Library/LaunchAgents/com.jarvis.server.plist
-launchctl load   ~/Library/LaunchAgents/com.jarvis.server.plist
+launchctl unload ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
+launchctl load   ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
+
+# Logs
+tail -f ~/Library/Logs/jarvis-whisper/server.log
+tail -f ~/Library/Logs/jarvis-whisper/speech.log
 ```
 
 ---
@@ -331,9 +340,15 @@ launchctl load   ~/Library/LaunchAgents/com.jarvis.server.plist
 
 **Server startet nicht / Port belegt**
 ```bash
-lsof -i :8340
+lsof -i :8341
 kill <PID>
 /opt/homebrew/bin/python3.11 server.py
+```
+
+**Wake Word / F19 funktioniert nicht**
+```bash
+tail -f ~/Library/Logs/jarvis-whisper/speech.log
+# → Bedienungshilfen-Berechtigung prüfen
 ```
 
 **Jarvis spricht nicht (TTS Fehler)**
@@ -341,31 +356,20 @@ kill <PID>
 
 **Chrome öffnet sich nicht**
 ```bash
-./scripts/launch-session.sh
-cat /tmp/jarvis-chrome.log
+bash ~/jarvis-v3/scripts/launch-session.sh
 ```
 
 **Kein Wetter**
 → Kachelmann API Key fehlt oder ungültig. Ohne Key: kein Wetter.
 
 **Home Assistant antwortet nicht**
-→ `ha_url` und `ha_token` in Config UI prüfen. Token muss Long-Lived Access Token sein.
+→ `ha_url` und `ha_token` in Config UI prüfen.
 
 **Obsidian Notiz wird nicht erstellt**
 → `obsidian_inbox_path` muss absoluter Pfad sein und der Ordner muss existieren.
 
 **Screen Capture funktioniert nicht**
 → Systemeinstellungen → Datenschutz → Bildschirmaufnahme → Terminal hinzufügen.
-
-**`rumps` nicht gefunden (Mic-Mute Button)**
-```bash
-/opt/homebrew/bin/python3.11 -m pip install rumps
-```
-
-**Logs**
-```bash
-tail -f /tmp/jarvis-server.log
-```
 
 ---
 
@@ -375,13 +379,16 @@ tail -f /tmp/jarvis-server.log
 # Server neu starten (launchd startet automatisch neu)
 pkill -f "server.py"
 
-# Jarvis komplett neu starten
-pkill -f "jarvis-chrome-profile"
-bash "scripts/launch-session.sh"
+# speech_input neu starten
+pkill -f "speech_input.py"
+
+# Jarvis komplett neu starten (Browser + alles)
+bash ~/jarvis-v3/scripts/launch-session.sh
 
 # Config UI
-open http://localhost:8340/config
+open http://localhost:8341/config
 
-# Server-Log
-tail -f /tmp/jarvis-server.log
+# Logs live
+tail -f ~/Library/Logs/jarvis-whisper/server.log
+tail -f ~/Library/Logs/jarvis-whisper/speech.log
 ```

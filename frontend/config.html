@@ -675,9 +675,9 @@ input[type="password"] { font-family:monospace; }
     <div class="panel">
         <div class="panel-title" onclick="togglePanel('apiKeysBody','apiKeysChevron')" style="cursor:pointer;user-select:none;">
             <span>API Keys &amp; Services</span>
-            <span id="apiKeysChevron" style="font-size:12px;color:#888;">▼</span>
+            <span id="apiKeysChevron" style="font-size:12px;color:#888;">▶</span>
         </div>
-        <div id="apiKeysBody">
+        <div id="apiKeysBody" style="display:none;">
 
         <div class="field-group">
             <label class="label">Anthropic API Key</label>
@@ -712,9 +712,9 @@ input[type="password"] { font-family:monospace; }
     <div class="panel">
         <div class="panel-title" onclick="togglePanel('userProfileBody','userProfileChevron')" style="cursor:pointer;user-select:none;">
             <span>Nutzer-Profil</span>
-            <span id="userProfileChevron" style="font-size:12px;color:#888;">▼</span>
+            <span id="userProfileChevron" style="font-size:12px;color:#888;">▶</span>
         </div>
-        <div id="userProfileBody">
+        <div id="userProfileBody" style="display:none;">
 
         <div class="field-grid">
             <div class="field-group">
@@ -783,10 +783,10 @@ input[type="password"] { font-family:monospace; }
             <span>Home Assistant</span>
             <div style="display:flex;align-items:center;gap:10px;">
                 <div class="toggle" id="haToggle" onclick="event.stopPropagation();toggleHA()"></div>
-                <span id="haChevron" style="font-size:12px;color:#888;">▼</span>
+                <span id="haChevron" style="font-size:12px;color:#888;">▶</span>
             </div>
         </div>
-        <div id="haBody">
+        <div id="haBody" style="display:none;">
 
         <div id="haFields" style="opacity:0.3; pointer-events:none; transition:opacity 0.2s;">
             <div class="field-group">
@@ -841,9 +841,9 @@ input[type="password"] { font-family:monospace; }
     <div class="panel">
         <div class="panel-title" onclick="togglePanel('behaviorBody','behaviorChevron')" style="cursor:pointer;user-select:none;">
             <span>Verhalten</span>
-            <span id="behaviorChevron" style="font-size:12px;color:#888;">▼</span>
+            <span id="behaviorChevron" style="font-size:12px;color:#888;">▶</span>
         </div>
-        <div id="behaviorBody">
+        <div id="behaviorBody" style="display:none;">
         <div class="toggle-row">
             <div class="toggle-row-label">
                 <div class="text">Begrüßung nach Standby</div>
