@@ -44,8 +44,8 @@ WHISPER_MODEL  = "mlx-community/whisper-large-v3-mlx"
 MIN_DURATION   = 0.6    # Sekunden — kürzere Aufnahmen werden verworfen
 
 # Wake-Word VAD-Schwellwerte
-WW_VOICE_RMS    = 0.012  # Sprache erkannt (oberhalb) — MateView Monitor-Mikrofon
-WW_SILENCE_RMS  = 0.008  # Stille (unterhalb)
+WW_VOICE_RMS    = 0.015  # Sprache erkannt (oberhalb) — erhöht, um Tastaturgeräusche auszufiltern
+WW_SILENCE_RMS  = 0.010  # Stille (unterhalb)
 WW_MAX_SECS     = 5.0    # Maximale Länge des Erkennung-Snippets
 WW_SILENCE_SECS = 0.8    # Stille nach letztem Wort → Snippet fertig
 WW_CMD_SILENCE  = 1.5    # Stille nach Befehl → Aufnahme beenden
