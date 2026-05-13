@@ -580,6 +580,8 @@ ACTION_PATTERN = re.compile(r'\[ACTION:(\w+)\]\s*(.*?)$', re.DOTALL | re.MULTILI
 
 conversations: dict[str, list] = {}
 active_connections: set = set()
+stt_connections: set = set()  # speech_input.py WebSocket connections
+_ww_muted: bool = False       # Wake-Word global mute flag
 
 
 def _obsidian_note_done(content: str) -> bool:
@@ -1158,6 +1160,16 @@ end tell'''
 _TEMPLATE_ACTIONS = {"LICHT", "REMINDER_ADD", "REMINDER_DONE", "KALENDER_DONE", "NOTIZ", "NOTIZ_ERLEDIGT", "OPEN_APP", "NEWS_BRIEF"}
 
 
+async def _send_listen_open(delay: float):
+    """Nach TTS: sendet listen_open an speech_input.py nach geschätzter Abspieldauer."""
+    await asyncio.sleep(delay)
+    for stt in list(stt_connections):
+        try:
+            await stt.send_json({"type": "listen_open", "timeout": 6})
+        except Exception:
+            pass
+
+
 async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
     """TTS, append to history, broadcast to all connections.
     display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet."""
@@ -1182,6 +1194,12 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
             await conn.send_json(payload)
         except Exception:
             pass
+    # Nach TTS: Mikrofon-Fenster öffnen (speech_input.py reagiert nur wenn im Gespräch)
+    if audio:
+        delay = max(1.0, len(audio) / 16000) + 0.5  # 128kbps ≈ 16 KB/s + Buffer
+    else:
+        delay = 1.5
+    asyncio.create_task(_send_listen_open(delay))
 
 
 # ── Structured Output Dispatcher ──────────────────────────────────────────
@@ -1619,8 +1637,8 @@ async def stt_endpoint(ws: WebSocket):
     """Dedizierter Endpoint für speech_input.py — empfängt nur Text, bekommt kein Audio."""
     await ws.accept()
     session_id = f"stt_{id(ws)}"
+    stt_connections.add(ws)
     log.info(f"[jarvis] STT connected  session={session_id}")
-    # Einen Dummy-Browser-WS finden für _speak (Audio geht NUR an Browser)
     try:
         while True:
             data = await ws.receive_json()
@@ -1628,12 +1646,12 @@ async def stt_endpoint(ws: WebSocket):
             if not user_text:
                 continue
             log.info(f"  You:    {user_text}")
-            # Antworte über den ersten aktiven Browser (active_connections)
             browser_ws = next(iter(active_connections), None)
             await process_message(session_id, user_text, browser_ws or ws)
     except WebSocketDisconnect:
         conversations.pop(session_id, None)
     finally:
+        stt_connections.discard(ws)
         log.info(f"[jarvis] STT disconnected session={session_id}")
 
 
@@ -2482,15 +2500,43 @@ async def mark_intro_done():
 
 @app.post("/api/ptt/{state}")
 async def ptt_state(state: str):
-    if state not in ("start", "stop"):
+    state_map = {
+        "start":        "ptt_start",
+        "stop":         "ptt_stop",
+        "listen_open":  "listen_open",
+        "listen_close": "listen_close",
+    }
+    if state not in state_map:
         return {"ok": False}
-    msg_type = "ptt_start" if state == "start" else "ptt_stop"
     for conn in list(active_connections):
         try:
-            await conn.send_json({"type": msg_type})
+            await conn.send_json({"type": state_map[state]})
         except Exception:
             pass
     return {"ok": True}
+
+
+@app.post("/api/ww_mute")
+async def toggle_ww_mute():
+    global _ww_muted
+    _ww_muted = not _ww_muted
+    log.info(f"[jarvis] Wake-Word {'deaktiviert' if _ww_muted else 'aktiviert'}")
+    for conn in list(active_connections):
+        try:
+            await conn.send_json({"type": "ww_mute_state", "muted": _ww_muted})
+        except Exception:
+            pass
+    for stt in list(stt_connections):
+        try:
+            await stt.send_json({"type": "ww_mute", "muted": _ww_muted})
+        except Exception:
+            pass
+    return {"muted": _ww_muted}
+
+
+@app.get("/api/ww_mute")
+async def get_ww_mute():
+    return {"muted": _ww_muted}
 
 
 @app.get("/dashboard")

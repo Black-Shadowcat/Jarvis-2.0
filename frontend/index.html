@@ -568,20 +568,20 @@ function setOrbState(state) {
     if (!ring) return;
 
     const colors = {
-        idle:      { stroke:'#d4af37', opacity:'0.6' },
-        listening: { stroke:'#00aaff', opacity:'1'   },
-        speaking:  { stroke:'#00ff00', opacity:'0.8' },
-        thinking:  { stroke:'#ff9500', opacity:'0.7' },
-        muted:     { stroke:'#cc3333', opacity:'0.7' },
-        recording: { stroke:'#ff2222', opacity:'1'   },
-        error:     { stroke:'#cc0044', opacity:'1'   },
+        idle:      { stroke:'#00aaff', opacity:'0.55' },
+        listening: { stroke:'#00aaff', opacity:'1'    },
+        speaking:  { stroke:'#00ff00', opacity:'0.8'  },
+        thinking:  { stroke:'#ff9500', opacity:'0.7'  },
+        muted:     { stroke:'#cc3333', opacity:'0.85' },
+        recording: { stroke:'#ff2222', opacity:'1'    },
+        error:     { stroke:'#cc0044', opacity:'1'    },
     };
     const labels = {
-        idle:      _i18n.status_idle      || 'Warte auf Eingabe…',
-        listening: _i18n.status_listening || '● Hört zu…',
+        idle:      _i18n.status_idle      || '● Bereit…',
+        listening: _i18n.status_listening || '● Zuhören…',
         speaking:  _i18n.status_speaking  || '◉ Spricht…',
         thinking:  _i18n.status_thinking  || '◌ Denkt…',
-        muted:     _i18n.status_muted     || '🎙 Mikrofon stumm',
+        muted:     _i18n.status_muted     || '✕ Mikrofon stumm',
         recording: '⬤ Aufnahme…',
         error:     '✕ TTS nicht verfügbar',
     };
@@ -719,6 +719,13 @@ function initWS() {
             setOrbState('thinking');
             clearTimeout(window._thinkTimeout);
             window._thinkTimeout = setTimeout(() => setOrbState('idle'), 12000);
+        } else if (data.type === 'listen_open') {
+            clearTimeout(window._thinkTimeout);
+            setOrbState('listening');
+        } else if (data.type === 'listen_close') {
+            setOrbState('idle');
+        } else if (data.type === 'ww_mute_state') {
+            setOrbState(data.muted ? 'muted' : 'idle');
         } else if (data.type === 'tts_error') {
             clearTimeout(window._thinkTimeout);
             setOrbState('error');
@@ -1043,6 +1050,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('jarvis-input').addEventListener('keypress', e => {
         if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); }
     });
+
+    // HUD-Click: Mikrofon stumm / aktiv
+    const mainRing = document.getElementById('main-ring');
+    if (mainRing) {
+        mainRing.style.cursor = 'pointer';
+        mainRing.addEventListener('click', async () => {
+            await fetch('/api/ww_mute', { method: 'POST' });
+        });
+    }
+
+    // Initialen Mute-Status laden
+    fetch('/api/ww_mute').then(r => r.json()).then(d => {
+        if (d.muted) setOrbState('muted');
+    }).catch(() => {});
 });
 
 async function checkForUpdate() {
