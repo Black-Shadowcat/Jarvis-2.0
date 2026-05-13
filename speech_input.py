@@ -150,6 +150,15 @@ def _transcribe(audio: np.ndarray):
 
 # ── Wake-Word-Detektor (VAD + Whisper) ────────────────────────────────────
 
+def _detect_q_flush():
+    """Alte Chunks aus der Queue verwerfen (nach Whisper-Inference)."""
+    while not _detect_q.empty():
+        try:
+            _detect_q.get_nowait()
+        except queue.Empty:
+            break
+
+
 def _ww_thread():
     """
     Lauscht auf Sprache, transkribiert kurze Snippets via Whisper.
@@ -162,7 +171,9 @@ def _ww_thread():
         # 1. Warte auf Sprachbeginn (RMS-VAD)
         chunk = _detect_q.get()
         rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
-        if rms < WW_VOICE_RMS or _recording:
+        if _recording:
+            continue
+        if rms < WW_VOICE_RMS:
             continue
 
         # 2. Sprache erkannt → sammle Snippet bis Stille
@@ -170,9 +181,7 @@ def _ww_thread():
         silence_secs = 0.0
         total_secs   = chunk_secs
 
-        while total_secs < WW_MAX_SECS:
-            if _recording:
-                break
+        while total_secs < WW_MAX_SECS and not _recording:
             try:
                 c = _detect_q.get(timeout=0.3)
             except queue.Empty:
@@ -188,6 +197,7 @@ def _ww_thread():
                 silence_secs = 0.0
 
         if _recording:
+            _detect_q_flush()
             continue
 
         # 3. Transkribiere Snippet
@@ -201,7 +211,12 @@ def _ww_thread():
             language="de",
         )
         text = result["text"].strip()
-        if not text or "jarvis" not in text.lower():
+        _detect_q_flush()  # stale Chunks nach Inference verwerfen
+
+        if not text or text.lower() in _HALLUCINATIONS:
+            continue
+        log.info(f"WW-Snippet: '{text}'")
+        if "jarvis" not in text.lower():
             continue
 
         log.info(f'Wake-Word erkannt: "{text}"')
@@ -223,34 +238,27 @@ def _ww_thread():
             log.info("Warte auf Befehl…")
             _start_recording("wake-word")
 
-            # Auto-Stop: Aufnahme endet bei Stille
+            # Auto-Stop: Audio kommt jetzt in _audio_buffer (nicht in _detect_q)
+            # → letzten Chunk per Buffer-Check auf Stille überwachen
             silence_c = 0.0
-            while _recording:
-                try:
-                    cmd_chunk = _detect_q.get(timeout=0.3)
-                except queue.Empty:
-                    silence_c += 0.3
-                    if silence_c >= WW_CMD_SILENCE:
-                        break
-                    continue
+            max_secs  = 10.0
+            start_t   = time.time()
+            while _recording and (time.time() - start_t) < max_secs:
+                time.sleep(0.1)
                 with _buffer_lock:
-                    _audio_buffer.append(cmd_chunk.astype(np.float32))
-                rms_cmd = float(np.sqrt(np.mean(cmd_chunk.astype(np.float32) ** 2)))
+                    if not _audio_buffer:
+                        continue
+                    recent = _audio_buffer[-1]
+                rms_cmd = float(np.sqrt(np.mean(recent.astype(np.float32) ** 2)))
                 if rms_cmd < WW_SILENCE_RMS:
-                    silence_c += chunk_secs
+                    silence_c += 0.1
                     if silence_c >= WW_CMD_SILENCE:
                         break
                 else:
                     silence_c = 0.0
 
             _stop_recording_and_transcribe("wake-word")
-
-        # Queue leeren (Reste aus dem Snippet-Fenster verwerfen)
-        while not _detect_q.empty():
-            try:
-                _detect_q.get_nowait()
-            except queue.Empty:
-                break
+            _detect_q_flush()
 
 
 # ── WebSocket Client ──────────────────────────────────────────────────────
