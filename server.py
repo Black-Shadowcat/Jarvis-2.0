@@ -1654,6 +1654,11 @@ async def stt_endpoint(ws: WebSocket):
             if not user_text:
                 continue
             log.info(f"  You:    {user_text}")
+            for conn in list(active_connections):
+                try:
+                    await conn.send_json({"type": "user_input", "text": user_text})
+                except Exception:
+                    pass
             browser_ws = next(iter(active_connections), None)
             await process_message(session_id, user_text, browser_ws or ws)
     except WebSocketDisconnect:

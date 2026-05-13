@@ -713,6 +713,8 @@ function initWS() {
             addMsg('jarvis', data.text);
             if (data.audio?.length > 0) queueAudio(data.audio);
             else setTimeout(() => setOrbState('idle'), 1000);
+        } else if (data.type === 'user_input') {
+            addMsg('user', data.text);
         } else if (data.type === 'ptt_start') {
             setOrbState('recording');
         } else if (data.type === 'ptt_stop') {
