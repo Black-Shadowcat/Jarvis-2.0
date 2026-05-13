@@ -37,8 +37,8 @@ log = logging.getLogger("stt")
 SAMPLE_RATE    = 16000
 CHUNK_SIZE     = 1600   # 100 ms pro Callback-Chunk
 PTT_KEY        = keyboard.Key.f19
-SERVER_URL     = "ws://localhost:8341/ws/stt"
-PTT_API        = "http://localhost:8341/api/ptt"
+SERVER_URL     = "ws://localhost:8340/ws/stt"
+PTT_API        = "http://localhost:8340/api/ptt"
 WHISPER_MODEL  = "mlx-community/whisper-large-v3-mlx"
 MIN_DURATION   = 0.6    # Sekunden — kürzere Aufnahmen werden verworfen
 
