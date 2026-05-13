@@ -1164,6 +1164,14 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
     audio = await synthesize_speech(text)
     log.info(f"  Jarvis: {text[:100]}")
     conversations[session_id].append({"role": "assistant", "content": text})
+    tts_failed = not audio and bool(text.strip())
+    if tts_failed:
+        log.warning(f"  TTS fehlgeschlagen — kein Audio für: {text[:60]}")
+        for conn in list(active_connections):
+            try:
+                await conn.send_json({"type": "tts_error"})
+            except Exception:
+                pass
     payload = {
         "type": "response",
         "text": display or text,

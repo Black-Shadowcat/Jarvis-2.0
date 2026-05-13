@@ -354,6 +354,29 @@ body {
     margin-bottom:6px;
     min-height:1em;
 }
+#toast-container {
+    position:fixed;
+    bottom:24px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:9999;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    pointer-events:none;
+}
+.toast {
+    background:#cc3333;
+    color:#fff;
+    padding:8px 18px;
+    border-radius:8px;
+    font-size:0.82rem;
+    opacity:0;
+    transition:opacity 0.3s;
+    white-space:nowrap;
+}
+.toast.visible { opacity:1; }
 </style>
 </head>
 
@@ -551,6 +574,7 @@ function setOrbState(state) {
         thinking:  { stroke:'#ff9500', opacity:'0.7' },
         muted:     { stroke:'#cc3333', opacity:'0.7' },
         recording: { stroke:'#ff2222', opacity:'1'   },
+        error:     { stroke:'#cc0044', opacity:'1'   },
     };
     const labels = {
         idle:      _i18n.status_idle      || 'Warte auf Eingabe…',
@@ -559,6 +583,7 @@ function setOrbState(state) {
         thinking:  _i18n.status_thinking  || '◌ Denkt…',
         muted:     _i18n.status_muted     || '🎙 Mikrofon stumm',
         recording: '⬤ Aufnahme…',
+        error:     '✕ TTS nicht verfügbar',
     };
 
     const c = colors[state] || colors.idle;
@@ -694,6 +719,11 @@ function initWS() {
             setOrbState('thinking');
             clearTimeout(window._thinkTimeout);
             window._thinkTimeout = setTimeout(() => setOrbState('idle'), 12000);
+        } else if (data.type === 'tts_error') {
+            clearTimeout(window._thinkTimeout);
+            setOrbState('error');
+            showToast('TTS nicht verfügbar — ElevenLabs nicht erreichbar');
+            setTimeout(() => setOrbState('idle'), 4000);
         } else if (data.type === 'refresh_tasks') {
             loadTasks();
         }
@@ -1041,7 +1071,21 @@ function dismissUpdate(e) {
     sessionStorage.setItem('jarvis-update-dismissed', '1');
     document.getElementById('update-badge').style.display = 'none';
 }
+
+function showToast(msg, durationMs = 4000) {
+    const container = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    container.appendChild(t);
+    requestAnimationFrame(() => { t.classList.add('visible'); });
+    setTimeout(() => {
+        t.classList.remove('visible');
+        setTimeout(() => t.remove(), 350);
+    }, durationMs);
+}
 </script>
 
+<div id="toast-container"></div>
 </body>
 </html>
