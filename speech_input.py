@@ -28,7 +28,7 @@ from pynput import keyboard
 import websockets
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s  %(levelname)-8s  %(message)s",
     datefmt="%H:%M:%S",
 )
@@ -253,7 +253,8 @@ def _ww_thread():
         if rms < WW_VOICE_RMS:
             continue
 
-        # 2. Sprache erkannt → sammle Snippet bis Stille
+        # 2. Sprache erkannt → sofort visuelles Feedback + Snippet sammeln
+        threading.Thread(target=_notify_ptt, args=("listen_open",), daemon=True).start()
         snippet: list = [chunk.astype(np.float32)]
         silence_secs = 0.0
         total_secs   = chunk_secs
@@ -274,26 +275,31 @@ def _ww_thread():
                 silence_secs = 0.0
 
         if _recording or _ww_muted:
+            threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
             _detect_q_flush()
             continue
 
         # 3. Transkribiere Snippet
         audio_snip = np.concatenate(snippet).flatten()
         if len(audio_snip) / SAMPLE_RATE < 0.3:
+            threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
             continue
 
         result = mlx_whisper.transcribe(
             audio_snip,
             path_or_hf_repo=WHISPER_MODEL,
             language="de",
+            initial_prompt="Jarvis.",
         )
         text = result["text"].strip()
         _detect_q_flush()
 
         if not text or text.lower() in _HALLUCINATIONS:
+            threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
             continue
         log.info(f"WW-Snippet: '{text}'")
         if "jarvis" not in text.lower():
+            threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
             continue
 
         log.info(f'Wake-Word erkannt: "{text}"')
@@ -306,37 +312,15 @@ def _ww_thread():
         ).strip()
 
         if command and command.lower() not in _HALLUCINATIONS and len(command) > 3:
-            # Befehl inline → Orb kurz anzeigen, direkt senden
+            # Befehl inline → direkt senden
             log.info(f"Befehl inline: » {command}")
-            threading.Thread(target=_notify_ptt, args=("start",), daemon=True).start()
-            time.sleep(0.15)
             threading.Thread(target=_notify_ptt, args=("stop",), daemon=True).start()
             asyncio.run_coroutine_threadsafe(_queue.put(command), _loop)
         else:
-            # Nur "Jarvis" gesagt → auf Folgebefehl warten
-            log.info("Warte auf Befehl…")
-            _start_recording("wake-word")
-
-            # Auto-Stop: Audio in _audio_buffer (via _audio_cb), Stille per Buffer-Check
-            silence_c = 0.0
-            max_secs  = 10.0
-            start_t   = time.time()
-            while _recording and (time.time() - start_t) < max_secs:
-                time.sleep(0.1)
-                with _buffer_lock:
-                    if not _audio_buffer:
-                        continue
-                    recent = _audio_buffer[-1]
-                rms_cmd = float(np.sqrt(np.mean(recent.astype(np.float32) ** 2)))
-                if rms_cmd < WW_SILENCE_RMS:
-                    silence_c += 0.1
-                    if silence_c >= WW_CMD_SILENCE:
-                        break
-                else:
-                    silence_c = 0.0
-
-            _stop_recording_and_transcribe("wake-word")
-            _detect_q_flush()
+            # Nur "Jarvis" → sofort aktivieren, Auto-Listen übernimmt Folgebefehl
+            log.info("Jarvis aktiviert → sende activate")
+            threading.Thread(target=_notify_ptt, args=("stop",), daemon=True).start()
+            asyncio.run_coroutine_threadsafe(_queue.put("Jarvis activate"), _loop)
 
 
 # ── WebSocket Client ──────────────────────────────────────────────────────
@@ -356,6 +340,7 @@ async def _receiver(ws):
         except Exception:
             continue
         msg_type = data.get("type")
+        log.info(f"← WS-Msg: {msg_type}")
 
         if msg_type == "speaking_start":
             _jarvis_speaking = True
