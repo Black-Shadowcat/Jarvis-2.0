@@ -6,7 +6,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.getElementById('app-version');
         if (el) el.textContent = `v${v.version}`;
     }).catch(() => {});
+    checkForUpdate();
 });
+
+async function checkForUpdate() {
+    if (sessionStorage.getItem('jarvis-update-dismissed')) return;
+    try {
+        const r = await fetch('/api/update_check');
+        const d = await r.json();
+        if (!d.has_update) return;
+        const badge   = document.getElementById('update-badge');
+        const link    = document.getElementById('update-badge-link');
+        const verSpan = document.getElementById('update-badge-version');
+        if (!badge) return;
+        verSpan.textContent = `v${d.latest_version}`;
+        link.href = d.release_url || '#';
+        if (d.is_major) {
+            link.style.borderColor = 'rgba(212,175,55,0.45)';
+            link.style.background  = 'rgba(212,175,55,0.1)';
+            link.style.color       = '#d4af37';
+        }
+        badge.style.display = 'block';
+    } catch {}
+}
 
 let currentConfig = {};
 let voiceDb = { active_voice_id: '', voices: [] };

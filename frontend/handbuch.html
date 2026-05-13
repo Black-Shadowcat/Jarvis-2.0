@@ -1079,7 +1079,7 @@ Oder: Klick auf das Zahnrad-Symbol oben rechts im Jarvis HUD.</p>
 
 <!-- Footer -->
 <div style="margin-top:60px; padding-top:24px; border-top:1px solid var(--border); text-align:center; color:var(--muted); font-size:0.8rem;">
-    J.A.R.V.I.S. &nbsp;·&nbsp; <span id="footer-version">v2.1.1</span> &nbsp;·&nbsp;
+    J.A.R.V.I.S. &nbsp;·&nbsp; <span id="footer-version"></span> &nbsp;·&nbsp;
     <a href="/" style="color:var(--blue); text-decoration:none;">← Zurück zu Jarvis</a> &nbsp;·&nbsp;
     <a href="/config" style="color:var(--blue); text-decoration:none;">← Zurück zur Konfiguration</a>
 </div>
@@ -1087,11 +1087,44 @@ Oder: Klick auf das Zahnrad-Symbol oben rechts im Jarvis HUD.</p>
 </main>
 </div>
 
+<div id="update-badge" style="display:none;position:fixed;bottom:30px;right:12px;z-index:9999;">
+    <a id="update-badge-link" href="#" target="_blank" rel="noopener"
+       style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 8px;border-radius:20px;font-size:0.72rem;text-decoration:none;letter-spacing:.05em;border:1px solid rgba(42,158,226,0.35);background:rgba(42,158,226,0.1);color:#2a9ee2;">
+        ↑ <span id="update-badge-version"></span>
+        <span id="update-badge-dismiss" style="opacity:0.5;margin-left:2px;cursor:pointer;font-size:0.68rem;" onclick="dismissUpdate(event)">✕</span>
+    </a>
+</div>
 <script>
 fetch('/api/version').then(r => r.json()).then(v => {
     document.getElementById('handbuch-version').textContent = `v${v.version}`;
     document.getElementById('footer-version').textContent = `v${v.version}`;
 }).catch(() => {});
+
+(async function checkForUpdate() {
+    if (sessionStorage.getItem('jarvis-update-dismissed')) return;
+    try {
+        const r = await fetch('/api/update_check');
+        const d = await r.json();
+        if (!d.has_update) return;
+        const badge   = document.getElementById('update-badge');
+        const link    = document.getElementById('update-badge-link');
+        const verSpan = document.getElementById('update-badge-version');
+        verSpan.textContent = `v${d.latest_version}`;
+        link.href = d.release_url || '#';
+        if (d.is_major) {
+            link.style.borderColor = 'rgba(212,175,55,0.45)';
+            link.style.background  = 'rgba(212,175,55,0.1)';
+            link.style.color       = '#d4af37';
+        }
+        badge.style.display = 'block';
+    } catch {}
+})();
+
+function dismissUpdate(e) {
+    e.preventDefault(); e.stopPropagation();
+    sessionStorage.setItem('jarvis-update-dismissed', '1');
+    document.getElementById('update-badge').style.display = 'none';
+}
 </script>
 </body>
 </html>

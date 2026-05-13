@@ -1098,6 +1098,20 @@ input[type="password"] { font-family:monospace; }
         });
     } catch {}
 })();</script>
+<div id="update-badge" style="display:none;position:fixed;bottom:30px;right:12px;z-index:9999;">
+    <a id="update-badge-link" href="#" target="_blank" rel="noopener"
+       style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 8px;border-radius:20px;font-size:0.72rem;text-decoration:none;letter-spacing:.05em;border:1px solid rgba(42,158,226,0.35);background:rgba(42,158,226,0.1);color:#2a9ee2;">
+        ↑ <span id="update-badge-version"></span>
+        <span id="update-badge-dismiss" style="opacity:0.5;margin-left:2px;cursor:pointer;font-size:0.68rem;" onclick="dismissUpdate(event)">✕</span>
+    </a>
+</div>
+<script>
+function dismissUpdate(e) {
+    e.preventDefault(); e.stopPropagation();
+    sessionStorage.setItem('jarvis-update-dismissed', '1');
+    document.getElementById('update-badge').style.display = 'none';
+}
+</script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
 <script defer src="/static/config.js?v=lang-step3"></script>
 
