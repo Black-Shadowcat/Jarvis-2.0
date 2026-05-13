@@ -191,7 +191,7 @@ async def visit(url: str, max_chars: int = 5000) -> dict:
 
 
 async def fetch_news() -> str:
-    """Fetch current world news from worldmonitor.app."""
+    """Fetch current world news from worldmonitor.app — extracts AI Insights section."""
     try:
         ctx = await _get_browser()
     except Exception as e:
@@ -201,9 +201,20 @@ async def fetch_news() -> str:
     try:
         page = await ctx.new_page()
         await page.goto("https://www.worldmonitor.app/", timeout=20000)
-        await page.wait_for_timeout(6000)
-        text = await page.evaluate("() => document.body.innerText")
-        return f"World Monitor Nachrichten:\n{text[:4000]}"
+        await page.wait_for_timeout(8000)
+        text = await page.evaluate("""
+            () => {
+                const body = document.body.innerText || '';
+                // Jump to the AI insights / world brief section — skip nav chrome
+                const markers = ['AI INSIGHTS', 'WORLD BRIEF', 'FOCAL POINTS', 'LIVE NEWS'];
+                for (const marker of markers) {
+                    const idx = body.indexOf(marker);
+                    if (idx > 0) return body.slice(idx, idx + 3500);
+                }
+                return body.slice(0, 3500);
+            }
+        """)
+        return f"World Monitor Nachrichten:\n{text}"
     except Exception as e:
         return f"News konnten nicht geladen werden: {e}"
     finally:

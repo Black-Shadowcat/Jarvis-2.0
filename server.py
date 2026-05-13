@@ -1713,18 +1713,31 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         return
 
     # ── Complex actions (SEARCH, NEWS, SCREEN, TASKS_LIST, KALENDER, MAIL_READ, NOTIZ_LIST):
-    #    one-sentence LLM summary, no fluff
     if action_result and "Fehler" not in action_result and "fehlgeschlagen" not in action_result:
-        summary_resp = await ai.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=80,
-            system=(
-                f"Antworte in einem einzigen kurzen Satz auf {'Englisch' if LANGUAGE == 'en' else 'Deutsch'}. "
+        lang = 'Englisch' if LANGUAGE == 'en' else 'Deutsch'
+        if action["type"] == "NEWS":
+            summary_system = (
+                f"Du bist ein kompakter Nachrichtensprecher. Antworte auf {lang}. "
+                f"Fasse die 3 wichtigsten aktuellen Meldungen in 3-4 kurzen Sätzen zusammen. "
+                f"Beginne direkt mit den Nachrichten, keine Einleitung wie 'Hier sind' oder 'Aktuell'. "
+                f"Nenne kurz das Thema und den Kern — keine Jahreszahlen, keine Links. "
+                f"Du darfst '{USER_ADDRESS}' genau einmal am Ende verwenden. "
+                f"KEINE Tags in eckigen Klammern. KEINE ACTION-Tags."
+            )
+            max_tok = 250
+        else:
+            summary_system = (
+                f"Antworte in einem einzigen kurzen Satz auf {lang}. "
                 f"Keine Einleitung, kein 'Sehr gerne', kein 'Natuerlich', kein 'Gerne', kein 'Hier'. "
                 f"Keine Wiederholung der Anfrage. Nur die reine Information. "
                 f"Du darfst '{USER_ADDRESS}' genau einmal verwenden, bevorzugt am Satzende. "
                 f"KEINE Tags in eckigen Klammern. KEINE ACTION-Tags."
-            ),
+            )
+            max_tok = 80
+        summary_resp = await ai.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=max_tok,
+            system=summary_system,
             messages=[{"role": "user", "content": action_result}],
         )
         summary = summary_resp.content[0].text
