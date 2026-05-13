@@ -14,6 +14,7 @@ Gesprächsmodus:
 """
 
 import asyncio
+import difflib
 import logging
 import queue
 import re
@@ -48,6 +49,21 @@ WW_SILENCE_RMS  = 0.008  # Stille (unterhalb)
 WW_MAX_SECS     = 5.0    # Maximale Länge des Erkennung-Snippets
 WW_SILENCE_SECS = 0.8    # Stille nach letztem Wort → Snippet fertig
 WW_CMD_SILENCE  = 1.5    # Stille nach Befehl → Aufnahme beenden
+
+# Bekannte Whisper-Fehltranskriptionen von "Jarvis"
+_JARVIS_ALIASES = {"jarvis", "javis", "jarwis", "jarves", "garvis", "jarvis.", "javis."}
+
+def _is_jarvis(text: str) -> bool:
+    """True wenn Text 'Jarvis' enthält — exakt, als Alias oder per Fuzzy-Match."""
+    for word in re.split(r'\W+', text.lower()):
+        if not word:
+            continue
+        if word in _JARVIS_ALIASES:
+            return True
+        if len(word) >= 4 and difflib.SequenceMatcher(None, word, "jarvis").ratio() >= 0.80:
+            return True
+    return False
+
 
 # Bekannte Whisper-Halluzinationen bei Stille
 _HALLUCINATIONS = {
@@ -306,7 +322,7 @@ def _ww_thread():
             threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
             continue
         log.info(f"WW-Snippet: '{text}'")
-        if "jarvis" not in text.lower():
+        if not _is_jarvis(text):
             threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
             continue
 
@@ -341,7 +357,7 @@ async def _sender(ws):
 
 async def _receiver(ws):
     """Empfängt Nachrichten vom Server: speaking_start/end, listen_open, ww_mute."""
-    global _in_conversation, _ww_muted, _jarvis_speaking
+    global _in_conversation, _ww_muted, _jarvis_speaking, _speaking_started_at
     async for raw in ws:
         try:
             data = json.loads(raw)
