@@ -722,11 +722,14 @@ function initWS() {
             clearTimeout(window._thinkTimeout);
             window._thinkTimeout = setTimeout(() => setOrbState('idle'), 12000);
         } else if (data.type === 'listen_open') {
-            clearTimeout(window._thinkTimeout);
-            setOrbState('listening');
+            if (!window._orbMuted) {
+                clearTimeout(window._thinkTimeout);
+                setOrbState('listening');
+            }
         } else if (data.type === 'listen_close') {
-            setOrbState('idle');
+            if (!window._orbMuted) setOrbState('idle');
         } else if (data.type === 'ww_mute_state') {
+            window._orbMuted = data.muted;
             setOrbState(data.muted ? 'muted' : 'idle');
         } else if (data.type === 'tts_error') {
             clearTimeout(window._thinkTimeout);
@@ -1063,6 +1066,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialen Mute-Status laden
     fetch('/api/ww_mute').then(r => r.json()).then(d => {
+        window._orbMuted = d.muted;
         if (d.muted) setOrbState('muted');
     }).catch(() => {});
 });

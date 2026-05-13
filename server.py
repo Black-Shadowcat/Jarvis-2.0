@@ -2659,6 +2659,9 @@ async def ptt_state(state: str):
     }
     if state not in state_map:
         return {"ok": False}
+    # Wenn Mikrofon stumm: listen_open nicht an Browser senden
+    if state == "listen_open" and _ww_muted:
+        return {"ok": True}
     for conn in list(active_connections):
         try:
             await conn.send_json({"type": state_map[state]})
