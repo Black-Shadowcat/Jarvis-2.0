@@ -197,6 +197,7 @@ _morning_news_text: str = ""  # spoken after morning brief — set in morning tr
 _dismissed_cal: set[str] = set()  # calendar event titles dismissed by user this session
 _last_search_url: str = ""        # URL des letzten NEWS_SEARCH-Treffers — für Follow-up-Fragen
 _last_search_published: str = ""  # ISO-Datum des letzten Treffers — für Display-Formatierung
+_last_result_url: str = ""        # URL der letzten SEARCH/BROWSE/NEWS-Aktion — für "Zeig mir mehr"
 
 class _PrintLogger:
     def info(self, msg):    log.info(f"[news] {msg}")
@@ -727,7 +728,7 @@ Du hast die volle Kontrolle ueber den Browser von {USER_NAME}. Du kannst im Inte
 
 AKTIONEN - Wenn eine Aktion noetig ist, schreibe NUR die Aktion — keinen Text davor, keine Einleitung, keine Bestaetigung. Das Ergebnis wird automatisch vorgelesen.
 [ACTION:SEARCH] suchbegriff - Internet durchsuchen und Ergebnisse zusammenfassen
-[ACTION:OPEN] url - URL im Browser oeffnen
+[ACTION:OPEN] url - URL im Browser oeffnen. Nutze diese Aktion auch wenn {USER_ADDRESS} nach einer Suche oder Nachricht sagt "Zeig mir mehr", "oeffne das im Browser", "mehr Details", "zeig das", "ich moechte mehr lesen" — die passende URL steht dann bereits in der Konversationshistorie.
 [ACTION:OPEN_APP] app-name - macOS App oeffnen. Nutze diese Aktion wenn {USER_ADDRESS} eine App, ein Programm oder eine Anwendung oeffnen moechte. Beispiele: "Mail", "Safari", "Visual Studio Code", "Obsidian", "Music". Schreibe den App-Namen exakt so wie er in macOS heisst.
 [ACTION:SCREEN] - Bildschirm ansehen und beschreiben.
 [ACTION:NEWS] - Aktuelle Weltnachrichten abrufen. Nutze diese Aktion wenn nach News, Nachrichten, was in der Welt passiert, aktuelle Lage oder Weltgeschehen gefragt wird. Schreibe einen kurzen Satz davor wie "Ich schaue nach den aktuellen Nachrichten."
@@ -916,7 +917,7 @@ async def synthesize_speech(text: str, voice_id: Optional[str] = None) -> bytes:
 
 
 async def execute_action(action: dict) -> str:
-    global TASKS_INFO
+    global TASKS_INFO, _last_result_url
     t = action["type"]
     p = action["payload"]
 
@@ -927,13 +928,17 @@ async def execute_action(action: dict) -> str:
     elif t == "SEARCH":
         result = await browser_tools.search_and_read(p)
         if "error" not in result:
-            return f"Seite: {result.get('title', '')}\nURL: {result.get('url', '')}\n\n{result.get('content', '')[:2000]}"
+            _last_result_url = result.get('url', '')
+            return f"Seite: {result.get('title', '')}\nURL: {_last_result_url}\n\n{result.get('content', '')[:2000]}"
+        _last_result_url = ""
         return f"Suche fehlgeschlagen: {result.get('error', '')}"
 
     elif t == "BROWSE":
         result = await browser_tools.visit(p)
         if "error" not in result:
+            _last_result_url = p
             return f"Seite: {result.get('title', '')}\n\n{result.get('content', '')[:2000]}"
+        _last_result_url = ""
         return f"Seite nicht erreichbar: {result.get('error', '')}"
 
     elif t == "OPEN":
@@ -953,6 +958,7 @@ async def execute_action(action: dict) -> str:
         return await screen_capture.describe_screen(ai)
 
     elif t == "NEWS":
+        _last_result_url = "https://www.worldmonitor.app/"
         result = await browser_tools.fetch_news()
         return result
 
@@ -1483,18 +1489,32 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
         await _speak(ws, session_id, action_result or f"Erledigt, {USER_ADDRESS}.")
         return
 
-    # Complex actions — one-sentence LLM summary (same as legacy path)
+    # Complex actions — LLM summary (NEWS: 3-4 Sätze; alle anderen: 1 Satz)
     if action_result and "Fehler" not in action_result and "fehlgeschlagen" not in action_result:
-        summary_resp = await ai.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=80,
-            system=(
-                f"Antworte in einem einzigen kurzen Satz auf {'Englisch' if LANGUAGE == 'en' else 'Deutsch'}. "
+        lang = 'Englisch' if LANGUAGE == 'en' else 'Deutsch'
+        if legacy["type"] == "NEWS":
+            summary_system = (
+                f"Du bist ein kompakter Nachrichtensprecher. Antworte auf {lang}. "
+                f"Fasse die 3 wichtigsten aktuellen Meldungen in 3-4 kurzen Sätzen zusammen. "
+                f"Beginne direkt mit den Nachrichten, keine Einleitung wie 'Hier sind' oder 'Aktuell'. "
+                f"Nenne kurz das Thema und den Kern — keine Jahreszahlen, keine Links. "
+                f"Du darfst '{USER_ADDRESS}' genau einmal am Ende verwenden. "
+                f"KEINE Tags in eckigen Klammern. KEINE ACTION-Tags."
+            )
+            max_tok = 250
+        else:
+            summary_system = (
+                f"Antworte in einem einzigen kurzen Satz auf {lang}. "
                 f"Keine Einleitung, kein 'Sehr gerne', kein 'Natuerlich', kein 'Gerne', kein 'Hier'. "
                 f"Keine Wiederholung der Anfrage. Nur die reine Information. "
                 f"Du darfst '{USER_ADDRESS}' genau einmal verwenden, bevorzugt am Satzende. "
                 f"KEINE Tags in eckigen Klammern. KEINE ACTION-Tags."
-            ),
+            )
+            max_tok = 80
+        summary_resp = await ai.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=max_tok,
+            system=summary_system,
             messages=[{"role": "user", "content": action_result}],
         )
         summary = summary_resp.content[0].text
@@ -1503,6 +1523,11 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
         summary = f"Das hat leider nicht funktioniert, {USER_ADDRESS}."
 
     await _speak(ws, session_id, summary)
+    if _last_result_url and legacy["type"] in {"SEARCH", "BROWSE", "NEWS"}:
+        conversations[session_id].append({
+            "role": "assistant",
+            "content": f"[Zuletzt geöffnete URL: {_last_result_url} — bei 'Zeig mir mehr' oder 'öffne das im Browser' ACTION:OPEN mit dieser URL verwenden]"
+        })
 
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -1746,6 +1771,11 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         summary = f"Das hat leider nicht funktioniert, {USER_ADDRESS}."
 
     await _speak(ws, session_id, summary)
+    if _last_result_url and action["type"] in {"SEARCH", "BROWSE", "NEWS"}:
+        conversations[session_id].append({
+            "role": "assistant",
+            "content": f"[Zuletzt geöffnete URL: {_last_result_url} — bei 'Zeig mir mehr' oder 'öffne das im Browser' ACTION:OPEN mit dieser URL verwenden]"
+        })
 
 
 @app.websocket("/ws/stt")
