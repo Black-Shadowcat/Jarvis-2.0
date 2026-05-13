@@ -120,7 +120,7 @@ def _audio_cb(indata, frames, time_info, status):
     if _recording:
         with _buffer_lock:
             _audio_buffer.append(indata.copy())
-    else:
+    elif not _jarvis_speaking:
         try:
             _detect_q.put_nowait(indata.copy())
         except queue.Full:
@@ -363,6 +363,7 @@ async def _receiver(ws):
 
         elif msg_type == "speaking_end":
             _jarvis_speaking = False
+            _detect_q_flush()
 
         elif msg_type == "listen_open":
             _jarvis_speaking = False
