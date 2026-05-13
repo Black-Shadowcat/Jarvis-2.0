@@ -65,9 +65,10 @@ _queue: asyncio.Queue             = None
 
 _detect_q: queue.Queue = queue.Queue(maxsize=500)
 
-_in_conversation:  bool = False   # True nach Wake-Word → Auto-Listen aktiv
-_ww_muted:         bool = False   # Wake-Word via HUD-Click deaktiviert
-_jarvis_speaking:  bool = False   # True während Jarvis TTS abspielt → WW stumm
+_in_conversation:    bool  = False   # True nach Wake-Word → Auto-Listen aktiv
+_ww_muted:           bool  = False   # Wake-Word via HUD-Click deaktiviert
+_jarvis_speaking:    bool  = False   # True während Jarvis TTS abspielt → WW stumm
+_speaking_started_at: float = 0.0    # Zeitstempel des letzten speaking_start
 
 
 # ── PTT-State an Browser melden ───────────────────────────────────────────
@@ -233,6 +234,7 @@ def _ww_thread():
     Lauscht auf Sprache, transkribiert kurze Snippets via Whisper.
     Wenn 'Jarvis' erkannt → Befehl extrahieren oder auf Folgebefehl warten.
     """
+    global _jarvis_speaking
     log.info("Wake-Word aktiv — VAD+Whisper, Aktivierungswort: 'Jarvis'")
     chunk_secs = CHUNK_SIZE / SAMPLE_RATE  # 0.1 s
 
@@ -240,8 +242,14 @@ def _ww_thread():
         # 1. Warte auf Sprachbeginn (RMS-VAD)
         chunk = _detect_q.get()
         rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
-        if _recording or _ww_muted or _jarvis_speaking:
+        if _recording or _ww_muted:
             continue
+        if _jarvis_speaking:
+            if time.time() - _speaking_started_at > 25:
+                log.warning("speaking_start timeout (>25s) — _jarvis_speaking auto-reset")
+                _jarvis_speaking = False
+            else:
+                continue
         if rms < WW_VOICE_RMS:
             continue
 
@@ -351,6 +359,7 @@ async def _receiver(ws):
 
         if msg_type == "speaking_start":
             _jarvis_speaking = True
+            _speaking_started_at = time.time()
 
         elif msg_type == "speaking_end":
             _jarvis_speaking = False
@@ -392,6 +401,9 @@ async def _run():
 
     try:
         async for ws in websockets.connect(SERVER_URL, ping_interval=20):
+            global _jarvis_speaking, _in_conversation
+            _jarvis_speaking = False   # Reset bei (Re-)Verbindung
+            _in_conversation = False
             log.info("  Server verbunden ✓")
             try:
                 await asyncio.gather(_sender(ws), _receiver(ws))
