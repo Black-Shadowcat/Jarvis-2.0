@@ -991,11 +991,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     setOrbState('idle');
 
-    // Load data first, THEN initialize WebSocket
-    await Promise.all([loadMails(), loadTasks(), loadPrograms(), loadUnreadNews()]);
-
-    // Now start WebSocket (Jarvis will have complete data)
+    // WebSocket sofort starten — Greeting soll nicht auf UI-Datenladen warten.
+    // Morning Brief läuft server-seitig auf bereits gecachten Daten (startup_and_refresh).
     initWS();
+
+    // UI-Daten parallel im Hintergrund laden
+    Promise.all([loadMails(), loadTasks(), loadPrograms(), loadUnreadNews()]);
 
     const _pollId = setInterval(() => { loadMails(); loadTasks(); }, 20000);
 
