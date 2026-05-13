@@ -399,33 +399,33 @@ body {
     <div style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
 
         <!-- HUD SVG -->
-        <svg id="hud" viewBox="0 0 500 500" title="Klick zum Sprechen">
+        <svg id="hud" viewBox="0 0 500 500" title="Klick zum Stumm/Aktiv" style="cursor:pointer">
             <!-- Outer ring — CCW slow -->
             <g class="hud-ccw-slow">
-                <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="1"   fill="none" stroke-dasharray="5 7"    opacity="0.35"/>
-                <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="1.5" fill="none" stroke-dasharray="120 600" opacity="0.85"/>
+                <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="2"   fill="none" stroke-dasharray="5 7"    opacity="0.35"/>
+                <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="3"   fill="none" stroke-dasharray="120 600" opacity="0.85"/>
             </g>
             <!-- Middle ring — CW medium -->
             <g class="hud-cw-medium">
-                <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="1" fill="none" stroke-dasharray="8 5"   opacity="0.25"/>
-                <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="1" fill="none" stroke-dasharray="60 700" opacity="0.7"/>
+                <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="2" fill="none" stroke-dasharray="8 5"   opacity="0.25"/>
+                <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="2" fill="none" stroke-dasharray="60 700" opacity="0.7"/>
             </g>
             <!-- Axis ticks -->
-            <line x1="250" y1="14"  x2="250" y2="34"  stroke="#2a9ee2" stroke-width="1.5"/>
-            <line x1="250" y1="466" x2="250" y2="486" stroke="#2a9ee2" stroke-width="1.5"/>
-            <line x1="14"  y1="250" x2="34"  y2="250" stroke="#2a9ee2" stroke-width="1.5"/>
-            <line x1="466" y1="250" x2="486" y2="250" stroke="#2a9ee2" stroke-width="1.5"/>
+            <line x1="250" y1="14"  x2="250" y2="34"  stroke="#2a9ee2" stroke-width="2.5"/>
+            <line x1="250" y1="466" x2="250" y2="486" stroke="#2a9ee2" stroke-width="2.5"/>
+            <line x1="14"  y1="250" x2="34"  y2="250" stroke="#2a9ee2" stroke-width="2.5"/>
+            <line x1="466" y1="250" x2="486" y2="250" stroke="#2a9ee2" stroke-width="2.5"/>
             <!-- Pulse ring — CW fast -->
             <g class="hud-cw-fast">
-                <circle cx="250" cy="250" r="162" stroke="#2a9ee2" stroke-width="0.8" fill="none" stroke-dasharray="4 12" opacity="0.5"/>
+                <circle cx="250" cy="250" r="162" stroke="#2a9ee2" stroke-width="2" fill="none" stroke-dasharray="4 12" opacity="0.5"/>
             </g>
             <!-- Main audio ring — functional, DO NOT REMOVE -->
             <circle id="main-ring" cx="250" cy="250" r="150"
-                    stroke-width="10" fill="none" stroke-linecap="round"
+                    stroke-width="14" fill="none" stroke-linecap="round"
                     stroke-dasharray="700 300"
                     transform="rotate(-90 250 250)"/>
-            <!-- Center -->
-            <circle cx="250" cy="250" r="88" fill="#021017" stroke="#2a9ee2" stroke-width="1.5"/>
+            <!-- Center (transparent — clicks pass through to SVG) -->
+            <circle cx="250" cy="250" r="88" fill="#021017" stroke="#2a9ee2" stroke-width="2"/>
             <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
                   fill="#ffffff" font-size="22" letter-spacing="2">J.A.R.V.I.S.</text>
         </svg>
@@ -568,13 +568,13 @@ function setOrbState(state) {
     if (!ring) return;
 
     const colors = {
-        idle:      { stroke:'#00aaff', opacity:'0.55' },
-        listening: { stroke:'#00aaff', opacity:'1'    },
-        speaking:  { stroke:'#00ff00', opacity:'0.8'  },
-        thinking:  { stroke:'#ff9500', opacity:'0.7'  },
-        muted:     { stroke:'#cc3333', opacity:'0.85' },
-        recording: { stroke:'#ff2222', opacity:'1'    },
-        error:     { stroke:'#cc0044', opacity:'1'    },
+        idle:      { stroke:'#00aaff', opacity:'0.5'  },
+        listening: { stroke:'#00ddff', opacity:'1'   },
+        speaking:  { stroke:'#00ff00', opacity:'0.8' },
+        thinking:  { stroke:'#ff9500', opacity:'0.7' },
+        muted:     { stroke:'#cc3333', opacity:'0.9' },
+        recording: { stroke:'#00ddff', opacity:'1'   },
+        error:     { stroke:'#cc0044', opacity:'1'   },
     };
     const labels = {
         idle:      _i18n.status_idle      || '● Bereit…',
@@ -1052,10 +1052,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // HUD-Click: Mikrofon stumm / aktiv
-    const mainRing = document.getElementById('main-ring');
-    if (mainRing) {
-        mainRing.style.cursor = 'pointer';
-        mainRing.addEventListener('click', async () => {
+    const hudSvg = document.getElementById('hud');
+    if (hudSvg) {
+        hudSvg.addEventListener('click', async () => {
             await fetch('/api/ww_mute', { method: 'POST' });
         });
     }

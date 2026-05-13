@@ -1160,14 +1160,20 @@ end tell'''
 _TEMPLATE_ACTIONS = {"LICHT", "REMINDER_ADD", "REMINDER_DONE", "KALENDER_DONE", "NOTIZ", "NOTIZ_ERLEDIGT", "OPEN_APP", "NEWS_BRIEF"}
 
 
-async def _send_listen_open(delay: float):
-    """Nach TTS: sendet listen_open an speech_input.py nach geschätzter Abspieldauer."""
-    await asyncio.sleep(delay)
+async def _send_stt(msg: dict):
+    """Sendet Nachricht an alle verbundenen STT-Clients (speech_input.py)."""
     for stt in list(stt_connections):
         try:
-            await stt.send_json({"type": "listen_open", "timeout": 6})
+            await stt.send_json(msg)
         except Exception:
             pass
+
+
+async def _send_listen_open(delay: float):
+    """Nach TTS: sendet speaking_end + listen_open nach geschätzter Abspieldauer."""
+    await asyncio.sleep(delay)
+    await _send_stt({"type": "speaking_end"})
+    await _send_stt({"type": "listen_open", "timeout": 6})
 
 
 async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
@@ -1189,6 +1195,8 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
         "text": display or text,
         "audio": base64.b64encode(audio).decode("utf-8") if audio else "",
     }
+    # Vor Broadcast: STT informieren dass Jarvis jetzt spricht → WW stumm
+    await _send_stt({"type": "speaking_start"})
     for conn in list(active_connections):
         try:
             await conn.send_json(payload)

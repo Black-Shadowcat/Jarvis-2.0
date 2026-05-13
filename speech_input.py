@@ -65,8 +65,9 @@ _queue: asyncio.Queue             = None
 
 _detect_q: queue.Queue = queue.Queue(maxsize=500)
 
-_in_conversation: bool = False   # True nach Wake-Word → Auto-Listen aktiv
-_ww_muted:        bool = False   # Wake-Word via HUD-Click deaktiviert
+_in_conversation:  bool = False   # True nach Wake-Word → Auto-Listen aktiv
+_ww_muted:         bool = False   # Wake-Word via HUD-Click deaktiviert
+_jarvis_speaking:  bool = False   # True während Jarvis TTS abspielt → WW stumm
 
 
 # ── PTT-State an Browser melden ───────────────────────────────────────────
@@ -166,7 +167,7 @@ def _auto_listen(timeout: float):
     """
     global _in_conversation
 
-    if _recording or _ww_muted:
+    if _recording or _ww_muted or _jarvis_speaking:
         return
 
     log.info(f"Auto-Listen: Mikrofon offen für {timeout}s")
@@ -239,7 +240,7 @@ def _ww_thread():
         # 1. Warte auf Sprachbeginn (RMS-VAD)
         chunk = _detect_q.get()
         rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
-        if _recording or _ww_muted:
+        if _recording or _ww_muted or _jarvis_speaking:
             continue
         if rms < WW_VOICE_RMS:
             continue
@@ -249,7 +250,7 @@ def _ww_thread():
         silence_secs = 0.0
         total_secs   = chunk_secs
 
-        while total_secs < WW_MAX_SECS and not _recording and not _ww_muted:
+        while total_secs < WW_MAX_SECS and not _recording and not _ww_muted and not _jarvis_speaking:
             try:
                 c = _detect_q.get(timeout=0.3)
             except queue.Empty:
@@ -339,8 +340,8 @@ async def _sender(ws):
 
 
 async def _receiver(ws):
-    """Empfängt Nachrichten vom Server: listen_open, ww_mute."""
-    global _in_conversation, _ww_muted
+    """Empfängt Nachrichten vom Server: speaking_start/end, listen_open, ww_mute."""
+    global _in_conversation, _ww_muted, _jarvis_speaking
     async for raw in ws:
         try:
             data = json.loads(raw)
@@ -348,7 +349,14 @@ async def _receiver(ws):
             continue
         msg_type = data.get("type")
 
-        if msg_type == "listen_open":
+        if msg_type == "speaking_start":
+            _jarvis_speaking = True
+
+        elif msg_type == "speaking_end":
+            _jarvis_speaking = False
+
+        elif msg_type == "listen_open":
+            _jarvis_speaking = False
             if _in_conversation and not _ww_muted:
                 timeout = data.get("timeout", 6)
                 threading.Thread(target=_auto_listen, args=(timeout,), daemon=True).start()
