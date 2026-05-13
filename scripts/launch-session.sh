@@ -52,12 +52,11 @@ fi
 pkill -f "jarvis-whisper-chrome-profile" 2>/dev/null
 sleep 1
 
-echo "[session] Chrome öffnen..."
+echo "[session] Chrome öffnen (Kiosk-Mode)..."
 open -na "Google Chrome" --args \
-    --app=http://localhost:8341 \
+    --kiosk http://localhost:8341 \
     --autoplay-policy=no-user-gesture-required \
     --user-data-dir="$JARVIS_PROFILE" \
-    --start-fullscreen \
     --no-first-run \
     --disable-restore-session-state \
     --no-default-browser-check \
@@ -69,10 +68,9 @@ if ! pgrep -f "jarvis-whisper-chrome-profile" > /dev/null 2>&1; then
     echo "[session] Chrome nicht gestartet — retry..."
     sleep 3
     open -na "Google Chrome" --args \
-        --app=http://localhost:8341 \
+        --kiosk http://localhost:8341 \
         --autoplay-policy=no-user-gesture-required \
         --user-data-dir="$JARVIS_PROFILE" \
-        --start-fullscreen \
         --no-first-run \
         --disable-restore-session-state \
         --no-default-browser-check \
