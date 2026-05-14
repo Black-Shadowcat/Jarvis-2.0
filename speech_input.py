@@ -44,8 +44,8 @@ WHISPER_MODEL  = "mlx-community/whisper-large-v3-mlx"
 MIN_DURATION   = 0.6    # Sekunden — kürzere Aufnahmen werden verworfen
 
 # Wake-Word VAD-Schwellwerte
-WW_VOICE_RMS    = 0.015  # Sprache erkannt (oberhalb) — erhöht, um Tastaturgeräusche auszufiltern
-WW_SILENCE_RMS  = 0.010  # Stille (unterhalb)
+WW_VOICE_RMS    = 0.012  # Sprache erkannt (oberhalb) — optimiert für menschliche Sprache
+WW_SILENCE_RMS  = 0.008  # Stille (unterhalb)
 WW_MAX_SECS     = 5.0    # Maximale Länge des Erkennung-Snippets
 WW_SILENCE_SECS = 0.8    # Stille nach letztem Wort → Snippet fertig
 WW_CMD_SILENCE  = 1.5    # Stille nach Befehl → Aufnahme beenden
@@ -122,12 +122,14 @@ def _stop_recording_and_transcribe(source: str = "ptt"):
     if chunks:
         audio = np.concatenate(chunks).flatten()
         duration = len(audio) / SAMPLE_RATE
+        log.info(f"◇ Aufnahme beendet: {duration:.2f}s [{source}]")
         if duration < MIN_DURATION:
-            log.debug(f"(zu kurz: {duration:.2f}s — verworfen) [{source}]")
+            log.info(f"  ✗ zu kurz — verworfen (min: {MIN_DURATION}s) [{source}]")
         else:
+            log.info(f"  ✓ Transkription gestartet [{source}]")
             threading.Thread(target=_transcribe, args=(audio,), daemon=True).start()
     else:
-        log.debug(f"(keine Aufnahme) [{source}]")
+        log.info(f"✗ keine Aufnahme [{source}]")
 
 
 # ── Audio-Callback ────────────────────────────────────────────────────────
@@ -185,9 +187,10 @@ def _auto_listen(timeout: float):
     global _in_conversation
 
     if _recording or _ww_muted or _jarvis_speaking:
+        log.debug(f"auto_listen skip: recording={_recording}, muted={_ww_muted}, speaking={_jarvis_speaking}")
         return
 
-    log.info(f"Auto-Listen: Mikrofon offen für {timeout}s")
+    log.info(f"▶ Auto-Listen: Mikrofon offen für {timeout}s")
     _detect_q_flush()
     threading.Thread(target=_notify_ptt, args=("listen_open",), daemon=True).start()
 
@@ -204,6 +207,7 @@ def _auto_listen(timeout: float):
             continue
 
         # Phase 2: Stimme erkannt → Aufnahme starten
+        log.info(f"  ▶ Stimme erkannt (RMS={rms:.4f}) → Phase 2 starten")
         _start_recording("auto-listen")
 
         silence_c = 0.0
@@ -228,7 +232,7 @@ def _auto_listen(timeout: float):
         return
 
     # Timeout ohne Sprache → Gesprächsmodus beenden
-    log.debug("Auto-Listen: kein Spracheinsatz — Gesprächsmodus beendet")
+    log.info("  ⏱ Auto-Listen: Timeout ohne Spracheinsatz — Gesprächsmodus beendet")
     _in_conversation = False
     threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
 
@@ -253,6 +257,8 @@ def _ww_thread():
     global _jarvis_speaking
     log.info("Wake-Word aktiv — VAD+Whisper, Aktivierungswort: 'Jarvis'")
     chunk_secs = CHUNK_SIZE / SAMPLE_RATE  # 0.1 s
+    chunk_count = 0
+    last_rms_log = 0
 
     while True:
         # 1. Warte auf Sprachbeginn (RMS-VAD)
@@ -260,12 +266,17 @@ def _ww_thread():
         # ohne Timeout würde .get() ewig blockieren und der Auto-Reset nie greifen.
         try:
             chunk = _detect_q.get(timeout=1.0)
+            chunk_count += 1
         except queue.Empty:
+            if chunk_count > 0 and time.time() - last_rms_log > 10:
+                log.debug(f"[chunk count: {chunk_count}] Audio wird empfangen aber unterhalb RMS-Schwelle")
+                chunk_count = 0
             if _jarvis_speaking and time.time() - _speaking_started_at > 25:
                 log.warning("speaking_start timeout (>25s) — _jarvis_speaking auto-reset")
                 _jarvis_speaking = False
             continue
         rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
+        last_rms_log = time.time()
         if _recording or _ww_muted:
             continue
         if _jarvis_speaking:
@@ -275,6 +286,8 @@ def _ww_thread():
             else:
                 continue
         if rms < WW_VOICE_RMS:
+            if time.time() - last_rms_log < 0.5:
+                log.debug(f"  RMS={rms:.5f} < {WW_VOICE_RMS:.5f}")
             continue
 
         # 2. Sprache erkannt → sofort visuelles Feedback + Snippet sammeln
