@@ -398,36 +398,72 @@ def get_wetter_action_sync() -> str:
 
 
 def get_weather_forecast_sync(days: int = 5) -> dict:
-    """Fetch weather forecast from Home Assistant Kachelmann integration.
-    Returns daily forecast for next N days with temp, condition, precipitation."""
+    """Fetch weather forecast from HA kmw_6h_rohdaten sensor (40 entries = ~10 days).
+    Aggregates 6h data into daily forecast: morgen, uebermorgen, in_3_tagen, etc."""
     if not HA_URL or not HA_TOKEN:
+        log.debug(f"[jarvis] Vorhersage: HA nicht konfiguriert (HA_URL={bool(HA_URL)}, HA_TOKEN={bool(HA_TOKEN)})")
         return {}
     try:
         import urllib.request
         req = urllib.request.Request(
-            f"{HA_URL}/api/states/weather.kachelmann_wetter",
+            f"{HA_URL}/api/states/sensor.kmw_6h_rohdaten",
             headers={"Authorization": f"Bearer {HA_TOKEN}"}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-        forecast_daily = data.get("attributes", {}).get("forecast_daily", [])
+
+        raw_data = data.get("attributes", {}).get("data", [])
+        if not raw_data:
+            return {}
+
+        # Aggregate 6h entries into daily data
+        daily_agg = {}
+        for entry in raw_data:
+            dt_str = entry.get("dateTime", "")
+            if not dt_str:
+                continue
+            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+            date_key = dt.strftime("%Y-%m-%d")
+
+            if date_key not in daily_agg:
+                daily_agg[date_key] = {
+                    "temps": [],
+                    "precip": 0,
+                    "symbol": entry.get("weatherSymbol", ""),
+                    "date_obj": dt,
+                }
+            daily_agg[date_key]["temps"].append(entry.get("tempMax6h", entry.get("temp", 0)))
+            daily_agg[date_key]["precip"] += entry.get("prec6h", 0)
+
+        # Convert to numbered days (morgen, uebermorgen, etc.)
         result = {}
-        for i, day in enumerate(forecast_daily[:days]):
-            dt = datetime.fromisoformat(day.get("datetime", "").replace("Z", "+00:00"))
-            # Map forecast days to keys: morgen, uebermorgen, in_3_tagen, etc.
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        for i in range(days):
+            target_date = today + timedelta(days=i+1)
+            date_key = target_date.strftime("%Y-%m-%d")
+
+            if date_key not in daily_agg:
+                continue
+            agg = daily_agg[date_key]
+            if not agg["temps"]:
+                continue
+
+            # Map to day name: morgen, uebermorgen, in_3_tagen, etc.
             if i == 0:
-                key = "morgen"
+                day_name = "morgen"
             elif i == 1:
-                key = "uebermorgen"
+                day_name = "uebermorgen"
             else:
-                key = f"in_{i+1}_tagen"
-            result[key] = {
-                "date": dt.strftime("%d.%m."),
-                "condition": day.get("condition", ""),
-                "temp": round(day.get("temperature", 0), 1),
-                "temp_low": round(day.get("templow", 0), 1),
-                "precipitation": round(day.get("precipitation", 0), 1),
+                day_name = f"in_{i+1}_tagen"
+
+            result[day_name] = {
+                "date": target_date.strftime("%d.%m."),
+                "temp": round(max(agg["temps"]), 1),  # High temp
+                "temp_low": round(min(agg["temps"]), 1),  # Low temp
+                "condition": agg["symbol"],
+                "precipitation": round(agg["precip"], 1),
             }
+
         return result
     except Exception as e:
         log.debug(f"[jarvis] Wetter-Vorhersage Fehler: {e}")
@@ -2754,7 +2790,7 @@ async def serve_dashboard():
 async def startup_and_refresh():
     """Load all startup data async without blocking the server, retry weather if network not ready,
     then refresh every 30 minutes."""
-    global WEATHER_INFO, TASKS_INFO, MAIL_INFO, CALENDAR_INFO, OBSIDIAN_INFO, NEWS_INFO
+    global WEATHER_INFO, WEATHER_FORECAST_INFO, TASKS_INFO, MAIL_INFO, CALENDAR_INFO, OBSIDIAN_INFO, NEWS_INFO
     loop = asyncio.get_event_loop()
 
     log.info("[jarvis] Startup: Lade Daten...")
@@ -2795,16 +2831,22 @@ async def startup_and_refresh():
     else:
         log.info(f"[jarvis] Wetter: {WEATHER_INFO}")
 
+    # Load forecast
+    WEATHER_FORECAST_INFO = await loop.run_in_executor(None, lambda: get_weather_forecast_sync(days=5))
+    if WEATHER_FORECAST_INFO:
+        log.info(f"[jarvis] Vorhersage: {len(WEATHER_FORECAST_INFO)} Tage geladen")
+
     # Normal 30-minute refresh loop
     while True:
         await asyncio.sleep(30 * 60)
         log.info("[jarvis] Periodic refresh...")
         WEATHER_INFO = await loop.run_in_executor(None, get_weather_sync)
+        WEATHER_FORECAST_INFO = await loop.run_in_executor(None, lambda: get_weather_forecast_sync(days=5))
         TASKS_INFO = await loop.run_in_executor(None, get_tasks_sync)
         MAIL_INFO = await loop.run_in_executor(None, get_mail_sync)
         CALENDAR_INFO = await loop.run_in_executor(None, lambda: get_calendar_sync(days=7))
         OBSIDIAN_INFO = await loop.run_in_executor(None, get_obsidian_info_sync)
-        log.info(f"[jarvis] Refresh done: Tasks={len(TASKS_INFO)}, Mails={len(MAIL_INFO)}, Kalender={len(CALENDAR_INFO)}, Obsidian={len(OBSIDIAN_INFO)}")
+        log.info(f"[jarvis] Refresh done: Tasks={len(TASKS_INFO)}, Mails={len(MAIL_INFO)}, Kalender={len(CALENDAR_INFO)}, Obsidian={len(OBSIDIAN_INFO)}, Vorhersage={len(WEATHER_FORECAST_INFO)}")
 
 
 from contextlib import asynccontextmanager
