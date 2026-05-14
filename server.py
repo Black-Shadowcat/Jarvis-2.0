@@ -398,11 +398,34 @@ def get_wetter_action_sync() -> str:
 
 
 def get_weather_forecast_sync(days: int = 5) -> dict:
-    """Fetch weather forecast from HA kmw_6h_rohdaten sensor (40 entries = ~10 days).
+    """Fetch weather forecast from HA (cached in data/weather_forecast.json, TTL 60 min).
     Aggregates 6h data into daily forecast: morgen, uebermorgen, in_3_tagen, etc."""
+    cache_file = "data/weather_forecast.json"
+    ttl_minutes = 60
+
+    # Try to load cache
+    try:
+        with open(cache_file) as f:
+            cache = json.load(f)
+        expires_at = datetime.fromisoformat(cache.get("expires_at", ""))
+        if datetime.now() < expires_at:
+            log.debug(f"[jarvis] Vorhersage: Cache gültig (expires {expires_at.strftime('%H:%M')})")
+            return cache.get("data", {})
+    except (FileNotFoundError, json.JSONDecodeError, ValueError):
+        pass  # Cache ungültig oder nicht vorhanden
+
+    # Fetch from HA
     if not HA_URL or not HA_TOKEN:
-        log.debug(f"[jarvis] Vorhersage: HA nicht konfiguriert (HA_URL={bool(HA_URL)}, HA_TOKEN={bool(HA_TOKEN)})")
-        return {}
+        log.info(f"[jarvis] Vorhersage: HA nicht konfiguriert (URL={bool(HA_URL)}, Token={bool(HA_TOKEN)}), nutze Cache")
+        try:
+            with open(cache_file) as f:
+                cached = json.load(f).get("data", {})
+                log.info(f"[jarvis] Vorhersage: {len(cached)} Tage aus alter Cache")
+                return cached
+        except Exception as e:
+            log.info(f"[jarvis] Cache nicht verfügbar: {e}")
+            return {}
+
     try:
         import urllib.request
         req = urllib.request.Request(
@@ -430,7 +453,6 @@ def get_weather_forecast_sync(days: int = 5) -> dict:
                     "temps": [],
                     "precip": 0,
                     "symbol": entry.get("weatherSymbol", ""),
-                    "date_obj": dt,
                 }
             daily_agg[date_key]["temps"].append(entry.get("tempMax6h", entry.get("temp", 0)))
             daily_agg[date_key]["precip"] += entry.get("prec6h", 0)
@@ -448,7 +470,6 @@ def get_weather_forecast_sync(days: int = 5) -> dict:
             if not agg["temps"]:
                 continue
 
-            # Map to day name: morgen, uebermorgen, in_3_tagen, etc.
             if i == 0:
                 day_name = "morgen"
             elif i == 1:
@@ -458,16 +479,36 @@ def get_weather_forecast_sync(days: int = 5) -> dict:
 
             result[day_name] = {
                 "date": target_date.strftime("%d.%m."),
-                "temp": round(max(agg["temps"]), 1),  # High temp
-                "temp_low": round(min(agg["temps"]), 1),  # Low temp
+                "temp": round(max(agg["temps"]), 1),
+                "temp_low": round(min(agg["temps"]), 1),
                 "condition": agg["symbol"],
                 "precipitation": round(agg["precip"], 1),
             }
 
+        # Save to cache
+        now = datetime.now()
+        cache_data = {
+            "cached_at": now.isoformat(),
+            "expires_at": (now + timedelta(minutes=ttl_minutes)).isoformat(),
+            "ttl_minutes": ttl_minutes,
+            "data": result,
+        }
+        try:
+            with open(cache_file, "w") as f:
+                json.dump(cache_data, f, indent=2)
+            log.debug(f"[jarvis] Vorhersage: Cache aktualisiert ({len(result)} Tage)")
+        except Exception as e:
+            log.debug(f"[jarvis] Cache-Fehler: {e}")
+
         return result
     except Exception as e:
         log.debug(f"[jarvis] Wetter-Vorhersage Fehler: {e}")
-        return {}
+        # Fallback to old cache if available
+        try:
+            with open(cache_file) as f:
+                return json.load(f).get("data", {})
+        except:
+            return {}
 
 
 def get_tasks_sync():
