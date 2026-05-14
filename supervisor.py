@@ -12,6 +12,7 @@ import os
 import sys
 import time
 import json
+import signal
 import logging
 import subprocess
 import atexit
@@ -49,6 +50,7 @@ _last_restart: dict[str, float] = {}
 _failure_counts: dict[str, int] = {}
 _check_iterations = 0
 _uid = os.getuid()
+_force_check_flag = False
 
 # ============================================================================
 # Logging
@@ -408,6 +410,14 @@ def run_checks(config: dict) -> None:
 
 def main_loop() -> None:
     """Main supervisor loop."""
+    global _force_check_flag
+
+    def _handle_sigusr1(signum, frame):
+        global _force_check_flag
+        _force_check_flag = True
+
+    signal.signal(signal.SIGUSR1, _handle_sigusr1)
+
     config = _load_config()
     log.info("supervisor started, check_interval=%ds", CHECK_INTERVAL)
     log.handlers[0].flush() if log.handlers else None
@@ -417,8 +427,13 @@ def main_loop() -> None:
         run_checks(config)
 
         while True:
-            time.sleep(CHECK_INTERVAL)
-            run_checks(config)
+            if _force_check_flag:
+                _force_check_flag = False
+                log.info("🔔 Force-check triggered by SIGUSR1")
+                run_checks(config)
+            else:
+                time.sleep(CHECK_INTERVAL)
+                run_checks(config)
     except KeyboardInterrupt:
         log.info("supervisor stopped (KeyboardInterrupt)")
     except Exception as e:

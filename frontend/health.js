@@ -40,17 +40,26 @@ const mockData = {
 
 // ── Initialize ──
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[health] DOM Content Loaded');
     init();
     setInterval(updateData, 10000); // Update every 10 seconds
+    setInterval(updateDaytime, 1000); // Update daytime every second
+    updateDaytime();
 });
 
 async function init() {
-    updateSystemWatch();
-    updateHealthScore();
-    updateMetrics();
-    updateLogs();
-    drawArchitecture();
-    updateFooter();
+    console.log('[health] Initializing...');
+    try {
+        updateSystemWatch();
+        updateHealthScore();
+        updateMetrics();
+        updateLogs();
+        drawArchitecture();
+        updateFooter();
+        console.log('[health] Init complete');
+    } catch (e) {
+        console.error('[health] Init error:', e);
+    }
 }
 
 // ── Fetch real data from API (will be implemented) ──
@@ -123,9 +132,13 @@ function updateHealthScore() {
     document.getElementById('status-banner').className = 'status-banner ' + bannerClass;
     document.getElementById('supervisor-status').textContent = 'ACTIVE';
 
-    // Update info
-    document.getElementById('main-uptime').textContent = mockData.uptime;
-    document.getElementById('info-version').textContent = 'v1.0.0';
+    // Update info (daytime is updated separately in updateDaytime())
+    // Version wird dynamisch geladen
+    fetch('/api/version').then(r => r.json()).then(v => {
+        document.getElementById('info-version').textContent = `v${v.version}`;
+    }).catch(() => {
+        document.getElementById('info-version').textContent = 'v?.?.?';
+    });
     document.getElementById('info-last-check').textContent = formatTime(mockData.lastCheck);
     document.getElementById('info-next-check').textContent = formatTime(mockData.nextCheck);
 }
@@ -183,25 +196,38 @@ function updateLogs() {
 // ── Draw Architecture Diagram ──
 function drawArchitecture() {
     const svg = document.getElementById('architecture-svg');
-    const connectionsGroup = svg.getElementById('connections');
-    const nodesGroup = svg.getElementById('nodes');
+    if (!svg) {
+        console.error('[health] architecture-svg not found');
+        return;
+    }
 
-    // Clear
-    connectionsGroup.innerHTML = '';
-    nodesGroup.innerHTML = '';
+    // Clear existing content (except grid and defs)
+    const oldConnections = svg.querySelector('#connections');
+    const oldNodes = svg.querySelector('#nodes');
+    if (oldConnections) oldConnections.remove();
+    if (oldNodes) oldNodes.remove();
+
+    // Create groups
+    const connectionsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    connectionsGroup.setAttribute('id', 'connections');
+    svg.appendChild(connectionsGroup);
+
+    const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    nodesGroup.setAttribute('id', 'nodes');
+    svg.appendChild(nodesGroup);
 
     const services = [
         { name: 'SERVER', x: 300, y: 80, color: '#00ff88' },
-        { name: 'SPEECH INPUT', x: 100, y: 200, color: '#00ff88' },
+        { name: 'SPEECH\nINPUT', x: 100, y: 200, color: '#00ff88' },
         { name: 'WEBSOCKET', x: 500, y: 200, color: '#00ff88' },
-        { name: 'WAKE MONITOR', x: 100, y: 320, color: '#00ff88' },
+        { name: 'WAKE\nMONITOR', x: 100, y: 320, color: '#00ff88' },
         { name: 'CHROME\nFRONTEND', x: 500, y: 320, color: '#00ff88' },
-        { name: 'HOME ASSISTANT\nCONNECT', x: 500, y: 140, color: '#00ff88' },
+        { name: 'HOME\nASSISTANT', x: 500, y: 140, color: '#00ff88' },
     ];
 
     const supervisor = { name: 'SUPERVISOR', x: 300, y: 200, color: '#00ff88' };
 
-    // Draw connections
+    // Draw connections (lines from supervisor to services)
     services.forEach(service => {
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line.setAttribute('x1', supervisor.x);
@@ -221,6 +247,8 @@ function drawArchitecture() {
     services.forEach(service => {
         drawNode(nodesGroup, service);
     });
+
+    console.log('[health] Architecture drawn');
 }
 
 function drawNode(group, node) {
@@ -288,6 +316,11 @@ function formatTime(date) {
     return `${h}:${m}:${s}`;
 }
 
+function updateDaytime() {
+    const now = new Date();
+    document.getElementById('main-uptime').textContent = formatTime(now);
+}
+
 // ── System Commands ──
 function forceHealthCheck() {
     alert('Force Health Check — Supervisor will re-check all services immediately');
@@ -315,24 +348,32 @@ function viewLogFile() {
     window.open('/api/supervisor/log?view=full', '_blank');
 }
 
-// ── SVG Glow Filter (inline in HTML, but ensure it exists) ──
-const svg = document.getElementById('architecture-svg');
-if (!svg.getElementById('glow')) {
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-    filter.setAttribute('id', 'glow');
-    const feGaussian = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-    feGaussian.setAttribute('stdDeviation', '2');
-    feGaussian.setAttribute('result', 'coloredBlur');
-    const feMerge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
-    const feMergeNode1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
-    feMergeNode1.setAttribute('in', 'coloredBlur');
-    const feMergeNode2 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
-    feMergeNode2.setAttribute('in', 'SourceGraphic');
-    feMerge.appendChild(feMergeNode1);
-    feMerge.appendChild(feMergeNode2);
-    filter.appendChild(feGaussian);
-    filter.appendChild(feMerge);
-    defs.appendChild(filter);
-    svg.insertBefore(defs, svg.firstChild);
-}
+// ── Add Glow Filter to SVG if not present ──
+window.addEventListener('load', () => {
+    const svg = document.getElementById('architecture-svg');
+    if (!svg) return;
+
+    if (!svg.querySelector('defs')) {
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        svg.insertBefore(defs, svg.firstChild);
+    }
+
+    const defs = svg.querySelector('defs');
+    if (!defs.querySelector('#glow')) {
+        const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+        filter.setAttribute('id', 'glow');
+        const feGaussian = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+        feGaussian.setAttribute('stdDeviation', '2');
+        feGaussian.setAttribute('result', 'coloredBlur');
+        const feMerge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
+        const feMergeNode1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+        feMergeNode1.setAttribute('in', 'coloredBlur');
+        const feMergeNode2 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+        feMergeNode2.setAttribute('in', 'SourceGraphic');
+        feMerge.appendChild(feMergeNode1);
+        feMerge.appendChild(feMergeNode2);
+        filter.appendChild(feGaussian);
+        filter.appendChild(feMerge);
+        defs.appendChild(filter);
+    }
+});

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>J.A.R.V.I.S. Health Monitor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -232,6 +233,21 @@
             animation: dashflow 0.8s linear infinite;
         }
 
+        .supervisor-pulse {
+            animation: supervise-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes supervise-pulse {
+            0%, 100% {
+                filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.4));
+                stroke-width: 1.5;
+            }
+            50% {
+                filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.8));
+                stroke-width: 2.5;
+            }
+        }
+
         /* ── Metrics ── */
         .metrics-label {
             font-size: 12px;
@@ -279,11 +295,11 @@
 
         /* ── Log Styles ── */
         .log-entry {
-            padding: 6px 0;
+            padding: 8px 0;
             border-bottom: 1px solid rgba(0, 255, 136, 0.05);
             font-size: 13px;
             font-family: 'Courier New', monospace;
-            line-height: 1.5;
+            line-height: 1.8;
         }
 
         .log-entry:last-child {
@@ -352,7 +368,7 @@
         .command-button {
             width: 100%;
             padding: 8px;
-            margin-bottom: 6px;
+            margin-bottom: 10px;
             background: transparent;
             border: 1px solid rgba(0, 255, 136, 0.2);
             color: #2a9ee2;
@@ -496,7 +512,7 @@
                 <div class="header-value" id="main-status">OPERATIONAL</div>
             </div>
             <div class="header-item">
-                <div class="header-label">UPTIME</div>
+                <div class="header-label">DAYTIME</div>
                 <div class="header-value" id="main-uptime">—</div>
             </div>
             <div class="header-item">
@@ -551,7 +567,7 @@
                 <div class="supervisor-info">
                     <div class="info-row">
                         <span>SUPERVISOR.PY</span>
-                        <span class="info-value" id="info-version">v1.0.0</span>
+                        <span class="info-value" id="info-version">—</span>
                     </div>
                     <div class="info-row">
                         <span>CHECK INTERVAL</span>
@@ -636,10 +652,12 @@
 
                     <div class="commands-section">
                         <div class="recovery-label">SYSTEM COMMANDS</div>
-                        <button class="command-button" onclick="forceHealthCheck()">⚡ FORCE HEALTH CHECK</button>
-                        <button class="command-button" onclick="restartServer()">🔄 RESTART SERVER</button>
-                        <button class="command-button" onclick="restartAllServices()">🔄 RESTART ALL</button>
-                        <button class="command-button" onclick="viewLogFile()">📄 VIEW LOG FILE</button>
+                        <button class="command-button" onclick="window.location.href='/'"><i class="fas fa-home"></i> J.A.R.V.I.S. UI</button>
+                        <button class="command-button" onclick="window.location.href='/config'"><i class="fas fa-sliders"></i> CONFIG UI</button>
+                        <button class="command-button" onclick="forceHealthCheck()"><i class="fas fa-bolt"></i> FORCE HEALTH CHECK</button>
+                        <button class="command-button" onclick="restartServer()"><i class="fas fa-rotate"></i> RESTART SERVER</button>
+                        <button class="command-button" onclick="restartAllServices()"><i class="fas fa-repeat"></i> RESTART ALL</button>
+                        <button class="command-button" onclick="viewLogFile()"><i class="fas fa-file-lines"></i> VIEW LOG FILE</button>
                     </div>
                 </div>
             </div>
@@ -727,6 +745,9 @@
                 init();
                 setInterval(updateMetricsFromAPI, 10000);
             }
+            // Update daytime every second
+            setInterval(updateDaytime, 1000);
+            updateDaytime();
         });
 
         async function init() {
@@ -782,7 +803,9 @@
                         backgroundColor: 'rgba(0,255,136,0.1)',
                         borderWidth: 2,
                         fill: true,
-                        tension: 0.3
+                        tension: 0.3,
+                        pointRadius: 1.5,
+                        pointHoverRadius: 2.5
                     }]
                 }
             });
@@ -799,7 +822,9 @@
                         backgroundColor: 'rgba(42,158,226,0.1)',
                         borderWidth: 2,
                         fill: true,
-                        tension: 0.3
+                        tension: 0.3,
+                        pointRadius: 1.5,
+                        pointHoverRadius: 2.5
                     }]
                 }
             });
@@ -816,7 +841,9 @@
                         backgroundColor: 'rgba(0,255,136,0.1)',
                         borderWidth: 2,
                         fill: true,
-                        tension: 0.3
+                        tension: 0.3,
+                        pointRadius: 1.5,
+                        pointHoverRadius: 2.5
                     }]
                 }
             });
@@ -844,7 +871,12 @@
                         x: {
                             grid: { display: false },
                             ticks: {
-                                display: false
+                                display: true,
+                                color: '#666',
+                                font: { size: 9 },
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: 6
                             }
                         }
                     }
@@ -956,8 +988,12 @@
 
             document.getElementById('main-status').textContent = status;
             document.getElementById('status-banner').textContent = status === 'OPERATIONAL' ? 'ALL SYSTEMS NOMINAL' : status;
-            document.getElementById('main-uptime').textContent = mockData.uptime;
-            document.getElementById('info-version').textContent = 'v1.0.0';
+            // Version wird dynamisch geladen
+            fetch('/api/version').then(r => r.json()).then(v => {
+                document.getElementById('info-version').textContent = `v${v.version}`;
+            }).catch(() => {
+                document.getElementById('info-version').textContent = 'v?.?.?';
+            });
             document.getElementById('info-last-check').textContent = formatTime(mockData.lastCheck);
             document.getElementById('info-next-check').textContent = formatTime(mockData.nextCheck);
         }
@@ -1095,16 +1131,19 @@
 
         function drawNode(group, node) {
             // Box (taller if PID needs to be shown)
-            const height = node.pid ? 50 : 40;
+            const height = node.pid ? 55 : 45;
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('x', node.x - 50);
+            rect.setAttribute('x', node.x - 52.5);
             rect.setAttribute('y', node.y - height / 2);
-            rect.setAttribute('width', '100');
+            rect.setAttribute('width', '105');
             rect.setAttribute('height', String(height));
             rect.setAttribute('fill', 'rgba(10,14,39,0.8)');
             rect.setAttribute('stroke', node.color);
             rect.setAttribute('stroke-width', '1.5');
             rect.setAttribute('rx', '4');
+            if (node.name === 'SUPERVISOR') {
+                rect.setAttribute('class', 'supervisor-pulse');
+            }
             group.appendChild(rect);
 
             // Status dot
@@ -1157,6 +1196,11 @@
             return `${h}:${m}:${s}`;
         }
 
+        function updateDaytime() {
+            const now = new Date();
+            document.getElementById('main-uptime').textContent = formatTime(now);
+        }
+
         function showModal(title, message, onConfirm = null, isWarning = false) {
             document.getElementById('modal-title').textContent = title;
             const msgEl = document.getElementById('modal-message');
@@ -1182,34 +1226,52 @@
             hideModal();
         }
 
-        function forceHealthCheck() {
-            showModal('FORCE HEALTH CHECK', 'Supervisor will re-check all services immediately.', () => {
-                // TODO: POST /api/supervisor/force-check
+        async function forceHealthCheck() {
+            showModal('FORCE HEALTH CHECK', 'Triggering supervisor health check…', async () => {
+                try {
+                    const res = await fetch('/api/supervisor/force-check', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.status === 'check triggered') {
+                        showModal('CHECK TRIGGERED', 'Supervisor is checking all services now.');
+                    } else {
+                        showModal('ERROR', data.message || 'Failed to trigger check.');
+                    }
+                    setTimeout(hideModal, 2000);
+                } catch (e) {
+                    showModal('ERROR', 'Network error: ' + e.message);
+                    setTimeout(hideModal, 2000);
+                }
             });
         }
 
-        function restartServer() {
-            showModal('RESTART SERVER', 'Restart server.py? This may briefly interrupt chat.', () => {
+        async function restartServer() {
+            showModal('RESTART SERVER', 'Restart server.py? Chat will be briefly unavailable.', async () => {
                 showModal('RESTARTING', 'Restarting server via launchctl kickstart…');
-                setTimeout(hideModal, 2000);
-                // TODO: POST /api/supervisor/restart?service=server
+                try {
+                    await fetch('/api/supervisor/restart?service=server', { method: 'POST' });
+                    setTimeout(hideModal, 2000);
+                } catch (e) {
+                    showModal('ERROR', 'Network error: ' + e.message);
+                    setTimeout(hideModal, 2000);
+                }
             }, true);
         }
 
-        function restartAllServices() {
-            showModal('RESTART ALL SERVICES', 'Restart ALL Jarvis services? System will be offline ~10 seconds.', () => {
-                showModal('RESTARTING', 'Restarting all services…');
-                setTimeout(hideModal, 2000);
-                // TODO: POST /api/supervisor/restart?all=true
+        async function restartAllServices() {
+            showModal('RESTART ALL SERVICES', 'Restart ALL services? System will be offline ~10 seconds.', async () => {
+                showModal('RESTARTING', 'Restarting all services via launchctl…');
+                try {
+                    await fetch('/api/supervisor/restart?all=true', { method: 'POST' });
+                    setTimeout(hideModal, 3000);
+                } catch (e) {
+                    showModal('ERROR', 'Network error: ' + e.message);
+                    setTimeout(hideModal, 3000);
+                }
             }, true);
         }
 
         function viewLogFile() {
-            showModal('VIEW LOG FILE', 'Opening supervisor.log in new window…');
-            setTimeout(() => {
-                window.open('/api/supervisor/log?view=full', '_blank');
-                hideModal();
-            }, 500);
+            window.open('/api/supervisor/log?view=full', '_blank');
         }
     </script>
 </body>

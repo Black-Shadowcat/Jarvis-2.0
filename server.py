@@ -2617,6 +2617,59 @@ async def restart_server():
     return {"status": "restarting"}
 
 
+@app.post("/api/supervisor/force-check")
+async def force_health_check():
+    """Trigger immediate health check in supervisor.py via SIGUSR1."""
+    try:
+        import signal as _signal
+        pid_file = "/tmp/jarvis-supervisor.pid"
+        if not os.path.exists(pid_file):
+            return {"status": "error", "message": "supervisor not running"}
+        pid = int(open(pid_file).read().strip())
+        os.kill(pid, _signal.SIGUSR1)
+        return {"status": "check triggered"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/supervisor/restart")
+async def supervisor_restart(service: str = None, all: bool = False):
+    """Restart one or all Jarvis services via launchctl kickstart."""
+    try:
+        import signal as _signal
+
+        SERVICE_LABELS = {
+            "server":     "com.jarvis.whisper.server",
+            "speech":     "com.jarvis.whisper.speech",
+            "wake":       "com.jarvis.whisper.wake",
+            "supervisor": "com.jarvis.whisper.supervisor",
+        }
+
+        uid = os.getuid()
+
+        def do_restart():
+            labels = list(SERVICE_LABELS.values()) if all else [SERVICE_LABELS.get(service)]
+            labels = [l for l in labels if l]
+            if not labels:
+                return
+            labels = [l for l in labels if "server" not in l] + [l for l in labels if "server" in l]
+            for label in labels:
+                try:
+                    subprocess.run(
+                        ["launchctl", "kickstart", "-k", f"gui/{uid}/{label}"],
+                        timeout=5,
+                        capture_output=True
+                    )
+                except Exception as e:
+                    print(f"[restart] Error restarting {label}: {e}", flush=True)
+
+        loop = asyncio.get_event_loop()
+        loop.call_later(0.5, do_restart)
+        return {"status": "restarting", "target": "all" if all else service}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/config")
 async def serve_config():
     return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "config.html"))
