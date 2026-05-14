@@ -274,8 +274,8 @@ SYMBOL_DE: dict[str, str] = {
     "sunny": "Sonnig",
     "clearsky": "Klarer Himmel",
     "clear": "Klar",
-    "partlycloudy": "Teilweise bewoelkt",
-    "cloudy": "Bewoelkt",
+    "partlycloudy": "Teilweise bewölkt",
+    "cloudy": "Bewölkt",
     "overcast": "Bedeckt",
     "fog": "Neblig",
     "rain": "Regen",
@@ -332,7 +332,7 @@ def get_weather_sync():
         if sun is not None and sun >= 0.8:
             desc = "Sonnig"
         elif sun is not None and sun >= 0.3:
-            desc = "Teilweise bewoelkt"
+            desc = "Teilweise bewölkt"
         # Use own weather station for temperature (more accurate)
         ha_temp = get_ha_temperature()
         temp = ha_temp if ha_temp is not None else round(v("temp") or 0, 1)
@@ -373,7 +373,7 @@ def get_wetter_action_sync() -> str:
         if sun is not None and sun >= 0.8:
             desc = "Sonnig"
         elif sun is not None and sun >= 0.3:
-            desc = "Teilweise bewoelkt"
+            desc = "Teilweise bewölkt"
 
         parts = [f"Standort: {CITY}", f"Temperatur: {temp} °C ({temp_src})", f"Wetter: {desc}"]
         if v("humidityRelative") is not None:
@@ -975,6 +975,8 @@ def _tts_sanitize(text: str) -> str:
         text = re.sub(r'\b(\d{1,2})\.(\d{1,2})\.\B', _fmt_short_date, text)
         # Dezimalpunkt in Zahlen: "12.5" → "12 Komma 5" (nicht bei Versionsnummern wie 3.11)
         text = re.sub(r'\b(\d+)\.(\d{1,2})\b(?!\.\d)', r'\1 Komma \2', text)
+        # km/h → Kilometer pro Stunde
+        text = re.sub(r'(\d+)\s*km/h\b', r'\1 Kilometer pro Stunde', text)
     else:
         # °C → degrees
         text = re.sub(r'(-?\d+(?:\.\d+)?)\s*°[CcKk]', r'\1 degrees', text)
@@ -984,6 +986,8 @@ def _tts_sanitize(text: str) -> str:
         # € → Euro
         text = re.sub(r'€\s*(\d+)', r'\1 Euro', text)
         text = re.sub(r'(\d+)\s*€', r'\1 Euro', text)
+        # km/h → kilometers per hour
+        text = re.sub(r'(\d+)\s*km/h\b', r'\1 kilometers per hour', text)
     return text
 
 
