@@ -392,10 +392,46 @@ def get_wetter_action_sync() -> str:
             parts.append(f"Taupunkt: {v('dewpoint')} °C")
         if v("snowHeight") is not None and v("snowHeight") > 0:
             parts.append(f"Schneehöhe: {v('snowHeight')} cm")
-        parts.append("Hinweis: Nur aktuelle Wetterdaten verfügbar, keine Vorhersage.")
         return "\n".join(parts)
     except Exception as e:
         return f"Wetter-Fehler: {e}"
+
+
+def get_weather_forecast_sync(days: int = 5) -> dict:
+    """Fetch weather forecast from Home Assistant Kachelmann integration.
+    Returns daily forecast for next N days with temp, condition, precipitation."""
+    if not HA_URL or not HA_TOKEN:
+        return {}
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"{HA_URL}/api/states/weather.kachelmann_wetter",
+            headers={"Authorization": f"Bearer {HA_TOKEN}"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        forecast_daily = data.get("attributes", {}).get("forecast_daily", [])
+        result = {}
+        for i, day in enumerate(forecast_daily[:days]):
+            dt = datetime.fromisoformat(day.get("datetime", "").replace("Z", "+00:00"))
+            # Map forecast days to keys: morgen, uebermorgen, in_3_tagen, etc.
+            if i == 0:
+                key = "morgen"
+            elif i == 1:
+                key = "uebermorgen"
+            else:
+                key = f"in_{i+1}_tagen"
+            result[key] = {
+                "date": dt.strftime("%d.%m."),
+                "condition": day.get("condition", ""),
+                "temp": round(day.get("temperature", 0), 1),
+                "temp_low": round(day.get("templow", 0), 1),
+                "precipitation": round(day.get("precipitation", 0), 1),
+            }
+        return result
+    except Exception as e:
+        log.debug(f"[jarvis] Wetter-Vorhersage Fehler: {e}")
+        return {}
 
 
 def get_tasks_sync():
@@ -606,17 +642,20 @@ end tell'''
 
 def refresh_data():
     """Refresh weather, tasks, mail and calendar."""
-    global WEATHER_INFO, TASKS_INFO, MAIL_INFO, CALENDAR_INFO
+    global WEATHER_INFO, WEATHER_FORECAST_INFO, TASKS_INFO, MAIL_INFO, CALENDAR_INFO
     WEATHER_INFO = get_weather_sync()
+    WEATHER_FORECAST_INFO = get_weather_forecast_sync(days=5)
     TASKS_INFO = get_tasks_sync()
     MAIL_INFO = get_mail_sync()
     CALENDAR_INFO = get_calendar_sync(days=7)
     log.info(f"[jarvis] Wetter: {WEATHER_INFO}")
+    log.info(f"[jarvis] Vorhersage: {len(WEATHER_FORECAST_INFO)} Tage")
     log.info(f"[jarvis] Tasks: {len(TASKS_INFO)} geladen")
     log.info(f"[jarvis] Mails: {len(MAIL_INFO)} ungelesen")
     log.info(f"[jarvis] Kalender: {len(CALENDAR_INFO)} Termine (7 Tage)")
 
 WEATHER_INFO = None
+WEATHER_FORECAST_INFO = {}
 TASKS_INFO = []
 MAIL_INFO = []
 CALENDAR_INFO = []
@@ -664,6 +703,16 @@ def build_system_prompt():
         t = w['temp']
         temp_str = str(int(t)) if t == int(t) else str(t).replace('.', ' Komma ')
         weather_block = f"\nWetter {CITY}: {temp_str} Grad, {w['description']}{wind}"
+        # Add forecast if available
+        if WEATHER_FORECAST_INFO:
+            forecast_lines = []
+            for day_key in ["morgen", "uebermorgen"]:
+                if day_key in WEATHER_FORECAST_INFO:
+                    day = WEATHER_FORECAST_INFO[day_key]
+                    day_label = "Morgen" if day_key == "morgen" else "Übermorgen"
+                    forecast_lines.append(f"{day_label}: {day['temp']}° ({day['condition']}, Regen {day['precipitation']}mm)")
+            if forecast_lines:
+                weather_block += "\nVorhersage: " + " | ".join(forecast_lines)
 
     task_block = ""
     if TASKS_INFO:
@@ -744,7 +793,7 @@ AKTIONEN - Wenn eine Aktion noetig ist, schreibe NUR die Aktion — keinen Text 
 [ACTION:NOTIZ] text - Notiz in Obsidian Inbox speichern. Nutze diese Aktion wenn {USER_ADDRESS} etwas notieren, aufschreiben oder in Obsidian speichern moechte. Der gesamte Notiztext kommt nach dem Tag. Beispiel: "[ACTION:NOTIZ] Idee fuer das Projekt: neues Dashboard mit Echtzeit-Daten"
 [ACTION:NOTIZ_LIST] - Alle Notizen in der Obsidian Inbox auflisten und vorlesen. Nutze diese Aktion IMMER wenn {USER_ADDRESS} fragt welche Notizen, Erinnerungen oder Aufzeichnungen in Obsidian sind.
 [ACTION:NOTIZ_ERLEDIGT] stichwort - Notiz(en) aus der Obsidian Inbox als erledigt markieren (loeschen). Nutze "alle" um alle Notizen zu loeschen. Nutze diese Aktion IMMER wenn {USER_ADDRESS} Obsidian-Notizen als erledigt, abgehakt oder fertig markieren moechte — NIEMALS REMINDER_DONE dafuer verwenden.
-[ACTION:WETTER] - Aktuelles Wetter abrufen (Kachelmann). Nutze diese Aktion IMMER wenn {USER_ADDRESS} nach Wetter, Temperatur, Regen, Wind, Schnee oder Wettervorhersage fragt. Hinweis: Es sind nur aktuelle Wetterdaten verfügbar, keine mehrtägige Vorhersage.
+[ACTION:WETTER] - Aktuelles Wetter + Vorhersage abrufen (Kachelmann via HomeAssistant). Nutze diese Aktion IMMER wenn {USER_ADDRESS} nach Wetter, Temperatur, Regen, Wind, Schnee, Vorhersage oder kommenden Tagen fragt. Verfügbar: Aktuelle Daten + 5-Tage-Vorhersage mit Min/Max-Temperatur und Niederschlag.
 
 AUSGABEFORMAT — Bevorzuge JSON:
 Antworte IMMER als JSON-Objekt. Bei normaler Antwort ohne Aktion:
@@ -759,7 +808,7 @@ Falls JSON nicht moeglich: altes Format [ACTION:TYP] payload bleibt gueltig.
 
 WENN {USER_NAME} "Jarvis activate" sagt:
 - Begruesse {USER_ADDRESS} passend zur Tageszeit (aktuelle Zeit: {{time}}).
-- Gebe eine kurze Info ueber das Wetter — Temperatur und ob Sonne/klar/bewoelkt/Regen, und wie es sich anfuehlt. Keine Luftfeuchtigkeit.
+- Gebe eine kurze Info ueber das Wetter — Temperatur, Bedingung (Sonne/Regen/etc), Wind und falls vorhanden: Vorhersage für morgen/übermorgen. Keine Luftfeuchtigkeit/Luftdruck.
 - Fasse die Aufgaben kurz als Ueberblick in einem Satz zusammen, ohne dabei jede einzelne Aufgabe einfach vorzulesen. Gebe gerne einen humorvollen Kommentar am Ende an.
 - Erwaehne kurz die Anzahl ungelesener Mails. Wenn keine: lass es weg.
 - Erwaehne kurz anstehende Termine heute oder morgen, falls vorhanden.
@@ -2036,7 +2085,7 @@ def _format_weather_str(info: dict) -> str:
 
 async def _ensure_weather(loop) -> str:
     """Return formatted weather string; fetch on-demand with retry if still None."""
-    global WEATHER_INFO
+    global WEATHER_INFO, WEATHER_FORECAST_INFO
     if WEATHER_INFO is None:
         for attempt in range(3):
             WEATHER_INFO = await loop.run_in_executor(None, get_weather_sync)
@@ -2045,6 +2094,10 @@ async def _ensure_weather(loop) -> str:
                 break
             if attempt < 2:
                 await asyncio.sleep(3)
+    if not WEATHER_FORECAST_INFO:
+        WEATHER_FORECAST_INFO = await loop.run_in_executor(None, lambda: get_weather_forecast_sync(days=5))
+        if WEATHER_FORECAST_INFO:
+            log.info(f"[jarvis] Vorhersage on-demand geladen: {len(WEATHER_FORECAST_INFO)} Tage")
     return _format_weather_str(WEATHER_INFO)
 
 
