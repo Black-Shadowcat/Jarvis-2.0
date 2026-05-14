@@ -362,6 +362,7 @@ tr:hover td { background: rgba(42,158,226,0.03); }
 
         <div class="section-header">Betriebsanleitung</div>
         <a href="#hud">Das HUD verstehen</a>
+        <a href="#health-monitoring">Health Monitor Dashboard</a>
         <a href="#alle-befehle">Alle Sprachbefehle</a>
         <a href="#config-ui">Einstellungen (Config UI)</a>
         <a href="#stimmen">Stimmen verwalten</a>
@@ -850,6 +851,100 @@ tr:hover td { background: rgba(42,158,226,0.03); }
 <p>Klick auf das Stift-Symbol oben rechts im Jarvis-Panel → Textfeld erscheint → tippen + Enter.</p>
 
 <!-- ═══════════════════════════════════════════════ -->
+<h2 id="health-monitoring">🏥 Health Monitor — Systemstatus überwachen</h2>
+
+<p>Jarvis überwacht sich selbst ständig. Wenn etwas schiefgeht, startet sich Jarvis automatisch neu — du merkst nichts davon. Das <strong>Health Monitor Dashboard</strong> zeigt dir den aktuellen Systemzustand und gibt dir volle Kontrolle über die Services.</p>
+
+<h3>Health Monitor öffnen</h3>
+<p>Im Browser aufrufen: <code>http://localhost:8340/health</code></p>
+
+<h3>Das Dashboard zeigt dir:</h3>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-title">📊 System-Überblick</div>
+        <ul style="margin-left:16px;">
+            <li><strong>System Status</strong> — Grün=Alles OK, Orange=Probleme</li>
+            <li><strong>Daytime</strong> — Aktuelle Uhrzeit (live aktualisiert)</li>
+            <li><strong>Health Score</strong> — Verfügbarkeit in %</li>
+            <li><strong>6 Services</strong> — Jeder mit eigenem Status-Punkt</li>
+        </ul>
+    </div>
+    <div class="card">
+        <div class="card-title">📈 Performance Metrics</div>
+        <ul style="margin-left:16px;">
+            <li><strong>CPU</strong> — Prozessor-Auslastung %</li>
+            <li><strong>Memory</strong> — RAM-Nutzung in MB</li>
+            <li><strong>Network</strong> — Internet-Datenrate MB/s</li>
+            <li><strong>Verfügbarkeit</strong> — 5-Minuten-Historie als Graph</li>
+        </ul>
+    </div>
+</div>
+
+<h3>🎛️ System-Befehle (v0.1.15 neu)</h3>
+
+<p>Mit diesen 4 Buttons kannst du Jarvis komplett unter Kontrolle halten:</p>
+
+<table>
+    <tr>
+        <th>Button</th>
+        <th>Was es macht</th>
+        <th>Wann nutzen?</th>
+    </tr>
+    <tr>
+        <td><strong>⚡ Force Health Check</strong></td>
+        <td>Sofortiger System-Check (sonst alle 30 Sekunden)</td>
+        <td>Wenn du schnelle Rückmeldung brauchst</td>
+    </tr>
+    <tr>
+        <td><strong>🔄 Restart Server</strong></td>
+        <td>Nur server.py neu starten</td>
+        <td>Wenn Chat hängt, aber Voice gut funktioniert</td>
+    </tr>
+    <tr>
+        <td><strong>🔄 Restart All</strong></td>
+        <td>Alle 4 Services neu starten (~10 Sekunden Downtime)</td>
+        <td>Wenn etwas grundlegend schiefgelaufen ist</td>
+    </tr>
+    <tr>
+        <td><strong>📄 View Log File</strong></td>
+        <td>Öffnet das Supervisor-Log im Browser</td>
+        <td>Zum Debuggen — siehst alle Fehler</td>
+    </tr>
+</table>
+
+<h3>🔧 Architecture Overview</h3>
+
+<p>Das Diagramm in der Mitte zeigt alle 6 Jarvis-Services und wie sie miteinander verbunden sind:</p>
+
+<ul style="margin-left:16px;">
+    <li><strong>SERVER</strong> — Hauptserver (FastAPI, Port 8340)</li>
+    <li><strong>SUPERVISOR</strong> — Überwacht alle anderen Services</li>
+    <li><strong>SPEECH INPUT</strong> — Spracheingabe (Whisper STT)</li>
+    <li><strong>WEBSOCKET</strong> — Live-Verbindung zum Browser</li>
+    <li><strong>WAKE MONITOR</strong> — Erkennt „Jarvis" Wake-Word</li>
+    <li><strong>CHROME FRONTEND</strong> — Browser-HUD</li>
+</ul>
+
+<p>Der pulsierendeSuperviso in der Mitte zeigt: <em>„Alles läuft unter Kontrolle"</em>.</p>
+
+<h3>💡 Wie Jarvis sich selbst heilt</h3>
+
+<p>Falls ein Service crasht (z.B. Netzwerkfehler, Speicherleck):</p>
+
+<ol style="margin-left:16px;">
+    <li><strong>supervisor.py</strong> bemerkt das (alle 30 Sekunden)</li>
+    <li>Der Service wird <strong>sofort neu gestartet</strong> via macOS launchctl</li>
+    <li>Du merkst <strong>nichts davon</strong> — Jarvis läuft weiter</li>
+    <li>Das Log zeigt wann und warum (🏥 Health Monitor → View Log)</li>
+</ol>
+
+<div class="tip">
+    <strong>ℹ️ Automatische Heilung</strong>
+    Der Supervisor ist dafür da, dass du dich nicht darum kümmern musst. Health Monitor ist nur für die Diagnose wenn etwas schiefgeht.
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
 <h2 id="alle-befehle">🗣 Alle Sprachbefehle</h2>
 
 <h3>Informationen & Suche</h3>
@@ -1063,7 +1158,11 @@ Oder: Klick auf das Zahnrad-Symbol oben rechts im Jarvis HUD.</p>
 <p>Oder Doppelklick auf <code>~/Applications/Jarvis starten.app</code> — startet Chrome im Kiosk-Modus neu.</p>
 
 <h3>Nur den Server neu starten</h3>
-<p>Config UI → Neu starten (roter Button) → Jarvis ist nach 10–15 Sekunden wieder da.</p>
+<p>Öffne das <strong>Health Monitor Dashboard</strong> (<code>http://localhost:8340/health</code>) → Klick auf <strong>🔄 Restart Server</strong>-Button → Jarvis ist nach 5–10 Sekunden wieder da.</p>
+<p>Oder älter: Config UI → Neu starten (roter Button).</p>
+
+<h3>Wenn Jarvis komplett hängt</h3>
+<p>Geh zum <strong>Health Monitor Dashboard</strong> (<code>http://localhost:8340/health</code>) → Klick auf <strong>🔄 Restart All</strong> → Alle Services werden neu gestartet. Das dauert ~10 Sekunden, dann geht's weiter.</p>
 
 <h3>Was kostet das im Monat?</h3>
 <p>Bei normaler Nutzung (1–2 Stunden täglich sprechen):</p>
