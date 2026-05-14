@@ -429,47 +429,19 @@ def get_weather_forecast_sync(days: int = 5) -> dict:
     try:
         import urllib.request
         req = urllib.request.Request(
-            f"{HA_URL}/api/states/sensor.kmw_6h_rohdaten",
+            f"{HA_URL}/api/states/weather.kachelmann_wetter",
             headers={"Authorization": f"Bearer {HA_TOKEN}"}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
 
-        raw_data = data.get("attributes", {}).get("data", [])
-        if not raw_data:
+        forecast_daily = data.get("attributes", {}).get("forecast", [])
+        if not forecast_daily:
             return {}
 
-        # Aggregate 6h entries into daily data
-        daily_agg = {}
-        for entry in raw_data:
-            dt_str = entry.get("dateTime", "")
-            if not dt_str:
-                continue
-            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-            date_key = dt.strftime("%Y-%m-%d")
-
-            if date_key not in daily_agg:
-                daily_agg[date_key] = {
-                    "temps": [],
-                    "precip": 0,
-                    "symbol": entry.get("weatherSymbol", ""),
-                }
-            daily_agg[date_key]["temps"].append(entry.get("tempMax6h", entry.get("temp", 0)))
-            daily_agg[date_key]["precip"] += entry.get("prec6h", 0)
-
-        # Convert to numbered days (morgen, uebermorgen, etc.)
+        # Convert forecast entries to numbered days (morgen, uebermorgen, etc.)
         result = {}
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        for i in range(days):
-            target_date = today + timedelta(days=i+1)
-            date_key = target_date.strftime("%Y-%m-%d")
-
-            if date_key not in daily_agg:
-                continue
-            agg = daily_agg[date_key]
-            if not agg["temps"]:
-                continue
-
+        for i, day in enumerate(forecast_daily[:days]):
             if i == 0:
                 day_name = "morgen"
             elif i == 1:
@@ -477,12 +449,13 @@ def get_weather_forecast_sync(days: int = 5) -> dict:
             else:
                 day_name = f"in_{i+1}_tagen"
 
+            # Extract relevant data from forecast entry
             result[day_name] = {
-                "date": target_date.strftime("%d.%m."),
-                "temp": round(max(agg["temps"]), 1),
-                "temp_low": round(min(agg["temps"]), 1),
-                "condition": agg["symbol"],
-                "precipitation": round(agg["precip"], 1),
+                "date": day.get("datetime", "").split("T")[0] if day.get("datetime") else "",
+                "temp": float(day.get("temperature", 0)),
+                "temp_low": float(day.get("templow", day.get("temperature", 0))),
+                "condition": day.get("condition", day.get("icon", "")).replace("mdi:weather-", ""),
+                "precipitation": float(day.get("precipitation", 0)),
             }
 
         # Save to cache
@@ -496,13 +469,13 @@ def get_weather_forecast_sync(days: int = 5) -> dict:
         try:
             with open(cache_file, "w") as f:
                 json.dump(cache_data, f, indent=2)
-            log.debug(f"[jarvis] Vorhersage: Cache aktualisiert ({len(result)} Tage)")
+            log.info(f"[jarvis] Vorhersage: Cache aktualisiert ({len(result)} Tage): {list(result.keys())}")
         except Exception as e:
-            log.debug(f"[jarvis] Cache-Fehler: {e}")
+            log.info(f"[jarvis] Cache-Fehler: {e}")
 
         return result
     except Exception as e:
-        log.debug(f"[jarvis] Wetter-Vorhersage Fehler: {e}")
+        log.info(f"[jarvis] Wetter-Vorhersage Fehler: {e}")
         # Fallback to old cache if available
         try:
             with open(cache_file) as f:
@@ -956,8 +929,10 @@ def _tts_sanitize(text: str) -> str:
         # °C ganzzahlig: "12°C" → "12 Grad"
         text = re.sub(r'(-?\d+)\s*°[CcKk]', r'\1 Grad', text)
         text = text.replace('°', '')
-        # % → Prozent
+        # % → " Prozent" (with space to avoid digit concatenation)
         text = re.sub(r'(\d+)\s*%', r'\1 Prozent', text)
+        # Clean up numbers followed by letters to prevent misreading (e.g., "87Prozent" → "87 Prozent")
+        text = re.sub(r'(\d)([a-zäöüß])', r'\1 \2', text)
         # € → Euro
         text = re.sub(r'€\s*(\d+)', r'\1 Euro', text)
         text = re.sub(r'(\d+)\s*€', r'\1 Euro', text)
