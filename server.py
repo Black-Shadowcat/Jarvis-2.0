@@ -2171,10 +2171,17 @@ async def _ensure_weather(loop) -> str:
                 break
             if attempt < 2:
                 await asyncio.sleep(3)
+    # Load forecast non-blocking: skip if it takes >2s (don't block chat response)
     if not WEATHER_FORECAST_INFO:
-        WEATHER_FORECAST_INFO = await loop.run_in_executor(None, lambda: get_weather_forecast_sync(days=5))
-        if WEATHER_FORECAST_INFO:
-            log.info(f"[jarvis] Vorhersage on-demand geladen: {len(WEATHER_FORECAST_INFO)} Tage")
+        try:
+            task = loop.run_in_executor(None, lambda: get_weather_forecast_sync(days=5))
+            WEATHER_FORECAST_INFO = await asyncio.wait_for(task, timeout=2.0)
+            if WEATHER_FORECAST_INFO:
+                log.debug(f"[jarvis] Vorhersage on-demand geladen: {len(WEATHER_FORECAST_INFO)} Tage")
+        except asyncio.TimeoutError:
+            log.debug(f"[jarvis] Vorhersage: Timeout bei HA-Abruf (skipped, nutze Cache falls vorhanden)")
+        except Exception as e:
+            log.debug(f"[jarvis] Vorhersage-Fehler: {e}")
     return _format_weather_str(WEATHER_INFO)
 
 
