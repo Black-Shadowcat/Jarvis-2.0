@@ -1,575 +1,1216 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>J.A.R.V.I.S. Health Monitor</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230a0e27' stroke='%2300aaff' stroke-width='2'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='%2300aaff' font-size='10' font-family='monospace'>J</text></svg>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S. Health Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-<link rel="stylesheet" href="/health.css">
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
 
-<style>
-:root {
-    --bg:     #0a0e27;
-    --text:   #e0e0e0;
-    --accent: #00ff88;
-    --accent-dim: #2a9ee2;
-    --error:  #ff3366;
-    --warning: #ffaa00;
-}
+        .header {
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 14, 39, 0.8);
+            flex-shrink: 0;
+        }
 
-* { margin:0; padding:0; box-sizing:border-box; }
+        .header-left {
+            font-size: 20px;
+            letter-spacing: 0.1em;
+        }
 
-html, body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Courier New', monospace;
-    height: 100%;
-    overflow: hidden;
-}
+        .header-right {
+            display: flex;
+            gap: 24px;
+            font-size: 16px;
+            align-items: center;
+        }
 
-body {
-    display: flex;
-    flex-direction: column;
-}
+        .header-item {
+            text-align: right;
+        }
 
-.health-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 24px;
-    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
-    flex-shrink: 0;
-}
+        .header-label {
+            color: #888;
+            font-size: 14px;
+            letter-spacing: 0.05em;
+            margin-bottom: 2px;
+            font-weight: bold;
+        }
 
-.health-header-left {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-}
+        .header-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
 
-.health-title {
-    font-size: 20px;
-    font-weight: bold;
-    letter-spacing: 0.15em;
-    color: var(--accent-dim);
-}
+        .status-banner {
+            grid-column: 1 / -1;
+            padding: 12px 16px;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 4px;
+            text-align: center;
+            background: rgba(0, 255, 136, 0.02);
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 0.1em;
+            color: #00ff88;
+            margin: 16px 24px;
+            flex-shrink: 0;
+        }
 
-.health-title-sub {
-    font-size: 12px;
-    color: var(--accent);
-    letter-spacing: 0.1em;
-    margin-left: 8px;
-}
+        .container {
+            display: grid;
+            grid-template-columns: 0.9fr 2.4fr 0.9fr;
+            grid-template-rows: 1fr;
+            gap: 16px;
+            padding: 0 24px 24px;
+            flex: 1;
+            overflow: hidden;
+        }
 
-.health-header-right {
-    display: flex;
-    gap: 40px;
-    align-items: center;
-}
+        .panel {
+            border: 1px solid rgba(0, 255, 136, 0.15);
+            border-radius: 4px;
+            background: rgba(10, 14, 39, 0.6);
+            backdrop-filter: blur(2px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
 
-.header-stat {
-    text-align: right;
-}
+        .panel-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 0.1em;
+            color: #00ff88;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
 
-.header-stat-label {
-    font-size: 10px;
-    color: #888;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-}
+        .panel-content {
+            padding: 16px;
+            flex: 1;
+            overflow-y: auto;
+            font-size: 13px;
+        }
 
-.header-stat-value {
-    font-size: 18px;
-    color: var(--accent);
-    font-weight: bold;
-    letter-spacing: 0.05em;
-}
+        .panel-content::-webkit-scrollbar {
+            width: 4px;
+        }
 
-.back-button {
-    display: inline-block;
-    padding: 8px 16px;
-    background: transparent;
-    border: 1px solid var(--accent-dim);
-    color: var(--accent-dim);
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    transition: all 0.3s ease;
-}
+        .panel-content::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 136, 0.2);
+            border-radius: 2px;
+        }
 
-.back-button:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    box-shadow: 0 0 12px rgba(0, 255, 136, 0.2);
-}
+        /* ── HUD Styles ── */
+        .hud-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            aspect-ratio: 1;
+            margin-bottom: 16px;
+        }
 
-.health-container {
-    display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
-    grid-template-rows: auto 1fr;
-    gap: 16px;
-    padding: 16px 24px;
-    flex: 1;
-    overflow: hidden;
-}
+        .hud-svg {
+            width: 360px;
+            height: 360px;
+            filter: drop-shadow(0 0 16px rgba(0, 255, 136, 0.3));
+        }
 
-.status-banner {
-    grid-column: 1 / -1;
-    padding: 12px 16px;
-    border: 1px solid rgba(0, 255, 136, 0.3);
-    border-radius: 4px;
-    text-align: center;
-    background: rgba(0, 255, 136, 0.02);
-    font-size: 14px;
-    font-weight: bold;
-    letter-spacing: 0.1em;
-}
+        .hud-ccw-slow  { transform-origin: 50% 50%; animation: hudCCW 18s linear infinite; }
+        .hud-cw-medium { transform-origin: 50% 50%; animation: hudCW 10s linear infinite; }
+        .hud-cw-fast   { transform-origin: 50% 50%; animation: hudCW 4s linear infinite; }
+        @keyframes hudCW  { to { transform: rotate(360deg); } }
+        @keyframes hudCCW { to { transform: rotate(-360deg); } }
 
-.status-banner.operational {
-    color: var(--accent);
-    border-color: rgba(0, 255, 136, 0.3);
-}
+        /* ── System Watch ── */
+        .system-watch {
+            margin-top: 40px;
+        }
 
-.status-banner.degraded {
-    color: var(--warning);
-    border-color: rgba(255, 170, 0, 0.3);
-    background: rgba(255, 170, 0, 0.02);
-}
+        .system-watch-label {
+            font-size: 12px;
+            color: #00ff88;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: bold;
+        }
 
-.status-banner.critical {
-    color: var(--error);
-    border-color: rgba(255, 51, 102, 0.3);
-    background: rgba(255, 51, 102, 0.02);
-}
+        .watch-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 12px;
+            border-bottom: 1px solid rgba(0, 255, 136, 0.05);
+        }
 
-.panel {
-    border: 1px solid rgba(0, 255, 136, 0.15);
-    border-radius: 4px;
-    background: rgba(10, 14, 39, 0.6);
-    backdrop-filter: blur(2px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
+        .watch-item:last-child {
+            border-bottom: none;
+        }
 
-.panel-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
-    font-size: 12px;
-    font-weight: bold;
-    letter-spacing: 0.1em;
-    color: var(--accent);
-    text-transform: uppercase;
-}
+        .watch-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff88;
+            margin-right: 8px;
+        }
 
-.panel-content {
-    padding: 12px 16px;
-    flex: 1;
-    overflow-y: auto;
-    font-size: 13px;
-}
+        .watch-label {
+            flex: 1;
+            color: #aaa;
+        }
 
-.panel-content::-webkit-scrollbar {
-    width: 4px;
-}
+        .watch-status {
+            color: #00ff88;
+            font-weight: bold;
+            font-size: 10px;
+            letter-spacing: 0.05em;
+        }
 
-.panel-content::-webkit-scrollbar-thumb {
-    background: rgba(0, 255, 136, 0.2);
-    border-radius: 2px;
-}
+        /* ── Supervisor Info ── */
+        .supervisor-info {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(0, 255, 136, 0.1);
+        }
 
-/* ── Left Panel ── */
-#overall-panel {
-    grid-row: 2;
-    grid-column: 1;
-}
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 12px;
+            color: #aaa;
+        }
 
-.health-gauge {
-    width: 100%;
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 12px 0;
-}
+        .info-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
 
-.gauge-svg {
-    width: 120px;
-    height: 120px;
-    filter: drop-shadow(0 0 12px rgba(0, 255, 136, 0.2));
-}
+        /* ── Architecture SVG ── */
+        .architecture-svg {
+            width: 100%;
+            height: 420px;
+            flex-shrink: 0;
+            margin-bottom: 20px;
+        }
 
-.health-score {
-    position: absolute;
-    text-align: center;
-    font-size: 28px;
-    font-weight: bold;
-    color: var(--accent);
-    letter-spacing: 0.05em;
-}
+        @keyframes dashflow {
+            0% {
+                stroke-dashoffset: 12;
+            }
+            100% {
+                stroke-dashoffset: 0;
+            }
+        }
 
-.health-score-label {
-    position: absolute;
-    font-size: 10px;
-    color: #888;
-    margin-top: 50px;
-    letter-spacing: 0.1em;
-}
+        .animated-line {
+            animation: dashflow 0.8s linear infinite;
+        }
 
-.system-watch {
-    margin-top: 16px;
-}
+        /* ── Metrics ── */
+        .metrics-label {
+            font-size: 12px;
+            color: #00ff88;
+            margin-top: 16px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-top: 1px solid rgba(0, 255, 136, 0.1);
+            padding-top: 12px;
+            font-weight: bold;
+        }
 
-.watch-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    font-size: 12px;
-    border-bottom: 1px solid rgba(0, 255, 136, 0.05);
-}
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
 
-.watch-item:last-child {
-    border-bottom: none;
-}
+        .metric-box {
+            border: 1px solid rgba(0, 255, 136, 0.1);
+            border-radius: 2px;
+            padding: 8px;
+            background: rgba(0, 255, 136, 0.02);
+        }
 
-.watch-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 8px;
-    background: var(--accent);
-    box-shadow: 0 0 6px var(--accent);
-    animation: pulse 2s ease-in-out infinite;
-}
+        .metric-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
 
-.watch-dot.error {
-    background: var(--error);
-    box-shadow: 0 0 6px var(--error);
-}
+        .metric-value {
+            font-size: 14px;
+            color: #00ff88;
+            font-weight: bold;
+        }
 
-.watch-dot.warning {
-    background: var(--warning);
-    box-shadow: 0 0 6px var(--warning);
-}
+        .metric-unit {
+            font-size: 10px;
+            margin-left: 2px;
+        }
 
-.watch-label {
-    flex: 1;
-    color: var(--text);
-}
+        /* ── Log Styles ── */
+        .log-entry {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(0, 255, 136, 0.05);
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            line-height: 1.5;
+        }
 
-.watch-status {
-    color: var(--accent);
-    text-transform: uppercase;
-    font-size: 11px;
-    font-weight: bold;
-    letter-spacing: 0.05em;
-}
+        .log-entry:last-child {
+            border-bottom: none;
+        }
 
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
+        .log-timestamp {
+            color: #2a9ee2;
+            margin-right: 8px;
+        }
 
-.supervisor-info {
-    margin-top: 16px;
-    font-size: 11px;
-    padding: 8px;
-    border: 1px solid rgba(0, 255, 136, 0.1);
-    border-radius: 2px;
-    background: rgba(0, 255, 136, 0.02);
-}
+        .log-status {
+            color: #00ff88;
+            font-weight: bold;
+            margin-right: 4px;
+            min-width: 30px;
+        }
 
-.info-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    color: #888;
-}
+        .log-message {
+            color: #aaa;
+        }
 
-.info-value {
-    color: var(--accent);
-    font-weight: bold;
-}
+        .log-entry.error .log-status {
+            color: #ff3366;
+        }
 
-/* ── Center Panel ── */
-#architecture-panel {
-    grid-row: 2;
-    grid-column: 2;
-    min-height: 0;
-}
+        .log-entry.warning .log-status {
+            color: #ffaa00;
+        }
 
-.architecture-svg {
-    width: 100%;
-    height: 100%;
-    min-height: 300px;
-}
+        /* ── Recovery & Commands ── */
+        .recovery-section {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(0, 255, 136, 0.1);
+        }
 
-/* ── Right Panel ── */
-#log-panel {
-    grid-row: 2;
-    grid-column: 3;
-}
+        .recovery-label {
+            font-size: 12px;
+            color: #00ff88;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: bold;
+        }
 
-.log-entry {
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(0, 255, 136, 0.05);
-    font-size: 11px;
-    font-family: 'Courier New', monospace;
-    line-height: 1.4;
-}
+        .recovery-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 12px;
+            color: #aaa;
+        }
 
-.log-entry:last-child {
-    border-bottom: none;
-}
+        .recovery-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
 
-.log-timestamp {
-    color: var(--accent-dim);
-    margin-right: 8px;
-}
+        .commands-section {
+            margin-top: 60px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(0, 255, 136, 0.1);
+        }
 
-.log-status {
-    color: var(--accent);
-    font-weight: bold;
-    margin-right: 4px;
-    min-width: 30px;
-}
+        .command-button {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 6px;
+            background: transparent;
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            color: #2a9ee2;
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+            transition: all 0.3s ease;
+        }
 
-.log-message {
-    color: #aaa;
-}
+        .command-button:hover {
+            border-color: #00ff88;
+            color: #00ff88;
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.15);
+        }
 
-.log-entry.error .log-status {
-    color: var(--error);
-}
+        .command-button:active {
+            background: rgba(0, 255, 136, 0.05);
+        }
 
-.log-entry.warning .log-status {
-    color: var(--warning);
-}
+        .footer {
+            padding: 8px 24px;
+            border-top: 1px solid rgba(0, 255, 136, 0.2);
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #666;
+            letter-spacing: 0.05em;
+            flex-shrink: 0;
+            background: rgba(10, 14, 39, 0.8);
+        }
 
-.recovery-section {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(0, 255, 136, 0.1);
-}
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 999;
+        }
 
-.recovery-stat {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 12px;
-}
+        .modal-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 14, 39, 0.95);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 4px;
+            z-index: 1000;
+            min-width: 400px;
+            box-shadow: 0 0 24px rgba(0, 255, 136, 0.15);
+            backdrop-filter: blur(4px);
+        }
 
-.recovery-value {
-    color: var(--accent);
-    font-weight: bold;
-}
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+            font-size: 12px;
+            font-weight: bold;
+            color: #00ff88;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
 
-.commands-section {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(0, 255, 136, 0.1);
-}
+        .modal-body {
+            padding: 20px;
+            color: #aaa;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.8;
+            font-family: 'Courier New', monospace;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
 
-.command-button {
-    width: 100%;
-    padding: 8px;
-    margin-bottom: 6px;
-    background: transparent;
-    border: 1px solid rgba(0, 255, 136, 0.2);
-    color: var(--accent-dim);
-    border-radius: 2px;
-    cursor: pointer;
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-    letter-spacing: 0.05em;
-    transition: all 0.3s ease;
-}
+        .modal-footer {
+            padding: 12px 20px;
+            border-top: 1px solid rgba(0, 255, 136, 0.1);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
 
-.command-button:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    box-shadow: 0 0 8px rgba(0, 255, 136, 0.15);
-}
+        .modal-button {
+            padding: 8px 16px;
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            background: transparent;
+        }
 
-.command-button:active {
-    background: rgba(0, 255, 136, 0.1);
-}
+        .modal-confirm {
+            color: #00ff88;
+            border-color: rgba(0, 255, 136, 0.4);
+        }
 
-.footer {
-    padding: 12px 24px;
-    border-top: 1px solid rgba(0, 255, 136, 0.1);
-    font-size: 10px;
-    color: #666;
-    display: flex;
-    justify-content: space-between;
-    letter-spacing: 0.05em;
-}
+        .modal-confirm:hover {
+            background: rgba(0, 255, 136, 0.1);
+            border-color: #00ff88;
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.2);
+        }
 
-</style>
+        .modal-cancel {
+            color: #888;
+            border-color: rgba(100, 100, 100, 0.3);
+        }
 
+        .modal-cancel:hover {
+            color: #aaa;
+            border-color: rgba(100, 100, 100, 0.5);
+        }
+
+        @keyframes modal-pulse {
+            0%, 100% { color: #ff3366; opacity: 1; }
+            50% { color: #ff5577; opacity: 0.7; }
+        }
+
+        .modal-warning {
+            color: #ff3366;
+            animation: modal-pulse 1.5s ease-in-out infinite;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
-<!-- ── Header ── -->
-<div class="health-header">
-    <div class="health-header-left">
-        <div>
-            <span class="health-title">J.A.R.V.I.S. V3</span>
-            <span class="health-title-sub">HEALTH MONITOR</span>
+    <!-- ── Header ── -->
+    <div class="header">
+        <div class="header-left">J.A.R.V.I.S. V3 — HEALTH MONITOR</div>
+        <div class="header-right">
+            <div class="header-item">
+                <div class="header-label">SYSTEM STATUS</div>
+                <div class="header-value" id="main-status">OPERATIONAL</div>
+            </div>
+            <div class="header-item">
+                <div class="header-label">UPTIME</div>
+                <div class="header-value" id="main-uptime">—</div>
+            </div>
+            <div class="header-item">
+                <div class="header-label">SUPERVISOR.PY</div>
+                <div class="header-value" id="supervisor-status">ACTIVE</div>
+            </div>
         </div>
     </div>
-    <div class="health-header-right">
-        <div class="header-stat">
-            <div class="header-stat-label">SYSTEM STATUS</div>
-            <div class="header-stat-value" id="main-status">OPERATIONAL</div>
-        </div>
-        <div class="header-stat">
-            <div class="header-stat-label">UPTIME</div>
-            <div class="header-stat-value" id="main-uptime">—</div>
-        </div>
-        <div class="header-stat">
-            <div class="header-stat-label">SUPERVISOR</div>
-            <div class="header-stat-value" id="supervisor-status">ACTIVE</div>
-        </div>
-        <button class="back-button" onclick="window.location.href='/'">← ZURÜCK</button>
-    </div>
-</div>
 
-<!-- ── Status Banner ── -->
-<div class="health-container">
-    <div class="status-banner operational" id="status-banner">
-        ALL SYSTEMS NOMINAL
-    </div>
+    <!-- ── Status Banner ── -->
+    <div class="status-banner" id="status-banner">ALL SYSTEMS NOMINAL</div>
 
-    <!-- ── Left: Overall Status ── -->
-    <div class="panel" id="overall-panel">
-        <div class="panel-header">OVERALL STATUS</div>
-        <div class="panel-content">
-            <div class="health-gauge">
-                <svg class="gauge-svg" viewBox="0 0 140 140">
+    <!-- ── Main Container ── -->
+    <div class="container">
+        <!-- ── Left: Overall Status ── -->
+        <div class="panel">
+            <div class="panel-header">OVERALL STATUS</div>
+            <div class="panel-content">
+                <div class="hud-container">
+                    <svg id="hud" viewBox="0 0 500 500" class="hud-svg">
+                        <!-- Outer ring — CCW slow -->
+                        <g class="hud-ccw-slow">
+                            <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="2" fill="none" stroke-dasharray="5 7" opacity="0.35"/>
+                            <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="3" fill="none" stroke-dasharray="120 600" opacity="0.85"/>
+                        </g>
+                        <!-- Middle ring — CW medium -->
+                        <g class="hud-cw-medium">
+                            <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="2" fill="none" stroke-dasharray="8 5" opacity="0.25"/>
+                            <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="2" fill="none" stroke-dasharray="60 700" opacity="0.7"/>
+                        </g>
+                        <!-- Axis ticks -->
+                        <line x1="250" y1="14"  x2="250" y2="34"  stroke="#2a9ee2" stroke-width="2.5"/>
+                        <line x1="250" y1="466" x2="250" y2="486" stroke="#2a9ee2" stroke-width="2.5"/>
+                        <line x1="14"  y1="250" x2="34"  y2="250" stroke="#2a9ee2" stroke-width="2.5"/>
+                        <line x1="466" y1="250" x2="486" y2="250" stroke="#2a9ee2" stroke-width="2.5"/>
+                        <!-- Pulse ring — CW fast -->
+                        <g class="hud-cw-fast">
+                            <circle cx="250" cy="250" r="162" stroke="#2a9ee2" stroke-width="2" fill="none" stroke-dasharray="4 12" opacity="0.5"/>
+                        </g>
+                        <!-- Center -->
+                        <circle cx="250" cy="250" r="88" fill="#021017" stroke="#2a9ee2" stroke-width="2"/>
+                        <text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-size="14" letter-spacing="2">J.A.R.V.I.S.</text>
+                        <text id="health-score" x="50%" y="57%" dominant-baseline="middle" text-anchor="middle" fill="#00ff88" font-size="20" font-weight="bold">100%</text>
+                    </svg>
+                </div>
+
+                <div class="system-watch">
+                    <div class="system-watch-label">SYSTEM WATCH</div>
+                    <div id="system-watch-items"></div>
+                </div>
+
+                <div class="supervisor-info">
+                    <div class="info-row">
+                        <span>SUPERVISOR.PY</span>
+                        <span class="info-value" id="info-version">v1.0.0</span>
+                    </div>
+                    <div class="info-row">
+                        <span>CHECK INTERVAL</span>
+                        <span class="info-value">30s</span>
+                    </div>
+                    <div class="info-row">
+                        <span>RESTART COOLDOWN</span>
+                        <span class="info-value">120s</span>
+                    </div>
+                    <div class="info-row">
+                        <span>LAST CHECK</span>
+                        <span class="info-value" id="info-last-check">—</span>
+                    </div>
+                    <div class="info-row">
+                        <span>NEXT CHECK</span>
+                        <span class="info-value" id="info-next-check">—</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Center: Architecture & Metrics ── -->
+        <div class="panel">
+            <div class="panel-header">ARCHITECTURE OVERVIEW</div>
+            <div class="panel-content" style="display: flex; flex-direction: column;">
+                <svg class="architecture-svg" viewBox="0 0 600 400" id="architecture-svg">
+                    <!-- Grid background -->
                     <defs>
-                        <filter id="glow">
-                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                            <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
+                        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,255,136,0.02)" stroke-width="0.5"/>
+                        </pattern>
                     </defs>
-                    <!-- Background ring -->
-                    <circle cx="70" cy="70" r="60" fill="none" stroke="rgba(0,255,136,0.1)" stroke-width="2"/>
-                    <!-- Progress ring -->
-                    <circle id="gauge-ring" cx="70" cy="70" r="60" fill="none" stroke="url(#gauge-gradient)" stroke-width="3"
-                            stroke-dasharray="377 377" stroke-dashoffset="0" stroke-linecap="round"
-                            transform="rotate(-90 70 70)" filter="url(#glow)"/>
-                    <defs>
-                        <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#00ff88;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#00ff88;stop-opacity:0.6" />
-                        </linearGradient>
-                    </defs>
+                    <rect width="600" height="400" fill="url(#grid)"/>
+
+                    <!-- Service nodes -->
+                    <g id="nodes"></g>
+                    <!-- Connection lines -->
+                    <g id="connections"></g>
                 </svg>
-                <div class="health-score" id="health-score">100%</div>
-            </div>
-            <div class="health-score-label">HEALTH SCORE</div>
 
-            <div class="system-watch">
-                <div style="font-size: 11px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.1em;">SYSTEM WATCH</div>
-                <div id="system-watch-items"></div>
-            </div>
+                <div class="metrics-label">PERFORMANCE METRICS</div>
+                <div class="metrics-grid" id="metrics-container"></div>
 
-            <div class="supervisor-info">
-                <div class="info-row">
-                    <span>SUPERVISOR.PY</span>
-                    <span class="info-value" id="info-version">v1.0.0</span>
+                <div style="margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                    <div style="border: 1px solid rgba(0,255,136,0.15); border-radius: 4px; padding: 12px; background: rgba(0,255,136,0.03); height: 140px; display: flex; flex-direction: column; flex-shrink: 0;">
+                        <div style="font-size: 11px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: bold;">CPU %</div>
+                        <div style="flex: 1; position: relative; width: 100%; min-height: 0;"><canvas id="chart-cpu"></canvas></div>
+                    </div>
+                    <div style="border: 1px solid rgba(0,255,136,0.15); border-radius: 4px; padding: 12px; background: rgba(0,255,136,0.03); height: 140px; display: flex; flex-direction: column; flex-shrink: 0;">
+                        <div style="font-size: 11px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: bold;">MEMORY MB</div>
+                        <div style="flex: 1; position: relative; width: 100%; min-height: 0;"><canvas id="chart-memory"></canvas></div>
+                    </div>
+                    <div style="border: 1px solid rgba(0,255,136,0.15); border-radius: 4px; padding: 12px; background: rgba(0,255,136,0.03); height: 140px; display: flex; flex-direction: column; flex-shrink: 0;">
+                        <div style="font-size: 11px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: bold;">NETWORK MB/s</div>
+                        <div style="flex: 1; position: relative; width: 100%; min-height: 0;"><canvas id="chart-network"></canvas></div>
+                    </div>
                 </div>
-                <div class="info-row">
-                    <span>CHECK INTERVAL</span>
-                    <span class="info-value">30s</span>
+
+                <div style="margin-top: 24px; border: 1px solid rgba(0,255,136,0.15); border-radius: 4px; padding: 16px; background: rgba(0,255,136,0.03); height: 220px; display: flex; flex-direction: column; flex-shrink: 0;">
+                    <div class="metrics-label">AVAILABILITY SCORE (LAST 5 MIN)</div>
+                    <div style="flex: 1; position: relative; width: 100%; min-height: 0; margin-top: 8px;"><canvas id="chart-uptime"></canvas></div>
                 </div>
-                <div class="info-row">
-                    <span>RESTART COOLDOWN</span>
-                    <span class="info-value">120s</span>
-                </div>
-                <div class="info-row">
-                    <span>LAST CHECK</span>
-                    <span class="info-value" id="info-last-check">—</span>
-                </div>
-                <div class="info-row">
-                    <span>NEXT CHECK</span>
-                    <span class="info-value" id="info-next-check">—</span>
+            </div>
+        </div>
+
+        <!-- ── Right: Real-Time Log ── -->
+        <div class="panel">
+            <div class="panel-header">REAL-TIME LOG</div>
+            <div class="panel-content">
+                <div id="log-container"></div>
+
+                <div class="recovery-section">
+                    <div class="recovery-label">RECOVERY ACTIONS (LAST 24H)</div>
+                    <div class="recovery-stat">
+                        <span>AUTO-RECOVERIES</span>
+                        <span class="recovery-value" id="recovery-count">0</span>
+                    </div>
+                    <div class="recovery-stat">
+                        <span>LAST RECOVERY</span>
+                        <span class="recovery-value" id="last-recovery">—</span>
+                    </div>
+
+                    <div class="commands-section">
+                        <div class="recovery-label">SYSTEM COMMANDS</div>
+                        <button class="command-button" onclick="forceHealthCheck()">⚡ FORCE HEALTH CHECK</button>
+                        <button class="command-button" onclick="restartServer()">🔄 RESTART SERVER</button>
+                        <button class="command-button" onclick="restartAllServices()">🔄 RESTART ALL</button>
+                        <button class="command-button" onclick="viewLogFile()">📄 VIEW LOG FILE</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ── Center: Architecture & Metrics ── -->
-    <div class="panel" id="architecture-panel">
-        <div class="panel-header">ARCHITECTURE OVERVIEW</div>
-        <div class="panel-content" style="display: flex; flex-direction: column;">
-            <svg class="architecture-svg" viewBox="0 0 600 400" id="architecture-svg">
-                <!-- Grid background -->
-                <defs>
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,255,136,0.02)" stroke-width="0.5"/>
-                    </pattern>
-                </defs>
-                <rect width="600" height="400" fill="url(#grid)"/>
+    <!-- ── Footer ── -->
+    <div class="footer">
+        <span>J.A.R.V.I.S. HEALTH MONITOR</span>
+        <span id="footer-time">MONITORING SINCE: —</span>
+    </div>
 
-                <!-- Service nodes -->
-                <g id="nodes"></g>
-                <!-- Connection lines -->
-                <g id="connections"></g>
-            </svg>
-
-            <div style="padding-top: 12px; border-top: 1px solid rgba(0,255,136,0.1); font-size: 11px;">
-                <div style="color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.1em;">PERFORMANCE METRICS</div>
-                <div id="metrics-container" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;"></div>
-            </div>
+    <!-- ── Modal Overlay ── -->
+    <div id="modal-overlay" class="modal-overlay" style="display: none;"></div>
+    <div id="modal-dialog" class="modal-dialog" style="display: none;">
+        <div class="modal-header" id="modal-title">Bestätigung erforderlich</div>
+        <div class="modal-body" id="modal-message">Test message</div>
+        <div class="modal-footer">
+            <button class="modal-button modal-cancel" onclick="modalCancel()">ABBRECHEN</button>
+            <button class="modal-button modal-confirm" onclick="modalConfirm()">BESTÄTIGEN</button>
         </div>
     </div>
 
-    <!-- ── Right: Real-Time Log ── -->
-    <div class="panel" id="log-panel">
-        <div class="panel-header">REAL-TIME LOG</div>
-        <div class="panel-content" id="log-container"></div>
+    <script>
+        // Mock Data
+        const mockData = {
+            status: 'operational',
+            healthScore: 100,
+            uptime: '12D 04:32:17',
+            startTime: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
+            lastCheck: new Date(Date.now() - 30 * 1000),
+            nextCheck: new Date(Date.now() + 30 * 1000),
+            services: [
+                { name: 'SERVER', status: 'healthy', pid: 3916 },
+                { name: 'WEBSOCKET', status: 'healthy', pid: 0 },
+                { name: 'SPEECH INPUT', status: 'healthy', pid: 4244 },
+                { name: 'WAKE MONITOR', status: 'healthy', pid: 814 },
+                { name: 'CHROME FRONTEND', status: 'healthy', pid: 0 },
+                { name: 'HOME ASSISTANT', status: 'healthy', pid: 0 },
+            ],
+            metrics: {
+                cpu: 12,
+                memory: 284,
+                disk_internal: 48,
+                disk_external: 14,
+                networkIn: 1.2,
+                networkOut: 2.4,
+            },
+            recoveries: 0,
+            logs: [
+                { time: '13:37:04', level: 'OK', message: 'All systems healthy' },
+                { time: '13:37:04', level: 'OK', message: 'Server HTTP response: 200' },
+                { time: '13:37:04', level: 'OK', message: 'WebSocket handshake OK' },
+                { time: '13:37:04', level: 'OK', message: 'speech_input.py running' },
+                { time: '13:37:04', level: 'OK', message: 'wake-monitor.py running' },
+                { time: '13:37:04', level: 'OK', message: 'Chrome process running' },
+                { time: '13:37:03', level: 'OK', message: 'Home Assistant reachable' },
+                { time: '13:31:47', level: 'OK', message: 'All systems healthy' },
+            ],
+        };
 
-        <div class="panel-content" style="padding-top: 0; border-top: 1px solid rgba(0,255,136,0.1);">
-            <div style="color: #888; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">
-                RECOVERY ACTIONS <span style="font-size: 10px; color: #666;">(LAST 24H)</span>
-            </div>
-            <div class="recovery-stat">
-                <span>AUTO-RECOVERIES</span>
-                <span class="recovery-value" id="recovery-count">0</span>
-            </div>
-            <div class="recovery-stat">
-                <span>LAST RECOVERY</span>
-                <span class="recovery-value" id="last-recovery">—</span>
-            </div>
+        // ── Global State ──
+        let _charts = {};
+        let _modalCallback = null;
+        let _history = {
+            timestamps: [],
+            cpu: [],
+            memory: [],
+            disk_internal: [],
+            disk_external: [],
+            networkIn: [],
+            networkOut: [],
+            uptime: []
+        };
+        const MAX_HISTORY = 30;
+        let _startTime = new Date();
 
-            <div class="commands-section">
-                <div style="color: #888; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">SYSTEM COMMANDS</div>
-                <button class="command-button" onclick="forceHealthCheck()">⚡ FORCE HEALTH CHECK</button>
-                <button class="command-button" onclick="restartServer()">🔄 RESTART SERVER</button>
-                <button class="command-button" onclick="restartAllServices()">🔄 RESTART ALL SERVICES</button>
-                <button class="command-button" onclick="viewLogFile()">📄 VIEW LOG FILE</button>
-            </div>
-        </div>
-    </div>
-</div>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('[health] DOM Content Loaded');
+            // Ensure Chart.js is loaded before initializing charts
+            if (typeof Chart === 'undefined') {
+                console.warn('[health] Chart.js not yet loaded, retrying...');
+                setTimeout(() => { init(); setInterval(updateMetricsFromAPI, 10000); }, 500);
+            } else {
+                init();
+                setInterval(updateMetricsFromAPI, 10000);
+            }
+        });
 
-<!-- ── Footer ── -->
-<div class="footer">
-    <span>J.A.R.V.I.S. HEALTH MONITOR</span>
-    <span id="footer-time">MONITORING SINCE: —</span>
-</div>
+        async function init() {
+            console.log('[health] Initializing...');
+            try {
+                updateSystemWatch();
+                updateHealthScore();
+                updateMetrics();
+                updateLogs();
+                await drawArchitecture();
+                updateFooter();
+                initCharts();
+                await updateMetricsFromAPI();
+                console.log('[health] Init complete');
+            } catch (e) {
+                console.error('[health] Init error:', e);
+            }
+        }
 
-<script src="/health.js"></script>
+        function initCharts() {
+            const chartConfig = {
+                type: 'line',
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        filler: true
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0,255,136,0.05)' },
+                            ticks: { color: '#666', font: { size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { display: false }
+                        }
+                    }
+                }
+            };
 
+            const ctx_cpu = document.getElementById('chart-cpu').getContext('2d');
+            _charts.cpu = new Chart(ctx_cpu, {
+                ...chartConfig,
+                data: {
+                    labels: _history.timestamps,
+                    datasets: [{
+                        label: 'CPU %',
+                        data: _history.cpu,
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0,255,136,0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                }
+            });
+
+            const ctx_memory = document.getElementById('chart-memory').getContext('2d');
+            _charts.memory = new Chart(ctx_memory, {
+                ...chartConfig,
+                data: {
+                    labels: _history.timestamps,
+                    datasets: [{
+                        label: 'Memory MB',
+                        data: _history.memory,
+                        borderColor: '#2a9ee2',
+                        backgroundColor: 'rgba(42,158,226,0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                }
+            });
+
+            const ctx_network = document.getElementById('chart-network').getContext('2d');
+            _charts.network = new Chart(ctx_network, {
+                ...chartConfig,
+                data: {
+                    labels: _history.timestamps,
+                    datasets: [{
+                        label: 'Net In MB/s',
+                        data: _history.networkIn,
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0,255,136,0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                }
+            });
+
+            const ctx_uptime = document.getElementById('chart-uptime').getContext('2d');
+            _charts.uptime = new Chart(ctx_uptime, {
+                type: 'line',
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                color: '#666',
+                                font: { size: 10 },
+                                callback: function(value) { return value + '%'; }
+                            },
+                            grid: { color: 'rgba(0,255,136,0.05)' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                display: false
+                            }
+                        }
+                    }
+                },
+                data: {
+                    labels: _history.timestamps,
+                    datasets: [{
+                        label: 'Availability %',
+                        data: _history.uptime,
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0,255,136,0.15)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: 0
+                    }]
+                }
+            });
+        }
+
+        function updateCharts(cpu, memory, disk_int, disk_ext, net_in = 0, net_out = 0) {
+            const now = new Date();
+            const timeStr = String(now.getHours()).padStart(2, '0') + ':' +
+                           String(now.getMinutes()).padStart(2, '0') + ':' +
+                           String(now.getSeconds()).padStart(2, '0');
+
+            // Availability Score: 100% if system healthy, can drop if issues detected
+            const availabilityScore = mockData.healthScore || 100;
+
+            _history.timestamps.push(timeStr);
+            _history.cpu.push(cpu);
+            _history.memory.push(memory);
+            _history.disk_internal.push(disk_int);
+            _history.disk_external.push(disk_ext);
+            _history.networkIn.push(net_in);
+            _history.networkOut.push(net_out);
+            _history.uptime.push(availabilityScore);
+
+            if (_history.timestamps.length > MAX_HISTORY) {
+                _history.timestamps.shift();
+                _history.cpu.shift();
+                _history.memory.shift();
+                _history.disk_internal.shift();
+                _history.disk_external.shift();
+                _history.networkIn.shift();
+                _history.networkOut.shift();
+                _history.uptime.shift();
+            }
+
+            if (_charts.cpu) {
+                _charts.cpu.data.labels = _history.timestamps;
+                _charts.cpu.data.datasets[0].data = _history.cpu;
+                _charts.cpu.update('none');
+            }
+            if (_charts.memory) {
+                _charts.memory.data.labels = _history.timestamps;
+                _charts.memory.data.datasets[0].data = _history.memory;
+                _charts.memory.update('none');
+            }
+            if (_charts.network) {
+                _charts.network.data.labels = _history.timestamps;
+                _charts.network.data.datasets[0].data = _history.networkIn;
+                _charts.network.update('none');
+            }
+            if (_charts.uptime) {
+                _charts.uptime.data.labels = _history.timestamps;
+                _charts.uptime.data.datasets[0].data = _history.uptime;
+                _charts.uptime.update('none');
+            }
+        }
+
+        function updateSystemWatch() {
+            const container = document.getElementById('system-watch-items');
+            container.innerHTML = '';
+
+            mockData.services.forEach(service => {
+                const item = document.createElement('div');
+                item.className = 'watch-item';
+
+                const dotClass = service.status === 'healthy' ? 'watch-dot' :
+                                service.status === 'degraded' ? 'watch-dot warning' :
+                                'watch-dot error';
+
+                item.innerHTML = `
+                    <span class="${dotClass}"></span>
+                    <span class="watch-label">${service.name}</span>
+                    <span class="watch-status">${service.status.toUpperCase()}</span>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function updateHealthScore() {
+            const score = mockData.healthScore;
+            const scoreEl = document.getElementById('health-score');
+
+            scoreEl.textContent = score + '%';
+
+            let status = 'OPERATIONAL';
+            let bannerClass = 'operational';
+            if (score < 50) {
+                status = 'CRITICAL';
+                bannerClass = 'critical';
+            } else if (score < 80) {
+                status = 'DEGRADED';
+                bannerClass = 'degraded';
+            }
+
+            document.getElementById('main-status').textContent = status;
+            document.getElementById('status-banner').textContent = status === 'OPERATIONAL' ? 'ALL SYSTEMS NOMINAL' : status;
+            document.getElementById('main-uptime').textContent = mockData.uptime;
+            document.getElementById('info-version').textContent = 'v1.0.0';
+            document.getElementById('info-last-check').textContent = formatTime(mockData.lastCheck);
+            document.getElementById('info-next-check').textContent = formatTime(mockData.nextCheck);
+        }
+
+        function updateMetrics() {
+            const container = document.getElementById('metrics-container');
+            container.innerHTML = '';
+
+            const metrics = [
+                { label: 'CPU', value: mockData.metrics.cpu, unit: '%' },
+                { label: 'MEMORY', value: mockData.metrics.memory, unit: 'MB' },
+                { label: 'DISK (INT)', value: mockData.metrics.disk_internal, unit: '%' },
+                { label: 'DISK (EXT)', value: mockData.metrics.disk_external, unit: '%' },
+                { label: 'NET IN', value: mockData.metrics.networkIn, unit: 'MB/s' },
+                { label: 'NET OUT', value: mockData.metrics.networkOut, unit: 'MB/s' },
+            ];
+
+            metrics.forEach(metric => {
+                const box = document.createElement('div');
+                box.className = 'metric-box';
+                box.innerHTML = `
+                    <div class="metric-label">${metric.label}</div>
+                    <div class="metric-value">${metric.value}<span class="metric-unit">${metric.unit}</span></div>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        async function updateMetricsFromAPI() {
+            try {
+                const response = await fetch('/api/system/metrics');
+                if (!response.ok) return;
+                const data = await response.json();
+                mockData.metrics = data;
+                updateMetrics();
+                updateCharts(data.cpu, data.memory, data.disk_internal, data.disk_external, data.networkIn, data.networkOut);
+            } catch (e) {
+                console.error('[health] Error fetching metrics:', e);
+            }
+        }
+
+        function updateLogs() {
+            const container = document.getElementById('log-container');
+            container.innerHTML = '';
+
+            mockData.logs.forEach(log => {
+                const entry = document.createElement('div');
+                const levelClass = log.level === 'ERROR' ? 'error' : log.level === 'WARN' ? 'warning' : '';
+                entry.className = 'log-entry ' + levelClass;
+                entry.innerHTML = `
+                    <span class="log-timestamp">${log.time}</span>
+                    <span class="log-status">${log.level}</span>
+                    <span class="log-message">${log.message}</span>
+                `;
+                container.appendChild(entry);
+            });
+
+            document.getElementById('recovery-count').textContent = mockData.recoveries;
+            document.getElementById('last-recovery').textContent = mockData.recoveries > 0 ? '5m ago' : 'NONE';
+        }
+
+        async function drawArchitecture() {
+            const svg = document.getElementById('architecture-svg');
+            if (!svg) {
+                console.error('[health] architecture-svg not found');
+                return;
+            }
+
+            // Fetch live PIDs from API
+            let servicePIDs = {};
+            try {
+                const response = await fetch('/api/supervisor/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.services) {
+                        data.services.forEach(svc => {
+                            servicePIDs[svc.name] = svc.pid;
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('[health] Could not fetch supervisor status:', e);
+            }
+
+            // Clear existing content (except grid and defs)
+            const oldConnections = svg.querySelector('#connections');
+            const oldNodes = svg.querySelector('#nodes');
+            if (oldConnections) oldConnections.remove();
+            if (oldNodes) oldNodes.remove();
+
+            // Create groups
+            const connectionsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            connectionsGroup.setAttribute('id', 'connections');
+            svg.appendChild(connectionsGroup);
+
+            const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            nodesGroup.setAttribute('id', 'nodes');
+            svg.appendChild(nodesGroup);
+
+            const services = [
+                { name: 'SERVER', x: 300, y: 80, color: '#00ff88', pid: servicePIDs['SERVER'] || 0 },
+                { name: 'SPEECH\nINPUT', x: 100, y: 200, color: '#00ff88', pid: servicePIDs['SPEECH INPUT'] || 0 },
+                { name: 'WEBSOCKET', x: 500, y: 200, color: '#00ff88', pid: servicePIDs['WEBSOCKET'] || 0 },
+                { name: 'WAKE\nMONITOR', x: 100, y: 320, color: '#00ff88', pid: servicePIDs['WAKE MONITOR'] || 0 },
+                { name: 'CHROME\nFRONTEND', x: 500, y: 320, color: '#00ff88', pid: servicePIDs['CHROME FRONTEND'] || 0 },
+                { name: 'HOME\nASSISTANT', x: 500, y: 140, color: '#00ff88', pid: servicePIDs['HOME ASSISTANT'] || 0 },
+            ];
+
+            const supervisor = { name: 'SUPERVISOR', x: 300, y: 200, color: '#00ff88', pid: 0 };
+
+            // Draw connections (lines from supervisor to services)
+            services.forEach(service => {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', supervisor.x);
+                line.setAttribute('y1', supervisor.y);
+                line.setAttribute('x2', service.x);
+                line.setAttribute('y2', service.y);
+                line.setAttribute('stroke', 'rgba(0,255,136,0.3)');
+                line.setAttribute('stroke-width', '1.5');
+                line.setAttribute('stroke-dasharray', '4,4');
+                line.setAttribute('class', 'animated-line');
+                connectionsGroup.appendChild(line);
+            });
+
+            // Draw supervisor (center)
+            drawNode(nodesGroup, supervisor);
+
+            // Draw service nodes
+            services.forEach(service => {
+                drawNode(nodesGroup, service);
+            });
+
+            console.log('[health] Architecture drawn');
+        }
+
+        function drawNode(group, node) {
+            // Box (taller if PID needs to be shown)
+            const height = node.pid ? 50 : 40;
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', node.x - 50);
+            rect.setAttribute('y', node.y - height / 2);
+            rect.setAttribute('width', '100');
+            rect.setAttribute('height', String(height));
+            rect.setAttribute('fill', 'rgba(10,14,39,0.8)');
+            rect.setAttribute('stroke', node.color);
+            rect.setAttribute('stroke-width', '1.5');
+            rect.setAttribute('rx', '4');
+            group.appendChild(rect);
+
+            // Status dot
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', node.x + 45);
+            circle.setAttribute('cy', node.y - height / 2);
+            circle.setAttribute('r', '3');
+            circle.setAttribute('fill', node.color);
+            circle.setAttribute('filter', 'url(#glow)');
+            group.appendChild(circle);
+
+            // Service name text
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', node.x);
+            text.setAttribute('y', node.pid ? node.y - 5 : node.y + 3);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('fill', node.color);
+            text.setAttribute('font-size', '9');
+            text.setAttribute('font-family', 'monospace');
+            text.setAttribute('font-weight', 'bold');
+            text.setAttribute('letter-spacing', '0.5');
+            text.textContent = node.name;
+            group.appendChild(text);
+
+            // PID text (if available)
+            if (node.pid && node.pid > 0) {
+                const pidText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                pidText.setAttribute('x', node.x);
+                pidText.setAttribute('y', node.y + 9);
+                pidText.setAttribute('text-anchor', 'middle');
+                pidText.setAttribute('fill', '#888');
+                pidText.setAttribute('font-size', '7');
+                pidText.setAttribute('font-family', 'monospace');
+                pidText.setAttribute('letter-spacing', '0.3');
+                pidText.textContent = 'PID: ' + node.pid;
+                group.appendChild(pidText);
+            }
+        }
+
+        function updateFooter() {
+            const start = mockData.startTime;
+            const dateStr = start.toISOString().split('T')[0];
+            document.getElementById('footer-time').textContent = 'MONITORING SINCE: ' + dateStr;
+        }
+
+        function formatTime(date) {
+            const h = String(date.getHours()).padStart(2, '0');
+            const m = String(date.getMinutes()).padStart(2, '0');
+            const s = String(date.getSeconds()).padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        function showModal(title, message, onConfirm = null, isWarning = false) {
+            document.getElementById('modal-title').textContent = title;
+            const msgEl = document.getElementById('modal-message');
+            msgEl.textContent = message;
+            msgEl.className = isWarning ? 'modal-body modal-warning' : 'modal-body';
+            document.getElementById('modal-overlay').style.display = 'block';
+            document.getElementById('modal-dialog').style.display = 'block';
+            _modalCallback = onConfirm;
+        }
+
+        function hideModal() {
+            document.getElementById('modal-overlay').style.display = 'none';
+            document.getElementById('modal-dialog').style.display = 'none';
+            _modalCallback = null;
+        }
+
+        function modalConfirm() {
+            if (_modalCallback) _modalCallback();
+            hideModal();
+        }
+
+        function modalCancel() {
+            hideModal();
+        }
+
+        function forceHealthCheck() {
+            showModal('FORCE HEALTH CHECK', 'Supervisor will re-check all services immediately.', () => {
+                // TODO: POST /api/supervisor/force-check
+            });
+        }
+
+        function restartServer() {
+            showModal('RESTART SERVER', 'Restart server.py? This may briefly interrupt chat.', () => {
+                showModal('RESTARTING', 'Restarting server via launchctl kickstart…');
+                setTimeout(hideModal, 2000);
+                // TODO: POST /api/supervisor/restart?service=server
+            }, true);
+        }
+
+        function restartAllServices() {
+            showModal('RESTART ALL SERVICES', 'Restart ALL Jarvis services? System will be offline ~10 seconds.', () => {
+                showModal('RESTARTING', 'Restarting all services…');
+                setTimeout(hideModal, 2000);
+                // TODO: POST /api/supervisor/restart?all=true
+            }, true);
+        }
+
+        function viewLogFile() {
+            showModal('VIEW LOG FILE', 'Opening supervisor.log in new window…');
+            setTimeout(() => {
+                window.open('/api/supervisor/log?view=full', '_blank');
+                hideModal();
+            }, 500);
+        }
+    </script>
 </body>
 </html>

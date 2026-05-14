@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 import anthropic
 import httpx
+import psutil
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse, RedirectResponse, JSONResponse
@@ -2748,8 +2749,19 @@ async def get_language():
 
 @app.get("/api/supervisor/status")
 async def get_supervisor_status():
-    """Return current health monitor status (fetches from supervisor.log)."""
+    """Return current health monitor status with live PIDs."""
     try:
+        def get_pid(pattern):
+            """Get PID of process matching pattern."""
+            try:
+                result = subprocess.run(['pgrep', '-f', pattern], capture_output=True, text=True, timeout=2)
+                if result.stdout.strip():
+                    pid = int(result.stdout.strip().split('\n')[0])
+                    return pid
+            except Exception as e:
+                print(f"[ERROR] get_pid({pattern}): {e}")
+            return 0
+
         log_file = os.path.join(os.path.dirname(__file__), "..", "Library", "Logs", "jarvis-whisper", "supervisor.log")
         if not os.path.exists(log_file):
             log_file = os.path.expanduser("~/Library/Logs/jarvis-whisper/supervisor.log")
@@ -2760,10 +2772,10 @@ async def get_supervisor_status():
             "uptime": "12D 04:32:17",
             "services": [
                 {"name": "SERVER", "status": "healthy", "pid": os.getpid()},
-                {"name": "WEBSOCKET", "status": "healthy", "pid": 0},
-                {"name": "SPEECH INPUT", "status": "healthy", "pid": 0},
-                {"name": "WAKE MONITOR", "status": "healthy", "pid": 0},
-                {"name": "CHROME FRONTEND", "status": "healthy", "pid": 0},
+                {"name": "WEBSOCKET", "status": "healthy", "pid": os.getpid()},
+                {"name": "SPEECH INPUT", "status": "healthy", "pid": get_pid("speech_input.py")},
+                {"name": "WAKE MONITOR", "status": "healthy", "pid": get_pid("wake-monitor.py")},
+                {"name": "CHROME FRONTEND", "status": "healthy", "pid": get_pid("jarvis-whisper-chrome-profile")},
                 {"name": "HOME ASSISTANT", "status": "healthy", "pid": 0},
             ],
             "metrics": {
@@ -3132,6 +3144,53 @@ async def activate_voice(request: Request):
     ELEVENLABS_VOICE_ID = voice_id
     log.info(f"[jarvis] Voice aktiviert: {voice_id}")
     return {"success": True}
+
+
+# ── System Metrics ────────────────────────────────────────────────────────
+
+@app.get("/api/system/metrics")
+async def get_system_metrics():
+    """Return real system metrics from macOS."""
+    try:
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
+        net = psutil.net_io_counters()
+
+        # Get disk usage for internal and external drives using df -H (decimal)
+        def get_disk_percent(path):
+            try:
+                result = subprocess.run(['df', '-H', path], capture_output=True, text=True, timeout=3)
+                lines = result.stdout.strip().split('\n')
+                if len(lines) > 1:
+                    parts = lines[1].split()
+                    # Extract: total (parts[1]), used (parts[2]), percent (parts[4])
+                    percent = float(parts[4].rstrip('%'))
+                    return round(percent, 1)
+            except:
+                pass
+            return 0
+
+        disk_internal = get_disk_percent('/System/Volumes/Data')
+        disk_external = get_disk_percent('/Volumes/Macintosh_Data')
+
+        return {
+            "cpu": round(cpu_percent, 1),
+            "memory": round(memory.used / (1024 * 1024), 0),
+            "disk_internal": disk_internal,
+            "disk_external": disk_external,
+            "networkIn": round(net.bytes_recv / (1024 * 1024), 2),
+            "networkOut": round(net.bytes_sent / (1024 * 1024), 2),
+        }
+    except Exception as e:
+        log.error(f"[jarvis] Error getting system metrics: {e}")
+        return {
+            "cpu": 0,
+            "memory": 0,
+            "disk_internal": 0,
+            "disk_external": 0,
+            "networkIn": 0,
+            "networkOut": 0,
+        }
 
 # ──────────────────────────────────────────────────────────────────────────
 
