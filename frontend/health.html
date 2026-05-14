@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. Health Monitor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230a0e27' stroke='%2300aaff' stroke-width='2'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='%2300aaff' font-size='10' font-family='monospace'>J</text></svg>">
+
+<link rel="stylesheet" href="/health.css">
+
+<style>
+:root {
+    --bg:     #0a0e27;
+    --text:   #e0e0e0;
+    --accent: #00ff88;
+    --accent-dim: #2a9ee2;
+    --error:  #ff3366;
+    --warning: #ffaa00;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+.health-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+    flex-shrink: 0;
+}
+
+.health-header-left {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.health-title {
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    color: var(--accent-dim);
+}
+
+.health-title-sub {
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-left: 8px;
+}
+
+.health-header-right {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+}
+
+.header-stat {
+    text-align: right;
+}
+
+.header-stat-label {
+    font-size: 10px;
+    color: #888;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.header-stat-value {
+    font-size: 18px;
+    color: var(--accent);
+    font-weight: bold;
+    letter-spacing: 0.05em;
+}
+
+.back-button {
+    display: inline-block;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--accent-dim);
+    color: var(--accent-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    transition: all 0.3s ease;
+}
+
+.back-button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(0, 255, 136, 0.2);
+}
+
+.health-container {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 16px;
+    padding: 16px 24px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.status-banner {
+    grid-column: 1 / -1;
+    padding: 12px 16px;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    border-radius: 4px;
+    text-align: center;
+    background: rgba(0, 255, 136, 0.02);
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+}
+
+.status-banner.operational {
+    color: var(--accent);
+    border-color: rgba(0, 255, 136, 0.3);
+}
+
+.status-banner.degraded {
+    color: var(--warning);
+    border-color: rgba(255, 170, 0, 0.3);
+    background: rgba(255, 170, 0, 0.02);
+}
+
+.status-banner.critical {
+    color: var(--error);
+    border-color: rgba(255, 51, 102, 0.3);
+    background: rgba(255, 51, 102, 0.02);
+}
+
+.panel {
+    border: 1px solid rgba(0, 255, 136, 0.15);
+    border-radius: 4px;
+    background: rgba(10, 14, 39, 0.6);
+    backdrop-filter: blur(2px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+}
+
+.panel-content {
+    padding: 12px 16px;
+    flex: 1;
+    overflow-y: auto;
+    font-size: 13px;
+}
+
+.panel-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 136, 0.2);
+    border-radius: 2px;
+}
+
+/* ── Left Panel ── */
+#overall-panel {
+    grid-row: 2;
+    grid-column: 1;
+}
+
+.health-gauge {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 12px 0;
+}
+
+.gauge-svg {
+    width: 120px;
+    height: 120px;
+    filter: drop-shadow(0 0 12px rgba(0, 255, 136, 0.2));
+}
+
+.health-score {
+    position: absolute;
+    text-align: center;
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+}
+
+.health-score-label {
+    position: absolute;
+    font-size: 10px;
+    color: #888;
+    margin-top: 50px;
+    letter-spacing: 0.1em;
+}
+
+.system-watch {
+    margin-top: 16px;
+}
+
+.watch-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.05);
+}
+
+.watch-item:last-child {
+    border-bottom: none;
+}
+
+.watch-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.watch-dot.error {
+    background: var(--error);
+    box-shadow: 0 0 6px var(--error);
+}
+
+.watch-dot.warning {
+    background: var(--warning);
+    box-shadow: 0 0 6px var(--warning);
+}
+
+.watch-label {
+    flex: 1;
+    color: var(--text);
+}
+
+.watch-status {
+    color: var(--accent);
+    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.supervisor-info {
+    margin-top: 16px;
+    font-size: 11px;
+    padding: 8px;
+    border: 1px solid rgba(0, 255, 136, 0.1);
+    border-radius: 2px;
+    background: rgba(0, 255, 136, 0.02);
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    color: #888;
+}
+
+.info-value {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+/* ── Center Panel ── */
+#architecture-panel {
+    grid-row: 2;
+    grid-column: 2;
+    min-height: 0;
+}
+
+.architecture-svg {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+}
+
+/* ── Right Panel ── */
+#log-panel {
+    grid-row: 2;
+    grid-column: 3;
+}
+
+.log-entry {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.05);
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    line-height: 1.4;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.log-timestamp {
+    color: var(--accent-dim);
+    margin-right: 8px;
+}
+
+.log-status {
+    color: var(--accent);
+    font-weight: bold;
+    margin-right: 4px;
+    min-width: 30px;
+}
+
+.log-message {
+    color: #aaa;
+}
+
+.log-entry.error .log-status {
+    color: var(--error);
+}
+
+.log-entry.warning .log-status {
+    color: var(--warning);
+}
+
+.recovery-section {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.recovery-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 12px;
+}
+
+.recovery-value {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.commands-section {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.command-button {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 6px;
+    background: transparent;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    color: var(--accent-dim);
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    transition: all 0.3s ease;
+}
+
+.command-button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.15);
+}
+
+.command-button:active {
+    background: rgba(0, 255, 136, 0.1);
+}
+
+.footer {
+    padding: 12px 24px;
+    border-top: 1px solid rgba(0, 255, 136, 0.1);
+    font-size: 10px;
+    color: #666;
+    display: flex;
+    justify-content: space-between;
+    letter-spacing: 0.05em;
+}
+
+</style>
+
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="health-header">
+    <div class="health-header-left">
+        <div>
+            <span class="health-title">J.A.R.V.I.S. V3</span>
+            <span class="health-title-sub">HEALTH MONITOR</span>
+        </div>
+    </div>
+    <div class="health-header-right">
+        <div class="header-stat">
+            <div class="header-stat-label">SYSTEM STATUS</div>
+            <div class="header-stat-value" id="main-status">OPERATIONAL</div>
+        </div>
+        <div class="header-stat">
+            <div class="header-stat-label">UPTIME</div>
+            <div class="header-stat-value" id="main-uptime">—</div>
+        </div>
+        <div class="header-stat">
+            <div class="header-stat-label">SUPERVISOR</div>
+            <div class="header-stat-value" id="supervisor-status">ACTIVE</div>
+        </div>
+        <button class="back-button" onclick="window.location.href='/'">← ZURÜCK</button>
+    </div>
+</div>
+
+<!-- ── Status Banner ── -->
+<div class="health-container">
+    <div class="status-banner operational" id="status-banner">
+        ALL SYSTEMS NOMINAL
+    </div>
+
+    <!-- ── Left: Overall Status ── -->
+    <div class="panel" id="overall-panel">
+        <div class="panel-header">OVERALL STATUS</div>
+        <div class="panel-content">
+            <div class="health-gauge">
+                <svg class="gauge-svg" viewBox="0 0 140 140">
+                    <defs>
+                        <filter id="glow">
+                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+                    <!-- Background ring -->
+                    <circle cx="70" cy="70" r="60" fill="none" stroke="rgba(0,255,136,0.1)" stroke-width="2"/>
+                    <!-- Progress ring -->
+                    <circle id="gauge-ring" cx="70" cy="70" r="60" fill="none" stroke="url(#gauge-gradient)" stroke-width="3"
+                            stroke-dasharray="377 377" stroke-dashoffset="0" stroke-linecap="round"
+                            transform="rotate(-90 70 70)" filter="url(#glow)"/>
+                    <defs>
+                        <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#00ff88;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#00ff88;stop-opacity:0.6" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <div class="health-score" id="health-score">100%</div>
+            </div>
+            <div class="health-score-label">HEALTH SCORE</div>
+
+            <div class="system-watch">
+                <div style="font-size: 11px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.1em;">SYSTEM WATCH</div>
+                <div id="system-watch-items"></div>
+            </div>
+
+            <div class="supervisor-info">
+                <div class="info-row">
+                    <span>SUPERVISOR.PY</span>
+                    <span class="info-value" id="info-version">v1.0.0</span>
+                </div>
+                <div class="info-row">
+                    <span>CHECK INTERVAL</span>
+                    <span class="info-value">30s</span>
+                </div>
+                <div class="info-row">
+                    <span>RESTART COOLDOWN</span>
+                    <span class="info-value">120s</span>
+                </div>
+                <div class="info-row">
+                    <span>LAST CHECK</span>
+                    <span class="info-value" id="info-last-check">—</span>
+                </div>
+                <div class="info-row">
+                    <span>NEXT CHECK</span>
+                    <span class="info-value" id="info-next-check">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Center: Architecture & Metrics ── -->
+    <div class="panel" id="architecture-panel">
+        <div class="panel-header">ARCHITECTURE OVERVIEW</div>
+        <div class="panel-content" style="display: flex; flex-direction: column;">
+            <svg class="architecture-svg" viewBox="0 0 600 400" id="architecture-svg">
+                <!-- Grid background -->
+                <defs>
+                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,255,136,0.02)" stroke-width="0.5"/>
+                    </pattern>
+                </defs>
+                <rect width="600" height="400" fill="url(#grid)"/>
+
+                <!-- Service nodes -->
+                <g id="nodes"></g>
+                <!-- Connection lines -->
+                <g id="connections"></g>
+            </svg>
+
+            <div style="padding-top: 12px; border-top: 1px solid rgba(0,255,136,0.1); font-size: 11px;">
+                <div style="color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.1em;">PERFORMANCE METRICS</div>
+                <div id="metrics-container" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Right: Real-Time Log ── -->
+    <div class="panel" id="log-panel">
+        <div class="panel-header">REAL-TIME LOG</div>
+        <div class="panel-content" id="log-container"></div>
+
+        <div class="panel-content" style="padding-top: 0; border-top: 1px solid rgba(0,255,136,0.1);">
+            <div style="color: #888; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">
+                RECOVERY ACTIONS <span style="font-size: 10px; color: #666;">(LAST 24H)</span>
+            </div>
+            <div class="recovery-stat">
+                <span>AUTO-RECOVERIES</span>
+                <span class="recovery-value" id="recovery-count">0</span>
+            </div>
+            <div class="recovery-stat">
+                <span>LAST RECOVERY</span>
+                <span class="recovery-value" id="last-recovery">—</span>
+            </div>
+
+            <div class="commands-section">
+                <div style="color: #888; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;">SYSTEM COMMANDS</div>
+                <button class="command-button" onclick="forceHealthCheck()">⚡ FORCE HEALTH CHECK</button>
+                <button class="command-button" onclick="restartServer()">🔄 RESTART SERVER</button>
+                <button class="command-button" onclick="restartAllServices()">🔄 RESTART ALL SERVICES</button>
+                <button class="command-button" onclick="viewLogFile()">📄 VIEW LOG FILE</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Footer ── -->
+<div class="footer">
+    <span>J.A.R.V.I.S. HEALTH MONITOR</span>
+    <span id="footer-time">MONITORING SINCE: —</span>
+</div>
+
+<script src="/health.js"></script>
+
+</body>
+</html>
