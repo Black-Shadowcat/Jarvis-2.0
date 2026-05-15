@@ -43,6 +43,9 @@ PTT_API        = "http://localhost:8340/api/ptt"
 WHISPER_MODEL  = "mlx-community/whisper-large-v3-mlx"
 MIN_DURATION   = 0.6    # Sekunden — kürzere Aufnahmen werden verworfen
 
+# Phase 2 observability
+SPEECH_STATE_FILE = "data/speech_state.json"
+
 # Wake-Word VAD-Schwellwerte
 WW_VOICE_RMS    = 0.012  # Sprache erkannt (oberhalb) — optimiert für menschliche Sprache
 WW_SILENCE_RMS  = 0.008  # Stille (unterhalb)
@@ -96,6 +99,33 @@ def _notify_ptt(state: str):
         urllib.request.urlopen(req, timeout=1)
     except Exception:
         pass
+
+
+# ── Phase 2 Observability: Speech State Tracking ────────────────────────
+
+def _write_state(state: str, inference_active: bool = False, last_duration_s: float = None):
+    """
+    Record current speech state.
+
+    state: IDLE, LISTENING, TRANSCRIBING, RECOVERING
+    inference_active: True only during mlx_whisper.transcribe()
+    """
+    try:
+        data = {
+            "state": state,
+            "inference_active": inference_active,
+            "last_update": time.time(),
+            "ws_connected": _ws_connected if '_ws_connected' in globals() else False,
+        }
+
+        if last_duration_s is not None:
+            data["last_transcription_duration_s"] = round(last_duration_s, 2)
+
+        with open(SPEECH_STATE_FILE, "w") as f:
+            json.dump(data, f)
+
+    except Exception as e:
+        log.debug(f"[speech_state] write failed: {type(e).__name__}")
 
 
 # ── Gemeinsamer Start/Stop ────────────────────────────────────────────────
@@ -256,6 +286,7 @@ def _ww_thread():
     """
     global _jarvis_speaking
     log.info("Wake-Word aktiv — VAD+Whisper, Aktivierungswort: 'Jarvis'")
+    _write_state("IDLE", inference_active=False)  # Phase 2: Initial state
     chunk_secs = CHUNK_SIZE / SAMPLE_RATE  # 0.1 s
     chunk_count = 0
     last_rms_log = 0
@@ -291,6 +322,7 @@ def _ww_thread():
             continue
 
         # 2. Sprache erkannt → sofort visuelles Feedback + Snippet sammeln
+        _write_state("LISTENING", inference_active=False)  # Phase 2: Listening
         threading.Thread(target=_notify_ptt, args=("listen_open",), daemon=True).start()
         snippet: list = [chunk.astype(np.float32)]
         silence_secs = 0.0
@@ -320,16 +352,21 @@ def _ww_thread():
         audio_snip = np.concatenate(snippet).flatten()
         if len(audio_snip) / SAMPLE_RATE < 0.3:
             threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
+            _write_state("IDLE", inference_active=False)  # Phase 2: Back to idle
             continue
 
+        _write_state("TRANSCRIBING", inference_active=False)  # Phase 2: Before model load
+        start_time = time.time()
         result = mlx_whisper.transcribe(
             audio_snip,
             path_or_hf_repo=WHISPER_MODEL,
             language="de",
             initial_prompt="Jarvis.",
         )
+        transcription_duration = time.time() - start_time
         text = result["text"].strip()
         _detect_q_flush()
+        _write_state("IDLE", inference_active=False, last_duration_s=transcription_duration)  # Phase 2: Done
 
         if not text or text.lower() in _HALLUCINATIONS:
             threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
