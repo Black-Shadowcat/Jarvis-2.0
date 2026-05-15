@@ -1,6 +1,6 @@
-# J.A.R.V.I.S. — jarvis-whisper (macOS v0.1.2)
+# J.A.R.V.I.S. — Jarvis 2.0 (macOS v0.1.2)
 
-> **jarvis-whisper** ersetzt die browserbasierte Web Speech API des ursprünglichen JARVIS durch lokales Whisper-STT auf Apple MLX.
+> **Jarvis 2.0** ersetzt die browserbasierte Web Speech API des ursprünglichen JARVIS durch lokales Whisper-STT auf Apple MLX.
 >
 > Basiert auf der ursprünglichen Idee von [Julian Ivanov](https://github.com/Julian-Ivanov/jarvis-voice-assistant) und jarvis-voice-assistant v2.6.2 von Matthias Schreiber. Entwickelt mit [Claude Code](https://claude.ai/code). Kein Support. Nur für den persönlichen Gebrauch.
 
@@ -8,7 +8,7 @@
 
 ## Was sich gegenüber v2.x geändert hat
 
-| Alter JARVIS (v2.x) | jarvis-whisper (v0.1.x) |
+| Alter JARVIS (v2.x) | Jarvis 2.0 (v0.1.x) |
 |---|---|
 | Web Speech API (Chrome) | mlx-whisper large-v3 (lokal, Apple Silicon) |
 | Chrome-Mikrofonberechtigung | pynput + sounddevice (Systemebene) |
@@ -111,7 +111,7 @@ Kein STT-API-Key nötig — Whisper läuft lokal auf Apple Silicon.
 
 1. **Klonen und installieren:**
    ```bash
-   git clone https://github.com/Black-Shadowcat/jarvis-whisper.git jarvis-v3
+   git clone https://github.com/Black-Shadowcat/Jarvis 2.0.git jarvis-v3
    cd jarvis-v3
    /opt/homebrew/bin/python3.11 -m pip install -r requirements.txt
    /opt/homebrew/bin/python3.11 -m playwright install chromium
@@ -136,9 +136,9 @@ Kein STT-API-Key nötig — Whisper läuft lokal auf Apple Silicon.
 
 4. **LaunchAgents laden:**
    ```bash
-   launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
-   launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.speech.plist
-   launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.session.plist
+   launchctl load ~/Library/LaunchAgents/com.jarvis.v2.server.plist
+   launchctl load ~/Library/LaunchAgents/com.jarvis.v2.speech.plist
+   launchctl load ~/Library/LaunchAgents/com.jarvis.v2.session.plist
    ```
 
 5. `http://localhost:8340` im Chrome öffnen, falls er sich nicht automatisch öffnet.
@@ -176,7 +176,7 @@ bash ~/jarvis-v3/scripts/launch-session.sh
 ## Projektstruktur
 
 ```
-jarvis-whisper/
+Jarvis 2.0/
 ├── server.py              # FastAPI Backend — Gehirn + Action-System (Port 8340)
 ├── speech_input.py        # mlx-whisper STT + Aktivierungswort + F19 PTT
 ├── browser_tools.py       # Playwright Browser-Automatisierung
@@ -204,9 +204,9 @@ jarvis-whisper/
 │   ├── jarvis.icns        # App-Icon (alle Größen)
 │   └── jarvis-icon.png    # App-Icon (PNG)
 ├── launchagents/
-│   ├── com.jarvis.whisper.server.plist   # Server Autostart
-│   ├── com.jarvis.whisper.speech.plist   # Spracheingabe Autostart
-│   └── com.jarvis.whisper.session.plist  # Browser-Session Autostart
+│   ├── com.jarvis.v2.server.plist   # Server Autostart
+│   ├── com.jarvis.v2.speech.plist   # Spracheingabe Autostart
+│   └── com.jarvis.v2.session.plist  # Browser-Session Autostart
 └── scripts/
     ├── launch-session.sh  # Startet Chrome im Kiosk-Modus
     └── wake-monitor.py    # Wake-from-Sleep → /api/wake
@@ -220,18 +220,18 @@ Drei Agents unter `~/Library/LaunchAgents/`:
 
 | Agent | Zweck |
 |---|---|
-| `com.jarvis.whisper.server.plist` | FastAPI Server, KeepAlive (startet bei Absturz neu) |
-| `com.jarvis.whisper.speech.plist` | speech_input.py (Aktivierungswort + F19 PTT), KeepAlive |
-| `com.jarvis.whisper.session.plist` | Browser-Session beim Login (Chrome Kiosk-Modus) |
+| `com.jarvis.v2.server.plist` | FastAPI Server, KeepAlive (startet bei Absturz neu) |
+| `com.jarvis.v2.speech.plist` | speech_input.py (Aktivierungswort + F19 PTT), KeepAlive |
+| `com.jarvis.v2.session.plist` | Browser-Session beim Login (Chrome Kiosk-Modus) |
 
 ```bash
 # Neu laden
-launchctl unload ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
-launchctl load   ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
+launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.server.plist
+launchctl load   ~/Library/LaunchAgents/com.jarvis.v2.server.plist
 
 # Logs
-tail -f ~/Library/Logs/jarvis-whisper/server.log
-tail -f ~/Library/Logs/jarvis-whisper/speech.log
+tail -f ~/Library/Logs/Jarvis 2.0/server.log
+tail -f ~/Library/Logs/Jarvis 2.0/speech.log
 ```
 
 ---
@@ -241,10 +241,10 @@ tail -f ~/Library/Logs/jarvis-whisper/speech.log
 | Problem | Lösung |
 |---|---|
 | Server antwortet nicht | `pkill -f "server.py"` — launchd startet automatisch neu |
-| Aktivierungswort funktioniert nicht | `~/Library/Logs/jarvis-whisper/speech.log` prüfen |
+| Aktivierungswort funktioniert nicht | `~/Library/Logs/Jarvis 2.0/speech.log` prüfen |
 | Chrome öffnet sich nicht | `bash ~/jarvis-v3/scripts/launch-session.sh` manuell starten |
 | Mikrofonberechtigung | Systemeinstellungen → Datenschutz → Bedienungshilfen → Terminal erlauben |
-| Erinnerungen werden nicht angezeigt | `~/Library/Logs/jarvis-whisper/server.log` prüfen |
+| Erinnerungen werden nicht angezeigt | `~/Library/Logs/Jarvis 2.0/server.log` prüfen |
 | Browser-Automatisierung schlägt fehl | `playwright install chromium` erneut ausführen |
 
 ---
@@ -266,7 +266,7 @@ tail -f ~/Library/Logs/jarvis-whisper/speech.log
 ## Danksagung
 
 Ursprüngliche Idee und Windows-Implementierung von [Julian Ivanov](https://github.com/Julian-Ivanov) — entwickelt mit [Claude Code](https://claude.ai/code).
-jarvis-whisper — entwickelt von Matthias Schreiber mit [Claude Code](https://claude.ai/code).
+Jarvis 2.0 — entwickelt von Matthias Schreiber mit [Claude Code](https://claude.ai/code).
 
 Inspiriert von Iron Mans J.A.R.V.I.S. — *„Zu Ihren Diensten, Sir."*
 

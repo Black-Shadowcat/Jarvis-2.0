@@ -3,13 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.jarvis.whisper.server</string>
+    <string>com.jarvis.v2.speech</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/Users/matthiasschreiber/jarvis-v3/venv/bin/python3.11</string>
-        <string>/Users/matthiasschreiber/jarvis-v3/server.py</string>
-        <string>8340</string>
+        <string>/Users/matthiasschreiber/jarvis-v3/speech_input.py</string>
     </array>
 
     <key>WorkingDirectory</key>
@@ -22,10 +21,10 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Users/matthiasschreiber/Library/Logs/jarvis-whisper/server.log</string>
+    <string>/Users/matthiasschreiber/Library/Logs/jarvis-v2/speech.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/matthiasschreiber/Library/Logs/jarvis-whisper/server.log</string>
+    <string>/Users/matthiasschreiber/Library/Logs/jarvis-v2/speech.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

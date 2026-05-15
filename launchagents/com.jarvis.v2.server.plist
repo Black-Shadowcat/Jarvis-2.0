@@ -1,25 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.jarvis.whisper.supervisor</string>
+    <string>com.jarvis.v2.server</string>
+
     <key>ProgramArguments</key>
     <array>
         <string>/Users/matthiasschreiber/jarvis-v3/venv/bin/python3.11</string>
-        <string>/Users/matthiasschreiber/jarvis-v3/supervisor.py</string>
+        <string>/Users/matthiasschreiber/jarvis-v3/server.py</string>
+        <string>8340</string>
     </array>
+
     <key>WorkingDirectory</key>
     <string>/Users/matthiasschreiber/jarvis-v3</string>
+
     <key>RunAtLoad</key>
     <true/>
+
     <key>KeepAlive</key>
     <true/>
+
     <key>StandardOutPath</key>
-    <string>/Users/matthiasschreiber/Library/Logs/jarvis-whisper/supervisor.log</string>
+    <string>/Users/matthiasschreiber/Library/Logs/jarvis-v2/server.log</string>
+
     <key>StandardErrorPath</key>
-    <string>/Users/matthiasschreiber/Library/Logs/jarvis-whisper/supervisor.log</string>
+    <string>/Users/matthiasschreiber/Library/Logs/jarvis-v2/server.log</string>
+
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

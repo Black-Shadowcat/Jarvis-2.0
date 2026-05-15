@@ -1,5 +1,5 @@
 #!/bin/zsh
-# jarvis-whisper — Launch Session (macOS)
+# Jarvis 2.0 — Launch Session (macOS)
 # Wartet auf macOS-Bereitschaft + Server, dann öffnet Chrome auf Port 8340.
 
 echo "[boot] Warte auf macOS (Dock + Finder)..."
@@ -18,7 +18,7 @@ else
 fi
 
 SERVER_URL="http://localhost:8340"
-JARVIS_PROFILE="$HOME/.jarvis-whisper-chrome-profile"
+JARVIS_PROFILE="$HOME/.jarvis-v2-chrome-profile"
 
 echo "[session] Warte auf Server $SERVER_URL..."
 for i in {1..30}; do
@@ -49,7 +49,7 @@ with open("$JARVIS_PREF", "w") as f:
 PYEOF
 fi
 
-pkill -f "jarvis-whisper-chrome-profile" 2>/dev/null
+pkill -f "jarvis-v2-chrome-profile" 2>/dev/null
 sleep 1
 
 echo "[session] Chrome öffnen (Kiosk-Mode)..."
@@ -64,7 +64,7 @@ open -na "Google Chrome" --args \
     --in-process-gpu
 
 sleep 3
-if ! pgrep -f "jarvis-whisper-chrome-profile" > /dev/null 2>&1; then
+if ! pgrep -f "jarvis-v2-chrome-profile" > /dev/null 2>&1; then
     echo "[session] Chrome nicht gestartet — retry..."
     sleep 3
     open -na "Google Chrome" --args \

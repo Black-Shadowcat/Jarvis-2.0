@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.jarvis.whisper.wake</string>
+    <string>com.jarvis.v2.wake</string>
 
     <key>ProgramArguments</key>
     <array>
@@ -21,10 +21,10 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Users/matthiasschreiber/Library/Logs/jarvis-whisper/wake.log</string>
+    <string>/Users/matthiasschreiber/Library/Logs/jarvis-v2/wake.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/matthiasschreiber/Library/Logs/jarvis-whisper/wake.log</string>
+    <string>/Users/matthiasschreiber/Library/Logs/jarvis-v2/wake.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

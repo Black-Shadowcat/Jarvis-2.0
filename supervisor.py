@@ -264,7 +264,7 @@ def check_chrome() -> bool:
     Check if Chrome Kiosk is running.
     Only logs result — restart logic is in launch-session.sh, not here.
     """
-    ok = _pgrep("jarvis-whisper-chrome-profile")
+    ok = _pgrep("jarvis-v2-chrome-profile")
     if not ok:
         log.info("ℹ Chrome not running (expected during sleep or manual close)")
     return ok
@@ -327,7 +327,7 @@ def run_checks(config: dict) -> None:
             log.warning(
                 f"server_http: {n}/{FAILURE_THRESHOLD} failures → kickstart server"
             )
-            _kickstart("com.jarvis.whisper.server")
+            _kickstart("com.jarvis.v2.server")
             _mark_restarted("server")
         else:
             log.warning(f"server_http FAIL ({n}/{FAILURE_THRESHOLD})")
@@ -345,7 +345,7 @@ def run_checks(config: dict) -> None:
                 log.warning(
                     f"server_ws: {n}/{FAILURE_THRESHOLD} failures → kickstart server (WS stuck)"
                 )
-                _kickstart("com.jarvis.whisper.server")
+                _kickstart("com.jarvis.v2.server")
                 _mark_restarted("server")
             else:
                 log.warning(f"server_ws FAIL ({n}/{FAILURE_THRESHOLD})")
@@ -362,7 +362,7 @@ def run_checks(config: dict) -> None:
         all_ok = False
         if n >= FAILURE_THRESHOLD and _can_restart("speech"):
             log.warning(f"speech: {n}/{FAILURE_THRESHOLD} failures → kickstart")
-            _kickstart("com.jarvis.whisper.speech")
+            _kickstart("com.jarvis.v2.speech")
             _mark_restarted("speech")
         else:
             log.warning(f"speech FAIL ({n}/{FAILURE_THRESHOLD})")
@@ -379,7 +379,7 @@ def run_checks(config: dict) -> None:
         all_ok = False
         if n >= FAILURE_THRESHOLD and _can_restart("wake"):
             log.warning(f"wake: {n}/{FAILURE_THRESHOLD} failures → kickstart")
-            _kickstart("com.jarvis.whisper.wake")
+            _kickstart("com.jarvis.v2.wake")
             _mark_restarted("wake")
         else:
             log.warning(f"wake FAIL ({n}/{FAILURE_THRESHOLD})")

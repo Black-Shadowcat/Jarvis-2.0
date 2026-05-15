@@ -1,6 +1,6 @@
-# J.A.R.V.I.S. — jarvis-whisper (macOS v0.1.2)
+# J.A.R.V.I.S. — Jarvis 2.0 (macOS v0.1.2)
 
-> **jarvis-whisper** replaces the browser-based Web Speech API of the original JARVIS with local Whisper STT running on Apple MLX.
+> **Jarvis 2.0** replaces the browser-based Web Speech API of the original JARVIS with local Whisper STT running on Apple MLX.
 >
 > Based on the original idea by [Julian Ivanov](https://github.com/Julian-Ivanov/jarvis-voice-assistant) and jarvis-voice-assistant v2.6.2 by Matthias Schreiber. Built with [Claude Code](https://claude.ai/code). No support provided. Personal use only.
 
@@ -8,7 +8,7 @@
 
 ## What Changed vs. v2.x
 
-| Old JARVIS (v2.x) | jarvis-whisper (v0.1.x) |
+| Old JARVIS (v2.x) | Jarvis 2.0 (v0.1.x) |
 |---|---|
 | Web Speech API (Chrome) | mlx-whisper large-v3 (local, Apple Silicon) |
 | Chrome microphone permission | pynput + sounddevice (system-level) |
@@ -111,7 +111,7 @@ No STT API key needed — Whisper runs locally on Apple Silicon.
 
 1. **Clone and install:**
    ```bash
-   git clone https://github.com/Black-Shadowcat/jarvis-whisper.git jarvis-v3
+   git clone https://github.com/Black-Shadowcat/Jarvis 2.0.git jarvis-v3
    cd jarvis-v3
    /opt/homebrew/bin/python3.11 -m pip install -r requirements.txt
    /opt/homebrew/bin/python3.11 -m playwright install chromium
@@ -136,9 +136,9 @@ No STT API key needed — Whisper runs locally on Apple Silicon.
 
 4. **Load LaunchAgents:**
    ```bash
-   launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
-   launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.speech.plist
-   launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.session.plist
+   launchctl load ~/Library/LaunchAgents/com.jarvis.v2.server.plist
+   launchctl load ~/Library/LaunchAgents/com.jarvis.v2.speech.plist
+   launchctl load ~/Library/LaunchAgents/com.jarvis.v2.session.plist
    ```
 
 5. Open `http://localhost:8340` if Chrome doesn't open automatically.
@@ -176,7 +176,7 @@ bash ~/jarvis-v3/scripts/launch-session.sh
 ## Project Structure
 
 ```
-jarvis-whisper/
+Jarvis 2.0/
 ├── server.py              # FastAPI backend — brain + action system (Port 8340)
 ├── speech_input.py        # mlx-whisper STT + wake word + F19 PTT
 ├── browser_tools.py       # Playwright browser automation
@@ -204,9 +204,9 @@ jarvis-whisper/
 │   ├── jarvis.icns        # App icon (all sizes)
 │   └── jarvis-icon.png    # App icon (PNG)
 ├── launchagents/
-│   ├── com.jarvis.whisper.server.plist   # Server autostart
-│   ├── com.jarvis.whisper.speech.plist   # Speech input autostart
-│   └── com.jarvis.whisper.session.plist  # Browser session autostart
+│   ├── com.jarvis.v2.server.plist   # Server autostart
+│   ├── com.jarvis.v2.speech.plist   # Speech input autostart
+│   └── com.jarvis.v2.session.plist  # Browser session autostart
 └── scripts/
     ├── launch-session.sh  # Starts Chrome in kiosk mode
     └── wake-monitor.py    # Wake-from-sleep → /api/wake
@@ -220,18 +220,18 @@ Three agents in `~/Library/LaunchAgents/`:
 
 | Agent | Purpose |
 |---|---|
-| `com.jarvis.whisper.server.plist` | FastAPI server, KeepAlive (auto-restarts on crash) |
-| `com.jarvis.whisper.speech.plist` | speech_input.py (wake word + F19 PTT), KeepAlive |
-| `com.jarvis.whisper.session.plist` | Browser session on login (Chrome kiosk mode) |
+| `com.jarvis.v2.server.plist` | FastAPI server, KeepAlive (auto-restarts on crash) |
+| `com.jarvis.v2.speech.plist` | speech_input.py (wake word + F19 PTT), KeepAlive |
+| `com.jarvis.v2.session.plist` | Browser session on login (Chrome kiosk mode) |
 
 ```bash
 # Reload
-launchctl unload ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
-launchctl load   ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
+launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.server.plist
+launchctl load   ~/Library/LaunchAgents/com.jarvis.v2.server.plist
 
 # Logs
-tail -f ~/Library/Logs/jarvis-whisper/server.log
-tail -f ~/Library/Logs/jarvis-whisper/speech.log
+tail -f ~/Library/Logs/Jarvis 2.0/server.log
+tail -f ~/Library/Logs/Jarvis 2.0/speech.log
 ```
 
 ---
@@ -241,10 +241,10 @@ tail -f ~/Library/Logs/jarvis-whisper/speech.log
 | Problem | Solution |
 |---|---|
 | Server not responding | `pkill -f "server.py"` — launchd restarts automatically |
-| Wake word not working | Check `~/Library/Logs/jarvis-whisper/speech.log` |
+| Wake word not working | Check `~/Library/Logs/Jarvis 2.0/speech.log` |
 | Chrome won't open | Run `bash ~/jarvis-v3/scripts/launch-session.sh` manually |
 | Microphone permission | System Settings → Privacy → Accessibility → allow Terminal |
-| Reminders not showing | Check `~/Library/Logs/jarvis-whisper/server.log` |
+| Reminders not showing | Check `~/Library/Logs/Jarvis 2.0/server.log` |
 | Browser automation fails | Run `playwright install chromium` again |
 
 ---
@@ -266,7 +266,7 @@ tail -f ~/Library/Logs/jarvis-whisper/speech.log
 ## Credits
 
 Original idea and Windows implementation by [Julian Ivanov](https://github.com/Julian-Ivanov) — built with [Claude Code](https://claude.ai/code).
-jarvis-whisper — built by Matthias Schreiber with [Claude Code](https://claude.ai/code).
+Jarvis 2.0 — built by Matthias Schreiber with [Claude Code](https://claude.ai/code).
 
 Inspired by Iron Man's J.A.R.V.I.S. — *"At your service, Sir."*
 

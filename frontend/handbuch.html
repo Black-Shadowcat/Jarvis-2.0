@@ -1124,10 +1124,10 @@ Oder: Klick auf das Zahnrad-Symbol oben rechts im Jarvis HUD.</p>
 <h3>Jarvis hört nicht zu (kein Reaktion auf „Jarvis")</h3>
 <table>
     <tr><th>Mögliche Ursache</th><th>Lösung</th></tr>
-    <tr><td>speech_input.py läuft nicht</td><td><code>launchctl list | grep jarvis.whisper.speech</code> — LaunchAgent neu laden</td></tr>
+    <tr><td>speech_input.py läuft nicht</td><td><code>launchctl list | grep jarvis.v2.speech</code> — LaunchAgent neu laden</td></tr>
     <tr><td>Bedienungshilfen-Berechtigung fehlt</td><td>Systemeinstellungen → Datenschutz → Bedienungshilfen → Terminal hinzufügen</td></tr>
     <tr><td>Falsches Mikrofon</td><td>macOS Systemeinstellungen → Ton → Eingabe → richtiges Mikrofon wählen</td></tr>
-    <tr><td>Log prüfen</td><td><code>tail -f ~/Library/Logs/jarvis-whisper/speech.log</code></td></tr>
+    <tr><td>Log prüfen</td><td><code>tail -f ~/Library/Logs/jarvis-v2/speech.log</code></td></tr>
 </table>
 
 <h3>Jarvis spricht nicht (keine Stimme)</h3>

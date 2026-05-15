@@ -1,16 +1,16 @@
 #!/bin/bash
-# ── Jarvis Whisper — Start ──────────────────────────────────────────────
+# ── Jarvis 2.0 — Start ───────────────────────────────────────────────────
 echo "════════════════════════════════════════"
-echo "  Starte jarvis-whisper (Port 8340)"
+echo "  Starte Jarvis 2.0 (Port 8340)"
 echo "════════════════════════════════════════"
 
-SERVER_PLIST=~/Library/LaunchAgents/com.jarvis.whisper.server.plist
-SPEECH_PLIST=~/Library/LaunchAgents/com.jarvis.whisper.speech.plist
+SERVER_PLIST=~/Library/LaunchAgents/com.jarvis.v2.server.plist
+SPEECH_PLIST=~/Library/LaunchAgents/com.jarvis.v2.speech.plist
 
 # Server starten (laden falls nötig, sonst starten)
 echo "→ Server LaunchAgent..."
-if launchctl list com.jarvis.whisper.server &>/dev/null; then
-    launchctl start com.jarvis.whisper.server
+if launchctl list com.jarvis.v2.server &>/dev/null; then
+    launchctl start com.jarvis.v2.server
     echo "  gestartet"
 else
     launchctl load "$SERVER_PLIST"
@@ -27,8 +27,8 @@ lsof -i :8340 -sTCP:LISTEN &>/dev/null && echo "  Port 8340 offen ✓" || echo "
 
 # Spracheingabe starten
 echo "→ Spracheingabe LaunchAgent..."
-if launchctl list com.jarvis.whisper.speech &>/dev/null; then
-    launchctl start com.jarvis.whisper.speech
+if launchctl list com.jarvis.v2.speech &>/dev/null; then
+    launchctl start com.jarvis.v2.speech
     echo "  gestartet"
 else
     launchctl load "$SPEECH_PLIST"
@@ -42,7 +42,7 @@ echo "→ Öffne Dashboard..."
 open "http://localhost:8340"
 
 echo ""
-echo "✓ jarvis-whisper läuft auf http://localhost:8340"
+echo "✓ Jarvis 2.0 läuft auf http://localhost:8340"
 echo "  F19 halten zum Sprechen"
-echo "  Logs: ~/Library/Logs/jarvis-whisper/"
+echo "  Logs: ~/Library/Logs/jarvis-v2/"
 echo "════════════════════════════════════════"

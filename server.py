@@ -249,7 +249,7 @@ async def _check_for_update() -> dict:
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(
-                "https://api.github.com/repos/Black-Shadowcat/jarvis-whisper/releases/latest",
+                "https://api.github.com/repos/Black-Shadowcat/jarvis-v2/releases/latest",
                 headers={"Accept": "application/vnd.github+json", "User-Agent": "Jarvis-UpdateCheck/1"}
             )
         if r.status_code != 200:
@@ -2639,10 +2639,10 @@ async def supervisor_restart(service: str = None, all: bool = False):
         import signal as _signal
 
         SERVICE_LABELS = {
-            "server":     "com.jarvis.whisper.server",
-            "speech":     "com.jarvis.whisper.speech",
-            "wake":       "com.jarvis.whisper.wake",
-            "supervisor": "com.jarvis.whisper.supervisor",
+            "server":     "com.jarvis.v2.server",
+            "speech":     "com.jarvis.v2.speech",
+            "wake":       "com.jarvis.v2.wake",
+            "supervisor": "com.jarvis.v2.supervisor",
         }
 
         uid = os.getuid()
@@ -2815,9 +2815,9 @@ async def get_supervisor_status():
                 print(f"[ERROR] get_pid({pattern}): {e}")
             return 0
 
-        log_file = os.path.join(os.path.dirname(__file__), "..", "Library", "Logs", "jarvis-whisper", "supervisor.log")
+        log_file = os.path.join(os.path.dirname(__file__), "..", "Library", "Logs", "jarvis-v2", "supervisor.log")
         if not os.path.exists(log_file):
-            log_file = os.path.expanduser("~/Library/Logs/jarvis-whisper/supervisor.log")
+            log_file = os.path.expanduser("~/Library/Logs/jarvis-v2/supervisor.log")
 
         status = {
             "status": "operational",
@@ -2828,7 +2828,7 @@ async def get_supervisor_status():
                 {"name": "WEBSOCKET", "status": "healthy", "pid": os.getpid()},
                 {"name": "SPEECH INPUT", "status": "healthy", "pid": get_pid("speech_input.py")},
                 {"name": "WAKE MONITOR", "status": "healthy", "pid": get_pid("wake-monitor.py")},
-                {"name": "CHROME FRONTEND", "status": "healthy", "pid": get_pid("jarvis-whisper-chrome-profile")},
+                {"name": "CHROME FRONTEND", "status": "healthy", "pid": get_pid("jarvis-v2-chrome-profile")},
                 {"name": "HOME ASSISTANT", "status": "healthy", "pid": 0},
             ],
             "metrics": {
@@ -2868,7 +2868,7 @@ async def get_supervisor_status():
 async def get_supervisor_log(tail: int = 50):
     """Return supervisor.log entries (last N lines)."""
     try:
-        log_file = os.path.expanduser("~/Library/Logs/jarvis-whisper/supervisor.log")
+        log_file = os.path.expanduser("~/Library/Logs/jarvis-v2/supervisor.log")
 
         if not os.path.exists(log_file):
             return {
