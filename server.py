@@ -2677,7 +2677,15 @@ async def serve_config():
 
 @app.get("/handbuch")
 async def serve_handbuch():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "handbuch-cover.html"))
+
+@app.get("/handbuch-de")
+async def serve_handbuch_de():
     return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "handbuch.html"))
+
+@app.get("/handbuch-en")
+async def serve_handbuch_en():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "handbuch-en.html"))
 
 
 @app.get("/health")
@@ -3235,7 +3243,7 @@ async def get_system_events():
     from datetime import datetime
 
     try:
-        events_raw = SystemEvents.get_events(limit=20)
+        events_raw = SystemEvents.get_events(limit=8)
         events = []
         for evt in events_raw:
             time_str = datetime.fromtimestamp(evt.get("ts", 0)).strftime("%H:%M:%S")

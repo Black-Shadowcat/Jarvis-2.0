@@ -1164,12 +1164,12 @@
             const container = document.getElementById('log-container');
             container.innerHTML = '';
 
-            // Load real system events
+            // Load real system events (limit to last 8)
             fetch('/api/observability/system_events')
                 .then(r => r.json())
                 .then(data => {
                     if (data.events && data.events.length > 0) {
-                        data.events.forEach(log => {
+                        data.events.slice(-8).forEach(log => {
                             const entry = document.createElement('div');
                             const levelClass = log.level === 'ERROR' ? 'error' : log.level === 'WARN' ? 'warning' : '';
                             entry.className = 'log-entry ' + levelClass;

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. Technical System Handbook</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+    --bg:       #0a0e27;
+    --bg2:      rgba(13,27,42,0.8);
+    --blue:     #2a9ee2;
+    --green:    #4cbf7e;
+    --gold:     #d4af37;
+    --text:     #e0e0e0;
+    --muted:    #888;
+    --border:   rgba(42,158,226,0.15);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+    background: linear-gradient(180deg, #060d18 0%, var(--bg) 100%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px;
+}
+
+.cover {
+    text-align: center;
+    max-width: 600px;
+}
+
+.cover-hud {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 32px;
+    filter: drop-shadow(0 0 16px rgba(0,170,255,0.25));
+}
+
+.hud-ccw-slow  { transform-origin:250px 250px; animation:hudCCW 18s linear infinite; }
+.hud-cw-medium { transform-origin:250px 250px; animation:hudCW  10s linear infinite; }
+.hud-cw-fast   { transform-origin:250px 250px; animation:hudCW   4s linear infinite; }
+@keyframes hudCW  { to { transform:rotate( 360deg); } }
+@keyframes hudCCW { to { transform:rotate(-360deg); } }
+
+h1 {
+    font-size: 3rem;
+    font-weight: 200;
+    letter-spacing: 0.15em;
+    color: var(--green);
+    margin-bottom: 12px;
+}
+
+.subtitle {
+    font-size: 0.85rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+}
+
+.cover-specs {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 32px;
+    font-size: 0.85rem;
+}
+
+.cover-specs table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cover-specs tr { border-bottom: 1px solid var(--border); }
+.cover-specs tr:last-child { border-bottom: none; }
+.cover-specs td { padding: 8px 12px; }
+.cover-specs td:first-child { color: var(--blue); font-weight: 600; }
+
+.cover-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.cover-button {
+    padding: 12px 32px;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: opacity 0.2s;
+    color: #0a0e27;
+}
+
+.cover-button-de {
+    background: var(--green);
+}
+
+.cover-button-en {
+    background: var(--blue);
+}
+
+.cover-button:hover { opacity: 0.8; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+    <svg id="cover-hud" viewBox="0 0 500 500" class="cover-hud">
+        <g class="hud-ccw-slow">
+            <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="2"   fill="none" stroke-dasharray="5 7"    opacity="0.35"/>
+            <circle cx="250" cy="250" r="228" stroke="#2a9ee2" stroke-width="3"   fill="none" stroke-dasharray="120 600" opacity="0.85"/>
+        </g>
+        <g class="hud-cw-medium">
+            <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="2" fill="none" stroke-dasharray="8 5"   opacity="0.25"/>
+            <circle cx="250" cy="250" r="192" stroke="#00ff9d" stroke-width="2" fill="none" stroke-dasharray="60 700" opacity="0.7"/>
+        </g>
+        <line x1="250" y1="14"  x2="250" y2="34"  stroke="#2a9ee2" stroke-width="2.5"/>
+        <line x1="250" y1="466" x2="250" y2="486" stroke="#2a9ee2" stroke-width="2.5"/>
+        <line x1="14"  y1="250" x2="34"  y2="250" stroke="#2a9ee2" stroke-width="2.5"/>
+        <line x1="466" y1="250" x2="486" y2="250" stroke="#2a9ee2" stroke-width="2.5"/>
+        <g class="hud-cw-fast">
+            <circle cx="250" cy="250" r="162" stroke="#2a9ee2" stroke-width="2" fill="none" stroke-dasharray="4 12" opacity="0.5"/>
+        </g>
+        <circle id="main-ring" cx="250" cy="250" r="150"
+                stroke="#d4af37" stroke-width="14" fill="none" stroke-linecap="round"
+                stroke-dasharray="700 300"
+                transform="rotate(-90 250 250)"
+                opacity="0.6"/>
+        <circle cx="250" cy="250" r="88" fill="#021017" stroke="#2a9ee2" stroke-width="2"/>
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+              fill="#ffffff" font-size="22" letter-spacing="2">J.A.R.V.I.S.</text>
+    </svg>
+    <h1>J.A.R.V.I.S.</h1>
+    <div class="subtitle">Technical System Handbook v3.0</div>
+    <div class="cover-specs">
+        <table>
+            <tr><td>Platform</td><td>macOS Apple Silicon</td></tr>
+            <tr><td>Python</td><td>3.11+</td></tr>
+            <tr><td>Model</td><td>Claude Haiku</td></tr>
+            <tr><td>STT</td><td>mlx-whisper large-v3</td></tr>
+            <tr><td>TTS</td><td>ElevenLabs Turbo v2.5</td></tr>
+            <tr><td>Architecture</td><td>Multi-Service Runtime</td></tr>
+        </table>
+    </div>
+    <div class="cover-buttons">
+        <button class="cover-button cover-button-de" onclick="window.location.href='/handbuch-de'">🇩🇪 Deutsch</button>
+        <button class="cover-button cover-button-en" onclick="window.location.href='/handbuch-en'">🇬🇧 English</button>
+    </div>
+</div>
+
+</body>
+</html>
