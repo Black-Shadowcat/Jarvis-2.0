@@ -52,6 +52,12 @@ _check_iterations = 0
 _uid = os.getuid()
 _force_check_flag = False
 
+# Memory history tracking (Phase 1 observability)
+_last_memory_update = 0.0
+MEMORY_HISTORY_FILE = "data/memory_history.json"
+MEMORY_HISTORY_INTERVAL = 300  # 5 minutes
+MEMORY_HISTORY_MAX = 144  # 12 hours
+
 # ============================================================================
 # Logging
 # ============================================================================
@@ -302,6 +308,103 @@ def check_homeassistant(config: dict) -> Optional[bool]:
 
 
 # ============================================================================
+# Memory History Observability (Phase 1)
+# ============================================================================
+
+
+def _get_process_rss(name_or_pid: str | int) -> Optional[int]:
+    """
+    Get process RSS in MB.
+    Uses ps + awk (fails silently if process not found or error occurs).
+    Returns: RSS in MB or None.
+    """
+    try:
+        if isinstance(name_or_pid, str):
+            # Pattern match (e.g., "server.py" -> find PID)
+            cmd = f"pgrep -f '{name_or_pid}' | head -1"
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=2)
+            if not result.stdout.strip():
+                return None
+            pid = result.stdout.strip()
+        else:
+            pid = str(name_or_pid)
+
+        # Get RSS in KB via ps
+        cmd = f"ps -p {pid} -o rss= 2>/dev/null"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=2)
+        rss_kb = int(result.stdout.strip())
+        return rss_kb // 1024  # Convert KB to MB
+    except (ValueError, IndexError, subprocess.TimeoutExpired):
+        return None
+    except Exception:
+        return None
+
+
+def _get_vm_stat_pages(stat_type: str) -> Optional[int]:
+    """
+    Get macOS vm_stat page count (active, wired, etc).
+    Converts pages to MB (1 page = 16 KB).
+    Returns: MB or None.
+    """
+    try:
+        result = subprocess.run("vm_stat", capture_output=True, text=True, timeout=2)
+        for line in result.stdout.split('\n'):
+            if stat_type.lower() in line.lower():
+                # Extract number: "Pages active: 239245."
+                parts = line.split()
+                if parts:
+                    num_str = parts[-1].rstrip('.')
+                    pages = int(num_str)
+                    return (pages * 16) // 1024  # pages * 16 KB / 1024 = MB
+        return None
+    except (ValueError, subprocess.TimeoutExpired):
+        return None
+    except Exception:
+        return None
+
+
+def _update_memory_history() -> None:
+    """
+    Collect RAM snapshot in ringbuffer (data/memory_history.json).
+    Fail-silent: errors are logged at debug level only.
+    """
+    try:
+        # Load or init
+        if os.path.exists(MEMORY_HISTORY_FILE):
+            with open(MEMORY_HISTORY_FILE) as f:
+                data = json.load(f)
+        else:
+            data = {"entries": []}
+
+        # Collect snapshot
+        snapshot = {
+            "ts": time.time(),
+            "server_rss_mb": _get_process_rss("server.py") or 0,
+            "speech_rss_mb": _get_process_rss("speech_input.py") or 0,
+            "supervisor_rss_mb": _get_process_rss(os.getpid()) or 0,
+            "chrome_rss_mb": _get_process_rss("jarvis-v2-chrome") or 0,
+            "system_active_mb": _get_vm_stat_pages("active") or 0,
+            "system_wired_mb": _get_vm_stat_pages("wired") or 0,
+        }
+        data["entries"].append(snapshot)
+
+        # Ringbuffer: keep only last N entries
+        if len(data["entries"]) > MEMORY_HISTORY_MAX:
+            data["entries"] = data["entries"][-MEMORY_HISTORY_MAX:]
+
+        # Atomic write (temp + rename)
+        temp_file = MEMORY_HISTORY_FILE + ".tmp"
+        with open(temp_file, "w") as f:
+            json.dump(data, f)
+        os.rename(temp_file, MEMORY_HISTORY_FILE)
+
+        log.debug(f"[memory_history] snapshot recorded ({len(data['entries'])} entries)")
+
+    except Exception as e:
+        log.debug(f"[memory_history] snapshot failed: {type(e).__name__}")
+
+
+# ============================================================================
 # Main Check Loop
 # ============================================================================
 
@@ -406,6 +509,14 @@ def run_checks(config: dict) -> None:
     # ========================================================================
     if all_ok and (_check_iterations % (STATUS_INTERVAL // CHECK_INTERVAL) == 0):
         log.info("✓ All services healthy")
+
+    # ========================================================================
+    # Memory History Snapshot (Phase 1 observability)
+    # ========================================================================
+    global _last_memory_update
+    if time.time() - _last_memory_update > MEMORY_HISTORY_INTERVAL:
+        _update_memory_history()
+        _last_memory_update = time.time()
 
 
 def main_loop() -> None:
