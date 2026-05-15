@@ -7,9 +7,14 @@ import sys
 import os
 import atexit
 import threading
+import json
 
 JARVIS_WAKE_URL = "http://localhost:8340/api/wake"
 _LOCK = "/tmp/jarvis-wake-monitor.pid"
+
+# Phase 3 observability
+WAKE_EVENTS_FILE = "data/wake_events.json"
+WAKE_EVENTS_MAX = 100  # ~100 events = 7 days at typical wake frequency
 
 if os.path.exists(_LOCK):
     try:
@@ -87,6 +92,42 @@ COOLDOWN = 120  # seconds — shared between log-stream thread and display-wake 
 _wake_lock = threading.Lock()
 _last_wake = 0.0
 
+# Phase 3 observability: tracking current idle time for context
+_current_idle_s = 0.0
+
+
+def _write_wake_event(trigger_label: str) -> None:
+    """Record a wake event with timestamp and context."""
+    try:
+        # Load existing events or create new structure
+        try:
+            with open(WAKE_EVENTS_FILE, "r") as f:
+                data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            data = {"events": []}
+
+        # Add new event
+        event = {
+            "ts": time.time(),
+            "trigger": trigger_label,
+            "user_idle_s": round(_current_idle_s, 1) if _current_idle_s else None,
+        }
+
+        data["events"].append(event)
+
+        # Ringbuffer: keep only last 100 events
+        if len(data["events"]) > WAKE_EVENTS_MAX:
+            data["events"] = data["events"][-WAKE_EVENTS_MAX:]
+
+        # Atomic write (temp + rename)
+        temp_file = WAKE_EVENTS_FILE + ".tmp"
+        with open(temp_file, "w") as f:
+            json.dump(data, f)
+        os.replace(temp_file, WAKE_EVENTS_FILE)
+
+    except Exception as e:
+        print(f"[wake-monitor] wake_event write failed: {type(e).__name__}", flush=True)
+
 
 def _try_trigger(label: str) -> None:
     """Thread-safe cooldown check + notify. Fires if cooldown has passed."""
@@ -97,6 +138,7 @@ def _try_trigger(label: str) -> None:
             return
         _last_wake = now
     print(f"[wake-monitor] Wake erkannt ({label})", flush=True)
+    _write_wake_event(label)  # Phase 3: record wake event
     notify_jarvis()
     with _wake_lock:
         _last_wake = time.time()  # restart cooldown after blocking call returns
@@ -111,11 +153,13 @@ def display_wake_watcher() -> None:
     Polls HIDIdleTime every 10s. Detects display-only wakes (no kernel log event):
     when idle time transitions from > threshold to < 30s, the user woke the display.
     """
+    global _current_idle_s
     was_idle = False
     print("[wake-monitor] Display-Wake-Watcher gestartet (HIDIdleTime-Polling)", flush=True)
     while True:
         idle = get_user_idle_seconds()
         if idle is not None:
+            _current_idle_s = idle  # Phase 3: track current idle for wake events
             if was_idle and idle < 30:
                 _try_trigger("HIDIdleTime display-wake")
                 was_idle = False
