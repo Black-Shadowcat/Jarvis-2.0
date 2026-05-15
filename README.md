@@ -1,4 +1,4 @@
-# J.A.R.V.I.S. — Jarvis 2.0 (macOS v0.1.2)
+# J.A.R.V.I.S. — Jarvis 2.0 (macOS v0.2.0)
 
 > **Jarvis 2.0** replaces the browser-based Web Speech API of the original JARVIS with local Whisper STT running on Apple MLX.
 >

@@ -63,10 +63,9 @@
 
         .status-banner {
             grid-column: 1 / -1;
-            padding: 12px 16px;
+            padding: 8px 24px;
             border: 1px solid rgba(0, 255, 136, 0.3);
             border-radius: 4px;
-            text-align: center;
             background: rgba(0, 255, 136, 0.02);
             font-size: 14px;
             font-weight: bold;
@@ -74,6 +73,68 @@
             color: #00ff88;
             margin: 16px 24px;
             flex-shrink: 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+            align-items: center;
+            gap: 8px;
+            height: 36px;
+        }
+
+        .status-banner-left {
+            text-align: left;
+            grid-column: 1 / 2;
+        }
+
+        .status-banner-alerts {
+            display: flex;
+            gap: 40px;
+            grid-column: 3 / 6;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .alert-badge {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 4px 0px;
+            background: transparent;
+            border: none;
+            border-radius: 0px;
+            font-size: 12px;
+            white-space: nowrap;
+            min-width: auto;
+            height: auto;
+        }
+
+        .alert-badge.ok {
+            border-color: rgba(0, 255, 136, 0.15);
+            color: #00ff88;
+        }
+
+        .alert-badge.warning {
+            border-color: rgba(255, 200, 0, 0.15);
+            color: #ffff00;
+        }
+
+        .alert-badge.critical {
+            border-color: rgba(255, 100, 0, 0.15);
+            color: #ff6b00;
+        }
+
+        .alert-badge-label {
+            font-size: 13px;
+            font-weight: normal;
+            letter-spacing: 0.05em;
+            color: #00ccff;
+            opacity: 0.9;
+        }
+
+        .alert-badge-value {
+            font-size: 13px;
+            font-weight: bold;
         }
 
         .container {
@@ -360,7 +421,7 @@
         }
 
         .commands-section {
-            margin-top: 60px;
+            margin-top: 16px;
             padding-top: 12px;
             border-top: 1px solid rgba(0, 255, 136, 0.1);
         }
@@ -522,8 +583,24 @@
         </div>
     </div>
 
-    <!-- ── Status Banner ── -->
-    <div class="status-banner" id="status-banner">ALL SYSTEMS NOMINAL</div>
+    <!-- ── Status Banner with Observability Alerts ── -->
+    <div class="status-banner" id="status-banner">
+        <div class="status-banner-left">ALL SYSTEMS NOMINAL</div>
+        <div class="status-banner-alerts">
+            <div class="alert-badge ok" id="alert-memory">
+                <span class="alert-badge-label">Memory</span>
+                <span class="alert-badge-value">5.2GB</span>
+            </div>
+            <div class="alert-badge ok" id="alert-speech">
+                <span class="alert-badge-label">Speech</span>
+                <span class="alert-badge-value">1.05s</span>
+            </div>
+            <div class="alert-badge ok" id="alert-wake">
+                <span class="alert-badge-label">Wake</span>
+                <span class="alert-badge-value">5 evt</span>
+            </div>
+        </div>
+    </div>
 
     <!-- ── Main Container ── -->
     <div class="container">
@@ -565,6 +642,7 @@
                 </div>
 
                 <div class="supervisor-info">
+                    <div style="padding: 12px 0; border-top: 1px solid rgba(0, 255, 136, 0.1); font-size: 12px; font-weight: bold; letter-spacing: 0.1em; color: #00ff88; text-transform: uppercase; text-align: left; margin-top: 16px;">SYSTEM SUMMARY</div>
                     <div class="info-row">
                         <span>SUPERVISOR.PY</span>
                         <span class="info-value" id="info-version">—</span>
@@ -626,7 +704,7 @@
                     </div>
                 </div>
 
-                <div style="margin-top: 24px; border: 1px solid rgba(0,255,136,0.15); border-radius: 4px; padding: 16px; background: rgba(0,255,136,0.03); height: 220px; display: flex; flex-direction: column; flex-shrink: 0;">
+                <div style="margin-top: 24px; padding: 16px 0; height: 220px; display: flex; flex-direction: column; flex-shrink: 0;">
                     <div class="metrics-label">AVAILABILITY SCORE (LAST 5 MIN)</div>
                     <div style="flex: 1; position: relative; width: 100%; min-height: 0; margin-top: 8px;"><canvas id="chart-uptime"></canvas></div>
                 </div>
@@ -953,21 +1031,68 @@
             const container = document.getElementById('system-watch-items');
             container.innerHTML = '';
 
-            mockData.services.forEach(service => {
-                const item = document.createElement('div');
-                item.className = 'watch-item';
+            // Fetch real service status from API
+            fetch('/api/supervisor/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.services && Array.isArray(data.services)) {
+                        data.services.forEach(service => {
+                            const item = document.createElement('div');
+                            item.className = 'watch-item';
 
-                const dotClass = service.status === 'healthy' ? 'watch-dot' :
-                                service.status === 'degraded' ? 'watch-dot warning' :
-                                'watch-dot error';
+                            const isRunning = service.pid && service.pid > 0;
+                            const dotClass = isRunning ? 'watch-dot' : 'watch-dot error';
+                            const status = isRunning ? 'RUNNING' : 'STOPPED';
 
-                item.innerHTML = `
-                    <span class="${dotClass}"></span>
-                    <span class="watch-label">${service.name}</span>
-                    <span class="watch-status">${service.status.toUpperCase()}</span>
-                `;
-                container.appendChild(item);
-            });
+                            item.innerHTML = `
+                                <span class="${dotClass}"></span>
+                                <span class="watch-label">${service.name}</span>
+                                <span class="watch-status">${status}</span>
+                            `;
+                            container.appendChild(item);
+                        });
+                        appendSpeechState(container);
+                    }
+                })
+                .catch(e => {
+                    console.debug('[system-watch] Load failed:', e);
+                    appendSpeechState(container);
+                });
+        }
+
+        function appendSpeechState(container) {
+
+        }
+
+        function appendSpeechState(container) {
+            fetch('/api/observability/speech_state')
+                .then(r => r.json())
+                .then(data => {
+                    const speechHeader = document.createElement('div');
+                    speechHeader.style.cssText = 'padding: 12px 0; border-top: 1px solid rgba(0, 255, 136, 0.1); font-size: 12px; font-weight: bold; letter-spacing: 0.1em; color: #00ff88; text-transform: uppercase; text-align: left; margin-top: 16px;';
+                    speechHeader.innerHTML = 'SPEECH STATE';
+                    container.appendChild(speechHeader);
+
+                    const speechItems = [
+                        { label: 'State', value: data.state || 'UNKNOWN' },
+                        { label: 'Inference', value: data.inference_active ? 'ACTIVE' : 'IDLE' },
+                        { label: 'WebSocket', value: data.ws_connected ? 'CONNECTED' : 'DISCONNECTED' },
+                    ];
+                    if (data.last_transcription_duration_s !== undefined) {
+                        speechItems.push({ label: 'Last Duration', value: `${data.last_transcription_duration_s.toFixed(2)}s` });
+                    }
+
+                    speechItems.forEach(item => {
+                        const itemEl = document.createElement('div');
+                        itemEl.className = 'watch-item';
+                        itemEl.innerHTML = `
+                            <span class="watch-label">${item.label}</span>
+                            <span class="watch-status">${item.value}</span>
+                        `;
+                        container.appendChild(itemEl);
+                    });
+                })
+                .catch(e => console.debug('[speech-state] Load failed:', e));
         }
 
         function updateHealthScore() {
@@ -987,7 +1112,7 @@
             }
 
             document.getElementById('main-status').textContent = status;
-            document.getElementById('status-banner').textContent = status === 'OPERATIONAL' ? 'ALL SYSTEMS NOMINAL' : status;
+            document.querySelector('.status-banner-left').textContent = status === 'OPERATIONAL' ? 'ALL SYSTEMS NOMINAL' : status;
             // Version wird dynamisch geladen
             fetch('/api/version').then(r => r.json()).then(v => {
                 document.getElementById('info-version').textContent = `v${v.version}`;
@@ -1039,17 +1164,63 @@
             const container = document.getElementById('log-container');
             container.innerHTML = '';
 
-            mockData.logs.forEach(log => {
-                const entry = document.createElement('div');
-                const levelClass = log.level === 'ERROR' ? 'error' : log.level === 'WARN' ? 'warning' : '';
-                entry.className = 'log-entry ' + levelClass;
-                entry.innerHTML = `
-                    <span class="log-timestamp">${log.time}</span>
-                    <span class="log-status">${log.level}</span>
-                    <span class="log-message">${log.message}</span>
-                `;
-                container.appendChild(entry);
-            });
+            // Load real system events
+            fetch('/api/observability/system_events')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.events && data.events.length > 0) {
+                        data.events.forEach(log => {
+                            const entry = document.createElement('div');
+                            const levelClass = log.level === 'ERROR' ? 'error' : log.level === 'WARN' ? 'warning' : '';
+                            entry.className = 'log-entry ' + levelClass;
+                            entry.innerHTML = `
+                                <span class="log-timestamp">${log.time}</span>
+                                <span class="log-status">${log.level}</span>
+                                <span class="log-message">${log.message}</span>
+                            `;
+                            container.appendChild(entry);
+                        });
+                    }
+                    appendWakeEvents(container);
+                })
+                .catch(e => {
+                    console.debug('[system-events] Load failed:', e);
+                    appendWakeEvents(container);
+                });
+        }
+
+        function appendWakeEvents(container) {
+            fetch('/api/observability/wake_events')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.events && data.events.length > 0) {
+                        const wakeHeader = document.createElement('div');
+                        wakeHeader.style.cssText = 'padding: 12px 0; border-top: 1px solid rgba(0, 255, 136, 0.1); font-size: 12px; font-weight: bold; letter-spacing: 0.1em; color: #00ff88; text-transform: uppercase; text-align: left; margin-top: 16px;';
+                        wakeHeader.innerHTML = 'WAKE EVENTS';
+                        container.appendChild(wakeHeader);
+
+                        const wakeEvents = data.events.slice(-5);
+                        wakeEvents.forEach(evt => {
+                            const time = new Date(evt.ts * 1000).toLocaleTimeString('de-DE');
+                            let trigger = evt.trigger;
+                            if (trigger.includes('HIDIdleTime')) {
+                                trigger = 'Display wake (user input)';
+                            } else if (trigger.includes('log stream')) {
+                                trigger = 'System wake (log event)';
+                            }
+                            const idle = evt.user_idle_s ? ` (${evt.user_idle_s.toFixed(0)}s idle)` : '';
+                            const entry = document.createElement('div');
+                            entry.className = 'log-entry';
+                            entry.innerHTML = `
+                                <span class="log-timestamp">${time}</span>
+                                <span class="log-status" style="color: #00ccff;">WAKE</span>
+                                <span class="log-message">${trigger}${idle}</span>
+                            `;
+                            container.appendChild(entry);
+                        });
+                    }
+                })
+                .catch(e => console.debug('[wake-events] Load failed:', e));
 
             document.getElementById('recovery-count').textContent = mockData.recoveries;
             document.getElementById('last-recovery').textContent = mockData.recoveries > 0 ? '5m ago' : 'NONE';

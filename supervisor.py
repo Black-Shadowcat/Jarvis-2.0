@@ -411,6 +411,7 @@ def _update_memory_history() -> None:
 
 def run_checks(config: dict) -> None:
     """Execute one round of health checks with recovery logic."""
+    from systems.system_events import SystemEvents
     global _check_iterations
     _check_iterations += 1
     log.debug(f"[run_checks] Starting check iteration {_check_iterations}")
@@ -423,15 +424,18 @@ def run_checks(config: dict) -> None:
     http_ok = check_server_http()
     if http_ok:
         log.info("✓ server HTTP OK")
+        SystemEvents.log_event("OK", "Server HTTP response: 200", "service")
     if not http_ok:
         n = _record_failure("server_http")
         all_ok = False
+        SystemEvents.log_event("WARN", f"Server HTTP FAIL ({n}/{FAILURE_THRESHOLD})", "service")
         if n >= FAILURE_THRESHOLD and _can_restart("server"):
             log.warning(
                 f"server_http: {n}/{FAILURE_THRESHOLD} failures → kickstart server"
             )
             _kickstart("com.jarvis.v2.server")
             _mark_restarted("server")
+            SystemEvents.log_event("WARN", "Server restarted", "recovery")
         else:
             log.warning(f"server_http FAIL ({n}/{FAILURE_THRESHOLD})")
     else:
@@ -460,13 +464,16 @@ def run_checks(config: dict) -> None:
     # ========================================================================
     if check_speech_input():
         log.info("✓ speech_input running")
+        SystemEvents.log_event("OK", "speech_input.py running", "service")
     if not check_speech_input():
         n = _record_failure("speech")
         all_ok = False
+        SystemEvents.log_event("WARN", f"Speech FAIL ({n}/{FAILURE_THRESHOLD})", "service")
         if n >= FAILURE_THRESHOLD and _can_restart("speech"):
             log.warning(f"speech: {n}/{FAILURE_THRESHOLD} failures → kickstart")
             _kickstart("com.jarvis.v2.speech")
             _mark_restarted("speech")
+            SystemEvents.log_event("WARN", "speech_input.py restarted", "recovery")
         else:
             log.warning(f"speech FAIL ({n}/{FAILURE_THRESHOLD})")
     else:
@@ -477,13 +484,16 @@ def run_checks(config: dict) -> None:
     # ========================================================================
     if check_wake_monitor():
         log.info("✓ wake-monitor running")
+        SystemEvents.log_event("OK", "wake-monitor.py running", "service")
     if not check_wake_monitor():
         n = _record_failure("wake")
         all_ok = False
+        SystemEvents.log_event("WARN", f"Wake FAIL ({n}/{FAILURE_THRESHOLD})", "service")
         if n >= FAILURE_THRESHOLD and _can_restart("wake"):
             log.warning(f"wake: {n}/{FAILURE_THRESHOLD} failures → kickstart")
             _kickstart("com.jarvis.v2.wake")
             _mark_restarted("wake")
+            SystemEvents.log_event("WARN", "wake-monitor.py restarted", "recovery")
         else:
             log.warning(f"wake FAIL ({n}/{FAILURE_THRESHOLD})")
     else:
@@ -509,6 +519,7 @@ def run_checks(config: dict) -> None:
     # ========================================================================
     if all_ok and (_check_iterations % (STATUS_INTERVAL // CHECK_INTERVAL) == 0):
         log.info("✓ All services healthy")
+        SystemEvents.log_event("OK", "All systems healthy", "health")
 
     # ========================================================================
     # Memory History Snapshot (Phase 1 observability)

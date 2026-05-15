@@ -2690,6 +2690,11 @@ async def serve_welcome():
     return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "welcome.html"))
 
 
+@app.get("/observability")
+async def serve_observability():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "observability.html"))
+
+
 @app.post("/api/tts")
 async def tts_endpoint(request: Request):
     """Synthesize a text snippet and return base64-encoded MP3. Used by welcome page."""
@@ -3200,6 +3205,51 @@ async def activate_voice(request: Request):
 
 
 # ── System Metrics ────────────────────────────────────────────────────────
+
+@app.get("/api/observability/wake_events")
+async def get_wake_events():
+    """Return wake events from Phase 3 observability."""
+    try:
+        with open("data/wake_events.json", "r") as f:
+            return json.load(f)
+    except Exception as e:
+        log.debug(f"[wake-events] Load failed: {e}")
+        return {"events": []}
+
+
+@app.get("/api/observability/speech_state")
+async def get_speech_state():
+    """Return speech state from Phase 2 observability."""
+    try:
+        with open("data/speech_state.json", "r") as f:
+            return json.load(f)
+    except Exception as e:
+        log.debug(f"[speech-state] Load failed: {e}")
+        return {"state": "UNKNOWN", "inference_active": False, "ws_connected": False}
+
+
+@app.get("/api/observability/system_events")
+async def get_system_events():
+    """Return system events from Phase 4 observability."""
+    from systems.system_events import SystemEvents
+    from datetime import datetime
+
+    try:
+        events_raw = SystemEvents.get_events(limit=20)
+        events = []
+        for evt in events_raw:
+            time_str = datetime.fromtimestamp(evt.get("ts", 0)).strftime("%H:%M:%S")
+            events.append({
+                "time": time_str,
+                "level": evt.get("level", "OK"),
+                "message": evt.get("message", ""),
+                "type": evt.get("type", "system")
+            })
+        return {"events": events}
+    except Exception as e:
+        log.debug(f"[system-events] Load failed: {e}")
+        return {"events": []}
+
 
 @app.get("/api/system/metrics")
 async def get_system_metrics():
