@@ -106,6 +106,59 @@ def _load_locale() -> dict:
 
 _L: dict = _load_locale()
 
+# ── M15 Phase 2: Calendar Availability ─────────────────────────────────────
+
+def _get_calendar_availability() -> dict:
+    """M15: Check if user is currently in a calendar event (busy)."""
+    if not HA_URL or not HA_TOKEN:
+        return {"is_busy": False, "reason": "HA not configured"}
+
+    try:
+        result = subprocess.run(
+            ["curl", "-s", "-H", f"Authorization: Bearer {HA_TOKEN}",
+             f"{HA_URL}/api/states/calendar.home"],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        if result.returncode != 0:
+            return {"is_busy": False, "reason": "HA API error"}
+
+        data = json.loads(result.stdout)
+        if not data or "attributes" not in data:
+            return {"is_busy": False, "reason": "No calendar data"}
+
+        attrs = data["attributes"]
+        # HA calendar shows: start_time (ISO), end_time (ISO), message/summary
+        start = attrs.get("start_time")
+        end = attrs.get("end_time")
+        event_name = attrs.get("message") or attrs.get("summary") or "Event"
+
+        if not start or not end:
+            return {"is_busy": False, "reason": "No event times"}
+
+        try:
+            start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+            now = datetime.now(start_dt.tzinfo) if start_dt.tzinfo else datetime.now()
+
+            is_busy = start_dt <= now <= end_dt
+            return {
+                "is_busy": is_busy,
+                "reason": "in_event" if is_busy else "between_events",
+                "current_event": event_name if is_busy else None,
+                "event_ends": end_dt if is_busy else None,
+            }
+        except (ValueError, AttributeError):
+            return {"is_busy": False, "reason": "Parse error"}
+
+    except subprocess.TimeoutExpired:
+        return {"is_busy": False, "reason": "HA timeout"}
+    except Exception as e:
+        log.warning(f"Calendar availability check failed: {e}")
+        return {"is_busy": False, "reason": "Unknown error"}
+
+
 LIGHT_MAP: dict[str, str | list[str]] = {
     # Alle
     "alle":          "light.alle_lichter",
@@ -1733,7 +1786,17 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
                 await _speak(ws, session_id, text)
                 return
 
-            if daily_brief.detect_pause_return():
+            # M15 Phase 2: Check calendar before pause-return brief
+            pause_detected = daily_brief.detect_pause_return()
+            if pause_detected:
+                cal = _get_calendar_availability()
+                if cal.get("is_busy"):
+                    # User in meeting — suppress brief, just update activity
+                    log.info(f"[daily_brief] Pause detected but user in event '{cal.get('current_event')}' — suppressing brief")
+                    daily_brief.update_activity()
+                    return
+
+                # Not in meeting — generate pause-return brief
                 fresh_pau = await loop.run_in_executor(None, get_mail_sync)
                 async with _mail_lock:
                     MAIL_INFO = fresh_pau
@@ -2138,17 +2201,23 @@ async def get_daily_brief():
         )
         return {"trigger": "morning", "text": text, "spoken": bool(text)}
 
+    # M15 Phase 2: Calendar-aware long absence detection
     if daily_brief.detect_long_absence():
-        mails_raw = await loop.run_in_executor(None, get_mail_sync)
-        mails = [{"sender": m.split(" || ")[0], "subject": m.split(" || ")[1]} for m in mails_raw if " || " in m]
-        text = daily_brief.generate_absence_brief(mails, USER_ADDRESS)
-        return {"trigger": "long_absence", "text": text, "spoken": bool(text)}
+        cal = _get_calendar_availability()
+        if not cal.get("is_busy"):  # Only brief if NOT in a meeting
+            mails_raw = await loop.run_in_executor(None, get_mail_sync)
+            mails = [{"sender": m.split(" || ")[0], "subject": m.split(" || ")[1]} for m in mails_raw if " || " in m]
+            text = daily_brief.generate_absence_brief(mails, USER_ADDRESS)
+            return {"trigger": "long_absence", "text": text, "spoken": bool(text)}
 
+    # M15 Phase 2: Calendar-aware pause return detection
     if daily_brief.detect_pause_return():
-        mails_raw = await loop.run_in_executor(None, get_mail_sync)
-        mails = [{"sender": m.split(" || ")[0], "subject": m.split(" || ")[1]} for m in mails_raw if " || " in m]
-        text = daily_brief.generate_pause_brief(mails, USER_ADDRESS)
-        return {"trigger": "pause", "text": text, "spoken": bool(text)}
+        cal = _get_calendar_availability()
+        if not cal.get("is_busy"):  # Only brief if NOT in a meeting
+            mails_raw = await loop.run_in_executor(None, get_mail_sync)
+            mails = [{"sender": m.split(" || ")[0], "subject": m.split(" || ")[1]} for m in mails_raw if " || " in m]
+            text = daily_brief.generate_pause_brief(mails, USER_ADDRESS)
+            return {"trigger": "pause", "text": text, "spoken": bool(text)}
 
     if daily_brief.detect_evening_trigger():
         mails_raw = await loop.run_in_executor(None, get_mail_sync)
