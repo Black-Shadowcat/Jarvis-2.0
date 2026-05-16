@@ -95,7 +95,7 @@ _weather_cache = {"data": None, "ts": 0.0}
 def get_mail_sync():
     """Fetch unread mails from macOS Mail.app via AppleScript."""
     try:
-        # Fetch unread email subjects from all mailboxes
+        # Fetch unread email subjects and senders from all mailboxes
         script = """
 tell application "Mail"
     set mailList to ""
@@ -106,10 +106,24 @@ tell application "Mail"
                     try
                         if read status of msg is false then
                             set subj to subject of msg
+                            set fromAddr to ""
+                            try
+                                set msgSource to source of msg
+                                set fromStart to offset of "From: " in msgSource
+                                if fromStart > 0 then
+                                    set restOfSource to text (fromStart + 6) thru -1 of msgSource
+                                    set fromEnd to offset of linefeed in restOfSource
+                                    if fromEnd > 0 then
+                                        set fromAddr to text 1 thru (fromEnd - 1) of restOfSource
+                                    else
+                                        set fromAddr to restOfSource
+                                    end if
+                                end if
+                            end try
                             if mailList is "" then
-                                set mailList to subj
+                                set mailList to fromAddr & "|||" & subj
                             else
-                                set mailList to mailList & linefeed & subj
+                                set mailList to mailList & linefeed & fromAddr & "|||" & subj
                             end if
                         end if
                     end try
@@ -129,13 +143,16 @@ end tell
         if result.returncode == 0:
             output = result.stdout.strip()
             if output:
-                # Parse newline-delimited subjects and return as mail objects
-                subjects = [s.strip() for s in output.split("\n") if s.strip()]
+                # Parse newline-delimited "sender|||subject" pairs
+                lines = [s.strip() for s in output.split("\n") if s.strip()]
                 mails = []
-                for i, subject in enumerate(subjects[:20]):  # Limit to 20 to avoid UI overflow
+                for i, line in enumerate(lines[:20]):  # Limit to 20 to avoid UI overflow
+                    parts = line.split("|||", 1)
+                    sender = parts[0] if len(parts) > 0 else ""
+                    subject = parts[1] if len(parts) > 1 else parts[0]
                     mails.append({
                         "id": f"mail_{i}",
-                        "sender": f"Mail #{i+1}",  # Placeholder sender
+                        "sender": sender,
                         "subject": subject,
                         "unread": True
                     })
