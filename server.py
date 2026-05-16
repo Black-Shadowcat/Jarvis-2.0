@@ -406,84 +406,73 @@ def get_ha_temperature() -> float | None:
 
 
 def get_weather_sync():
-    """Fetch weather: temperature from HA station, conditions from Kachelmann."""
-    if not KACHELMANN_KEY:
+    """Fetch weather from Home Assistant (weather.kachelmann_wetter + temperature sensor)."""
+    if not HA_URL or not HA_TOKEN:
         return None
     try:
         import urllib.request
+        # Fetch weather entity from Home Assistant
         req = urllib.request.Request(
-            f"https://api.kachelmannwetter.com/v02/current/{LAT}/{LON}",
-            headers={"X-API-Key": KACHELMANN_KEY}
+            f"{HA_URL}/api/states/weather.kachelmann_wetter",
+            headers={"Authorization": f"Bearer {HA_TOKEN}"}
         )
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())["data"]
-        def v(k): return data[k]["value"] if k in data else None
-        symbol = v("weatherSymbol") or ""
-        desc = SYMBOL_DE.get(symbol.lower(), symbol)
-        sun = v("sunHours")
-        if sun is not None and sun >= 0.8:
-            desc = "Sonnig"
-        elif sun is not None and sun >= 0.3:
-            desc = "Teilweise bewölkt"
-        # Use own weather station for temperature (more accurate)
-        ha_temp = get_ha_temperature()
-        temp = ha_temp if ha_temp is not None else round(v("temp") or 0, 1)
+        resp = urllib.request.urlopen(req, timeout=5)
+        weather = json.loads(resp.read())
+        attrs = weather.get("attributes", {})
+
+        # Get measured temperature from outdoor module (more accurate)
+        temp = get_ha_temperature()
+        if temp is None:
+            temp = attrs.get("temperature")
+
         return {
-            "temp": temp,
-            "description": desc,
-            "humidity": v("humidityRelative"),
-            "wind_kmh": v("windSpeed"),
-            "cloud_pct": v("cloudCoverage"),
-            "sun_hours": sun,
+            "temp": round(float(temp), 1) if temp is not None else None,
+            "description": weather.get("state", "Unbekannt"),
+            "humidity": attrs.get("humidity"),
+            "wind_kmh": attrs.get("wind_speed"),
+            "cloud_pct": attrs.get("cloud_coverage"),
+            "sun_hours": attrs.get("sun_hours"),
         }
     except Exception as e:
-        log.info(f"[jarvis] Wetter-Fehler: {e}")
+        log.info(f"[jarvis] Wetter-Fehler von HA: {e}")
         return None
 
 
 def get_wetter_action_sync() -> str:
-    """Fetch all current weather fields from Kachelmann + HA sensor for WETTER action."""
-    if not KACHELMANN_KEY:
-        return "Kein Kachelmann API-Key konfiguriert."
+    """Fetch weather from Home Assistant for WETTER action."""
+    if not HA_URL or not HA_TOKEN:
+        return "Home Assistant nicht konfiguriert."
     try:
         import urllib.request
         req = urllib.request.Request(
-            f"https://api.kachelmannwetter.com/v02/current/{LAT}/{LON}",
-            headers={"X-API-Key": KACHELMANN_KEY}
+            f"{HA_URL}/api/states/weather.kachelmann_wetter",
+            headers={"Authorization": f"Bearer {HA_TOKEN}"}
         )
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())["data"]
-        def v(k): return data[k]["value"] if k in data else None
+        resp = urllib.request.urlopen(req, timeout=5)
+        weather = json.loads(resp.read())
+        attrs = weather.get("attributes", {})
 
         ha_temp = get_ha_temperature()
-        temp = ha_temp if ha_temp is not None else v("temp")
+        temp = ha_temp if ha_temp is not None else attrs.get("temperature")
         temp_src = "Wetterstation" if ha_temp is not None else "Kachelmann"
 
-        symbol = v("weatherSymbol") or ""
-        desc = SYMBOL_DE.get(symbol.lower(), symbol)
-        sun = v("sunHours")
-        if sun is not None and sun >= 0.8:
-            desc = "Sonnig"
-        elif sun is not None and sun >= 0.3:
-            desc = "Teilweise bewölkt"
+        desc = weather.get("state", "Unbekannt")
 
         parts = [f"Standort: {CITY}", f"Temperatur: {temp} °C ({temp_src})", f"Wetter: {desc}"]
-        if v("humidityRelative") is not None:
-            parts.append(f"Luftfeuchtigkeit: {v('humidityRelative')} %")
-        if v("windSpeed") is not None:
-            parts.append(f"Wind: {v('windSpeed')} km/h")
-        if v("windGust") is not None:
-            parts.append(f"Windböen: {v('windGust')} km/h")
-        if v("prec1h") is not None:
-            parts.append(f"Niederschlag (letzte Stunde): {v('prec1h')} mm")
-        if v("cloudCoverage") is not None:
-            parts.append(f"Bewölkung: {v('cloudCoverage')} %")
-        if v("pressureMsl") is not None:
-            parts.append(f"Luftdruck: {v('pressureMsl')} hPa")
-        if v("dewpoint") is not None:
-            parts.append(f"Taupunkt: {v('dewpoint')} °C")
-        if v("snowHeight") is not None and v("snowHeight") > 0:
-            parts.append(f"Schneehöhe: {v('snowHeight')} cm")
+        if attrs.get("humidity") is not None:
+            parts.append(f"Luftfeuchtigkeit: {attrs.get('humidity')} %")
+        if attrs.get("wind_speed") is not None:
+            parts.append(f"Wind: {attrs.get('wind_speed')} km/h")
+        if attrs.get("wind_gust") is not None:
+            parts.append(f"Windböen: {attrs.get('wind_gust')} km/h")
+        if attrs.get("precipitation") is not None:
+            parts.append(f"Niederschlag: {attrs.get('precipitation')} mm")
+        if attrs.get("cloud_coverage") is not None:
+            parts.append(f"Bewölkung: {attrs.get('cloud_coverage')} %")
+        if attrs.get("pressure") is not None:
+            parts.append(f"Luftdruck: {attrs.get('pressure')} hPa")
+        if attrs.get("dew_point") is not None:
+            parts.append(f"Taupunkt: {attrs.get('dew_point')} °C")
         return "\n".join(parts)
     except Exception as e:
         return f"Wetter-Fehler: {e}"
