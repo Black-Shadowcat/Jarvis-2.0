@@ -72,7 +72,7 @@ _LIGHT_STOP = {"das", "die", "den", "dem", "der", "ein", "eine", "licht", "lampe
 _CMD_ON = {"an", "ein", "einschalten", "einschalte", "anschalten", "anschalte", "anmachen", "anmache", "einmachen", "einmache"}
 _CMD_OFF = {"aus", "ausschalten", "ausschalte", "ausmachen", "ausmache"}
 
-CACHE_TTL = 30.0
+CACHE_TTL = 60.0  # Increased from 30s (tasks don't change frequently)
 _mail_cache = {"data": None, "ts": 0.0}
 _tasks_cache = {"data": None, "ts": 0.0}
 _weather_cache = {"data": None, "ts": 0.0}
@@ -143,7 +143,7 @@ end tell'''
             log.warning(f"get_tasks_sync: Reminders.app returned error code {result.returncode}")
         return []
     except subprocess.TimeoutExpired:
-        log.error(f"get_tasks_sync: Reminders.app timeout (3s)")
+        log.error(f"get_tasks_sync: Reminders.app timeout (10s)")
         return []
     except Exception as e:
         log.error(f"get_tasks_sync error: {e}")
