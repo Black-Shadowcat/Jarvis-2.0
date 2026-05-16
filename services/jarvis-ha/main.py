@@ -93,47 +93,62 @@ _weather_cache = {"data": None, "ts": 0.0}
 # ── Dashboard Data Functions ──────────────────────────────────────────────
 
 def get_mail_sync():
-    """Fetch unread mail count from macOS Mail.app via AppleScript."""
+    """Fetch unread mails from macOS Mail.app via AppleScript."""
     try:
-        # Get total unread count across all mailboxes - simpler and more reliable
+        # Fetch unread email subjects from all mailboxes
         script = """
 tell application "Mail"
-    set totalUnread to 0
+    set mailList to ""
     repeat with acc in accounts
         repeat with mb in mailboxes of acc
-            set mbUnread to unread count of mb
-            if mbUnread > 0 then
-                set totalUnread to totalUnread + mbUnread
+            if (unread count of mb) > 0 then
+                repeat with msg in messages of mb
+                    try
+                        if read status of msg is false then
+                            set subj to subject of msg
+                            if mailList is "" then
+                                set mailList to subj
+                            else
+                                set mailList to mailList & linefeed & subj
+                            end if
+                        end if
+                    end try
+                end repeat
             end if
         end repeat
     end repeat
-    return totalUnread
+    return mailList
 end tell
 """
         result = subprocess.run(
             ["osascript", "-e", script],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=15
         )
         if result.returncode == 0:
             output = result.stdout.strip()
-            try:
-                count = int(output)
-                log.info(f"[mail] {count} unread mails found")
-                # Return list of mock mail objects - one per unread mail
-                return [{"id": f"mail_{i}", "subject": f"Mail {i+1}", "unread": True}
-                        for i in range(min(count, 20))]
-            except ValueError:
-                log.warning(f"get_mail_sync: Could not parse unread count: {output}")
-                return []
+            if output:
+                # Parse newline-delimited subjects and return as mail objects
+                subjects = [s.strip() for s in output.split("\n") if s.strip()]
+                mails = []
+                for i, subject in enumerate(subjects[:20]):  # Limit to 20 to avoid UI overflow
+                    mails.append({
+                        "id": f"mail_{i}",
+                        "sender": f"Mail #{i+1}",  # Placeholder sender
+                        "subject": subject,
+                        "unread": True
+                    })
+                log.info(f"[mail] {len(mails)} unread mails loaded")
+                return mails
+            return []
         else:
             log.warning(f"get_mail_sync: Mail.app error code {result.returncode}")
             if result.stderr:
                 log.debug(f"  stderr: {result.stderr.strip()[:200]}")
             return []
     except subprocess.TimeoutExpired:
-        log.warning(f"get_mail_sync: Mail.app timeout (5s)")
+        log.warning(f"get_mail_sync: Mail.app timeout (8s)")
         return []
     except Exception as e:
         log.warning(f"get_mail_sync error: {type(e).__name__}: {e}")
