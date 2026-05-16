@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 
 ---
 
+## [0.4.0-dev] — 2026-05-16
+
+### Phase 2: Service Isolation (In Progress)
+
+#### Phase 2.1 — TTS Microservice (✅ Complete)
+- **jarvis-audio Service**: Extracted FastAPI microservice on port 8341
+  - Full ElevenLabs TTS integration with chunking algorithm
+  - Text preprocessing (German/English number, date, time formatting)
+  - Parallel chunk synthesis with retry logic
+  - Health check endpoint `/health`
+  - API endpoint `/api/synthesize` (POST)
+- **server.py Refactoring**:
+  - Removed `synthesize_speech()`, `_tts_sanitize()`, and internal TTS logic (100+ lines)
+  - All TTS calls now via HTTP to `127.0.0.1:8341/api/synthesize`
+  - Added `_synthesize_audio()` helper function
+  - Audio streaming still via WebSocket `/ws` to browsers
+
+#### Commits in Phase 2.1
+- `1556002` — feat: Extract TTS to jarvis-audio microservice
+
+---
+
 ## [0.3.0] — 2026-05-16
 
 ### Added
