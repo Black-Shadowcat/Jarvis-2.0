@@ -1,7 +1,47 @@
-# Changelog — jarvis-whisper
+# Changelog — Jarvis 2.0
 
 All notable changes are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), versioning follows [SemVer](https://semver.org/).
+
+---
+
+## [0.3.0] — 2026-05-16
+
+### Added
+- **VAD Calibration Tool**: `scripts/calibrate-vad.py` — automatic measurement of RMS thresholds for new microphones
+- **Microphone Setup Documentation**: `docs/MICROPHONE_SETUP.md` — complete guide for microphone migration and calibration
+- **Microphone Config Documentation**: `MICROPHONE_CONFIG.md` (Obsidian) — Sennheiser Profile USB configuration
+
+### Fixed
+- **Cmd+Shift+J Hotkey**: skhd configuration path was pointing to deleted `/jarvis-v3/` directory — updated to `/Jarvis-2.0/`
+- **jarvis-v3 Migration Cleanup**: Updated all LaunchAgent plists, supervisor.py, and documentation to use new project path
+- **Wake-Word Transcription Blocked**: Audio callback was not buffering while server speaks — fixed by allowing `_detect_q` writes during `_in_conversation` mode
+- **VAD Thresholds for Sennheiser Profile**: New calibrated values (WW_VOICE_RMS=0.002, WW_SILENCE_RMS=0.001) replacing old MateView values (0.012, 0.008)
+
+### Changed
+- **Microphone Device**: Migrated from MateView Monitor-Mikrofon to Sennheiser Profile USB
+- **Input Level**: Set to 80-85% on hardware microphone for optimal recognition
+
+### Removed
+- Empty placeholder directories: `docs/architecture/`, `docs/development/`, `docs/operations/`, `docs/troubleshooting/`
+- Python cache: `__pycache__/`
+- macOS system file: `.DS_Store`
+- Outdated VS Code workspace: `jarvis-voice-assistant V_2.1.code-workspace`
+
+### Commits in this release
+- `602f88f` — chore: Cleanup project — remove empty dirs, cache, and system files
+- `15ddeeb` — feat: Sennheiser Profile USB Mikrofon Kalibrierung + Calibration Tool
+- `2688232` — fix: Wake-Word transkription blockiert wenn Server spricht
+- `0684668` — fix: Cleanup jarvis-v3 migration artifacts (skhd, LaunchAgents, docs)
+
+---
+
+## [0.2.0] — 2026-05-15
+
+### Added
+- **Health Monitor Observability (Phase 4)**: Real-time system metrics, architecture overview with live PIDs, performance charts
+- **Health Monitor System Commands**: Force Health Check, Restart Server/All, View Log File via launchctl
+- **Handbuch Internationalisierung**: Complete user manual in German and English
 
 ---
 
