@@ -8,7 +8,7 @@ Dein persönlicher KI-Sprachassistent — optimiert für macOS Apple Silicon.
 
 **VS Code + Claude Code** ist der schnellste Weg:
 
-1. Repo klonen: `git clone https://github.com/Black-Shadowcat/jarvis-whisper.git jarvis-v3`
+1. Repo klonen: `git clone https://github.com/Black-Shadowcat/Jarvis-2.0.git Jarvis-2.0`
 2. Ordner in VS Code öffnen
 3. Claude Code starten (`Cmd+Shift+C` oder Terminal → `claude`)
 4. Tippe: **„Richte Jarvis ein"**
@@ -123,7 +123,7 @@ cp config.example.json config.json
 }
 ```
 
-> `workspace_path` = absoluter Pfad zum geklonten Ordner, z.B. `/Users/matthias/jarvis-v3`
+> `workspace_path` = absoluter Pfad zum geklonten Ordner, z.B. `/Users/matthias/Jarvis-2.0`
 
 ---
 
@@ -356,7 +356,7 @@ tail -f ~/Library/Logs/jarvis-whisper/speech.log
 
 **Chrome öffnet sich nicht**
 ```bash
-bash ~/jarvis-v3/scripts/launch-session.sh
+bash ~/Jarvis-2.0/scripts/launch-session.sh
 ```
 
 **Kein Wetter**
@@ -383,7 +383,7 @@ pkill -f "server.py"
 pkill -f "speech_input.py"
 
 # Jarvis komplett neu starten (Browser + alles)
-bash ~/jarvis-v3/scripts/launch-session.sh
+bash ~/Jarvis-2.0/scripts/launch-session.sh
 
 # Config UI
 open http://localhost:8340/config

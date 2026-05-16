@@ -111,8 +111,8 @@ Kein STT-API-Key nötig — Whisper läuft lokal auf Apple Silicon.
 
 1. **Klonen und installieren:**
    ```bash
-   git clone https://github.com/Black-Shadowcat/Jarvis 2.0.git jarvis-v3
-   cd jarvis-v3
+   git clone https://github.com/Black-Shadowcat/Jarvis-2.0.git Jarvis-2.0
+   cd Jarvis-2.0
    /opt/homebrew/bin/python3.11 -m pip install -r requirements.txt
    /opt/homebrew/bin/python3.11 -m playwright install chromium
    ```
@@ -154,7 +154,7 @@ Doppelklick: ~/Applications/Jarvis starten.app
 
 **Option B — Terminal:**
 ```bash
-bash ~/jarvis-v3/scripts/launch-session.sh
+bash ~/Jarvis-2.0/scripts/launch-session.sh
 ```
 
 ---
@@ -242,7 +242,7 @@ tail -f ~/Library/Logs/Jarvis 2.0/speech.log
 |---|---|
 | Server antwortet nicht | `pkill -f "server.py"` — launchd startet automatisch neu |
 | Aktivierungswort funktioniert nicht | `~/Library/Logs/Jarvis 2.0/speech.log` prüfen |
-| Chrome öffnet sich nicht | `bash ~/jarvis-v3/scripts/launch-session.sh` manuell starten |
+| Chrome öffnet sich nicht | `bash ~/Jarvis-2.0/scripts/launch-session.sh` manuell starten |
 | Mikrofonberechtigung | Systemeinstellungen → Datenschutz → Bedienungshilfen → Terminal erlauben |
 | Erinnerungen werden nicht angezeigt | `~/Library/Logs/Jarvis 2.0/server.log` prüfen |
 | Browser-Automatisierung schlägt fehl | `playwright install chromium` erneut ausführen |

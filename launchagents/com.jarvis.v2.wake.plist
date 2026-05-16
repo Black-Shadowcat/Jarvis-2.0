@@ -7,12 +7,12 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/matthiasschreiber/jarvis-v3/venv/bin/python3.11</string>
-        <string>/Users/matthiasschreiber/jarvis-v3/scripts/wake-monitor.py</string>
+        <string>/opt/homebrew/bin/python3.11</string>
+        <string>/Users/matthiasschreiber/Jarvis-2.0/scripts/wake-monitor.py</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/matthiasschreiber/jarvis-v3</string>
+    <string>/Users/matthiasschreiber/Jarvis-2.0</string>
 
     <key>RunAtLoad</key>
     <true/>
@@ -29,7 +29,7 @@
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/Users/matthiasschreiber/jarvis-v3/venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin</string>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin</string>
     </dict>
 </dict>
 </plist>

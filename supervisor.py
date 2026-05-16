@@ -82,7 +82,7 @@ sys.stdout = open(sys.stdout.fileno(), 'w', buffering=1)
 
 def _load_config() -> dict:
     """Load config.json, return dict with defaults."""
-    config_path = os.path.expanduser("~/jarvis-v3/config.json")
+    config_path = os.path.expanduser("~/Jarvis-2.0/config.json")
     if not os.path.exists(config_path):
         log.warning(f"config.json not found at {config_path}, using empty config")
         return {}
