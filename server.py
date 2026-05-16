@@ -1304,6 +1304,27 @@ async def _synthesize_audio(text: str, voice_id: Optional[str] = None) -> str:
     return ""
 
 
+async def _call_jarvis_ha(endpoint: str, method: str = "GET", json_body: Optional[dict] = None):
+    """Call jarvis-ha service and return response JSON. Graceful fallback if service down."""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            if method == "GET":
+                resp = await client.get(f"http://127.0.0.1:8342{endpoint}")
+            elif method == "POST":
+                resp = await client.post(f"http://127.0.0.1:8342{endpoint}", json=json_body)
+            else:
+                return {"error": f"Unknown method: {method}"}
+
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                log.warning(f"jarvis-ha error ({resp.status_code}) on {endpoint}: {resp.text[:100]}")
+                return {"error": f"Service error: {resp.status_code}"}
+    except Exception as e:
+        log.error(f"jarvis-ha call failed ({endpoint}): {e}")
+        return {"error": "Service unavailable"}
+
+
 async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
     """TTS (via jarvis-audio service), append to history, broadcast to all connections.
     display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet."""
@@ -1865,163 +1886,54 @@ async def websocket_endpoint(ws: WebSocket):
 
 @app.get("/api/get_mails_unread")
 async def get_mails_unread():
-    now = time.time()
-    if _mail_cache["data"] is not None and now - _mail_cache["ts"] < _DASHBOARD_CACHE_TTL:
-        return _mail_cache["data"]
-    loop = asyncio.get_event_loop()
-    fresh = await loop.run_in_executor(None, get_mail_sync)
-    async with _mail_lock:
-        global MAIL_INFO
-        MAIL_INFO = fresh
-    mails = []
-    for mail_str in fresh:
-        parts = mail_str.split(" || ", 1)
-        if len(parts) == 2:
-            sender, subject = parts
-            mails.append({
-                "id": f"{sender}_{subject}",
-                "sender": sender.strip(),
-                "subject": subject.strip(),
-                "timestamp": "",
-                "unread": True
-            })
-    result = {"mails": mails, "total": len(mails)}
-    _mail_cache["data"] = result
-    _mail_cache["ts"] = now
+    """Proxy to jarvis-ha service for unread mails."""
+    result = await _call_jarvis_ha("/api/get_mails_unread")
+    # Update global MAIL_INFO for briefing system
+    if "mails" in result:
+        fresh_strs = []
+        for m in result.get("mails", []):
+            fresh_strs.append(f"{m.get('sender', '')} || {m.get('subject', '')}")
+        async with _mail_lock:
+            global MAIL_INFO
+            MAIL_INFO = fresh_strs
     return result
 
 
 @app.get("/api/get_tasks")
 async def get_tasks():
-    """Return reminders and today+tomorrow calendar events."""
-    now = time.time()
-    if _tasks_cache["data"] is not None and now - _tasks_cache["ts"] < _DASHBOARD_CACHE_TTL:
-        return _tasks_cache["data"]
-    loop = asyncio.get_event_loop()
-    fresh = await loop.run_in_executor(None, get_tasks_sync)
-    if HA_URL and HA_TOKEN:
-        cal_lines = await loop.run_in_executor(None, lambda: get_calendar_sync(days=2))
-    else:
-        cal_lines = []
-    tasks = []
-    for i, task_name in enumerate(fresh):
-        tasks.append({
-            "id": f"task_{i}",
-            "title": task_name.strip(),
-            "source": "reminders",
-            "completed": False
-        })
-    for i, line in enumerate(cal_lines):
-        if " -- " in line:
-            title, label = line.split(" -- ", 1)
-        else:
-            title, label = line, ""
-        title = title.strip()
-        if any(kw in title.lower() for kw in _dismissed_cal):
-            continue
-        tasks.append({
-            "id": f"cal_{i}",
-            "title": title,
-            "label": label.strip(),
-            "source": "calendar",
-            "completed": None
-        })
-    result = {"tasks": tasks, "total": len(tasks)}
-    _tasks_cache["data"] = result
-    _tasks_cache["ts"] = now
+    """Proxy to jarvis-ha for reminders and calendar events."""
+    result = await _call_jarvis_ha("/api/get_tasks")
+    # Filter dismissed calendar items
+    if "tasks" in result:
+        filtered = []
+        for task in result["tasks"]:
+            if task.get("source") == "calendar":
+                if any(kw in task.get("title", "").lower() for kw in _dismissed_cal):
+                    continue
+            filtered.append(task)
+        result["tasks"] = filtered
+        result["total"] = len(filtered)
     return result
 
 
 @app.get("/api/get_obsidian_notes")
 async def get_obsidian_notes():
-    """Return Obsidian notes in structured format for dashboard."""
-    notes = []
-    if not OBSIDIAN_INBOX:
-        return {"notes": notes, "total": 0}
-
-    try:
-        import os
-        files = sorted([f for f in os.listdir(OBSIDIAN_INBOX) if f.endswith(".md")])
-        for fname in files:
-            fpath = os.path.join(OBSIDIAN_INBOX, fname)
-            try:
-                with open(fpath, "r", encoding="utf-8") as f:
-                    content = f.read().strip()
-                if _obsidian_note_done(content):
-                    continue
-                title = fname.replace(".md", "").replace("_", " ")
-                preview = content[:100] + ("..." if len(content) > 100 else "")
-                notes.append({
-                    "id": fname,
-                    "title": title,
-                    "preview": preview,
-                    "content": content,
-                    "completed": False
-                })
-            except Exception:
-                continue
-    except Exception:
-        pass
-
-    return {"notes": notes, "total": len(notes)}
+    """Proxy to jarvis-ha for Obsidian notes."""
+    return await _call_jarvis_ha("/api/get_obsidian_notes")
 
 
 @app.post("/api/complete_task")
 async def complete_task(request: Request):
-    """Mark a reminder task as complete."""
+    """Proxy to jarvis-ha to mark task as complete."""
     data = await request.json()
-    task_id = data.get("id", "")
-    task_title = data.get("title", "")
-
-    if not task_title:
-        return {"success": False, "message": "No task title provided"}
-
-    # Use the same AppleScript approach as REMINDER_DONE action
-    script = f'''tell application "Reminders"
-    set marked to 0
-    repeat with aList in every list
-        repeat with r in (every reminder in aList whose completed is false)
-            if name of r contains "{task_title}" then
-                set completed of r to true
-                set marked to marked + 1
-            end if
-        end repeat
-    end repeat
-    return marked
-end tell'''
-
-    try:
-        result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            global TASKS_INFO
-            TASKS_INFO = await asyncio.get_event_loop().run_in_executor(None, get_tasks_sync)
-            _tasks_cache["ts"] = 0.0  # invalidate
-            return {"success": True, "message": f"Task '{task_title}' marked as complete"}
-        return {"success": False, "message": "Failed to mark task as complete"}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
+    return await _call_jarvis_ha("/api/complete_task", method="POST", json_body=data)
 
 
 @app.post("/api/complete_note")
 async def complete_note(request: Request):
-    """Mark an Obsidian note as complete (delete it)."""
+    """Proxy to jarvis-ha to mark note as complete."""
     data = await request.json()
-    note_id = data.get("id", "")  # filename
-
-    if not OBSIDIAN_INBOX or not note_id:
-        return {"success": False, "message": "Invalid note or Obsidian inbox not configured"}
-
-    try:
-        import os
-        fpath = os.path.join(OBSIDIAN_INBOX, note_id)
-        if os.path.exists(fpath) and fpath.startswith(OBSIDIAN_INBOX):
-            os.remove(fpath)
-            global OBSIDIAN_INFO
-            OBSIDIAN_INFO = await asyncio.get_event_loop().run_in_executor(None, get_obsidian_info_sync)
-            return {"success": True, "message": f"Note '{note_id}' marked as complete"}
-        return {"success": False, "message": "Note not found"}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
+    return await _call_jarvis_ha("/api/complete_note", method="POST", json_body=data)
 
 
 
