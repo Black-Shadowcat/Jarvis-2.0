@@ -2186,11 +2186,21 @@ async def get_daily_brief():
     loop = asyncio.get_event_loop()
 
     if daily_brief.detect_morning_trigger():
-        mails_raw = await loop.run_in_executor(None, get_mail_sync)
+        # M16: Parallelize mail/tasks/weather fetch (was sequential, now parallel)
+        mails_raw, tasks, notes, weather_str = await asyncio.gather(
+            loop.run_in_executor(None, get_mail_sync),
+            loop.run_in_executor(None, get_tasks_sync),
+            loop.run_in_executor(None, get_obsidian_info_sync),
+            _ensure_weather(loop),
+            return_exceptions=True
+        )
+        # Handle any exceptions (return [] or empty)
+        mails_raw = mails_raw if isinstance(mails_raw, list) else []
+        tasks = tasks if isinstance(tasks, list) else []
+        notes = notes if isinstance(notes, list) else []
+        weather_str = weather_str if isinstance(weather_str, str) else ""
+
         mails = [{"sender": m.split(" || ")[0], "subject": m.split(" || ")[1]} for m in mails_raw if " || " in m]
-        tasks = get_tasks_sync()
-        notes = get_obsidian_info_sync()
-        weather_str = await _ensure_weather(loop)
         text = daily_brief.generate_morning_brief(
             weather=weather_str,
             mails=mails,
