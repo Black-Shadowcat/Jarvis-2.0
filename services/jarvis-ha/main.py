@@ -105,11 +105,15 @@ def get_mail_sync():
             ["osascript", "-e", script],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=3
         )
         if result.returncode == 0:
             lines = result.stdout.strip().split("\n")
             return [l.strip() for l in lines if l.strip()]
+        log.warning(f"get_mail_sync: Mail.app returned error code {result.returncode}")
+        return []
+    except subprocess.TimeoutExpired:
+        log.error(f"get_mail_sync: Mail.app timeout (3s)")
         return []
     except Exception as e:
         log.error(f"get_mail_sync error: {e}")
@@ -136,11 +140,15 @@ def get_tasks_sync():
             ["osascript", "-e", script],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=3
         )
         if result.returncode == 0:
             lines = result.stdout.strip().split("\n")
             return [l.strip() for l in lines if l.strip()]
+        log.warning(f"get_tasks_sync: Reminders.app returned error code {result.returncode}")
+        return []
+    except subprocess.TimeoutExpired:
+        log.error(f"get_tasks_sync: Reminders.app timeout (3s)")
         return []
     except Exception as e:
         log.error(f"get_tasks_sync error: {e}")
@@ -158,13 +166,15 @@ def get_calendar_sync(days: int = 7) -> list[str]:
              f"{HA_URL}/api/states/calendar.home"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=3
         )
         if result.returncode != 0:
+            log.warning(f"get_calendar_sync: curl returned error code {result.returncode}")
             return []
 
         data = json.loads(result.stdout)
         if not data or "attributes" not in data:
+            log.warning(f"get_calendar_sync: no calendar data from Home Assistant")
             return []
 
         events = []
@@ -173,6 +183,12 @@ def get_calendar_sync(days: int = 7) -> list[str]:
                 event_str = f"{data['attributes'].get('description', '?')} -- {data['attributes'].get('start_time', '?')}"
                 events.append(event_str)
         return events
+    except subprocess.TimeoutExpired:
+        log.error(f"get_calendar_sync: Home Assistant timeout (3s)")
+        return []
+    except json.JSONDecodeError as e:
+        log.error(f"get_calendar_sync: invalid JSON from HA: {e}")
+        return []
     except Exception as e:
         log.error(f"get_calendar_sync error: {e}")
         return []
@@ -189,10 +205,17 @@ def get_weather_sync() -> dict:
              f"https://api.kachelmannwetter.com/v4/forecast?lat={LAT}&lon={LON}&access_token={KACHELMANN_KEY}"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=3
         )
         if result.returncode == 0:
             return json.loads(result.stdout)
+        log.warning(f"get_weather_sync: curl returned error code {result.returncode}")
+        return {}
+    except subprocess.TimeoutExpired:
+        log.error(f"get_weather_sync: Kachelmann API timeout (3s)")
+        return {}
+    except json.JSONDecodeError as e:
+        log.error(f"get_weather_sync: invalid JSON from Kachelmann: {e}")
         return {}
     except Exception as e:
         log.error(f"get_weather_sync error: {e}")
