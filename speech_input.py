@@ -566,10 +566,12 @@ async def _receiver(ws):
         if msg_type == "speaking_start":
             _jarvis_speaking = True
             _speaking_started_at = time.time()
+            log.info("[MUTE] Jarvis spricht — Mikrofon gestummt")
 
         elif msg_type == "speaking_end":
             _jarvis_speaking = False
             _detect_q_flush()
+            log.info("[UNMUTE] Jarvis fertig — Mikrofon aktiv")
 
         elif msg_type == "listen_open":
             _jarvis_speaking = False
