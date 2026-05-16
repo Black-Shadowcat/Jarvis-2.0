@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 
 ---
 
+## [1.0.2] — 2026-05-16 — Critical Bugfix (C4 Regression)
+
+> **Urgency:** All v1.0.1 users should upgrade immediately.
+> Fixes critical startup failure introduced in C4 (Log Rotation).
+
+### 🔴 Critical Bugfix
+
+#### sys Import Regression
+- **Problem:** server.py crashed on startup with `NameError: name 'sys' is not defined` (line 47)
+- **Root Cause:** C4 (Log Rotation) added `RotatingFileHandler` + stdout logging that requires `sys.stdout`, but forgot `import sys`
+- **Impact:** server.py unreachable (8340 port down); only microservices ran; system appeared "dead"
+- **Solution:** Added `import sys` to server.py imports (line 11)
+- **Status:** ✅ FIXED & TESTED — all services running normally
+- **Commit:** `05e9d95`
+
+---
+
 ## [1.0.1] — 2026-05-16 — Critical Stability Hotfixes
 
 > **Important:** All v1.0.0 users should upgrade immediately.
