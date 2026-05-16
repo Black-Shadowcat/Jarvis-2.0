@@ -168,7 +168,7 @@ def _audio_cb(indata, frames, time_info, status):
     if _recording:
         with _buffer_lock:
             _audio_buffer.append(indata.copy())
-    elif not _jarvis_speaking:
+    elif not _jarvis_speaking or _in_conversation:
         try:
             _detect_q.put_nowait(indata.copy())
         except queue.Full:
@@ -216,8 +216,8 @@ def _auto_listen(timeout: float):
     """
     global _in_conversation
 
-    if _recording or _ww_muted or _jarvis_speaking:
-        log.debug(f"auto_listen skip: recording={_recording}, muted={_ww_muted}, speaking={_jarvis_speaking}")
+    if _recording or _ww_muted:
+        log.debug(f"auto_listen skip: recording={_recording}, muted={_ww_muted}")
         return
 
     log.info(f"▶ Auto-Listen: Mikrofon offen für {timeout}s")
