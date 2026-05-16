@@ -8,6 +8,9 @@ import sounddevice as sd
 import numpy as np
 import time
 import sys
+import json
+import os
+from datetime import datetime
 
 SAMPLE_RATE = 16000
 CHUNK_DURATION = 0.1  # 100ms chunks
@@ -88,14 +91,30 @@ def main():
     print(f"   WW_VOICE_RMS = 0.012")
     print(f"   WW_SILENCE_RMS = 0.008")
 
-    print(f"\n💾 Neue Werte in speech_input.py aktualisieren:")
+    print(f"\n💾 Neue Werte speichern:")
     print(f"   WW_VOICE_RMS    = {speech_min * 0.8:.5f}")
     print(f"   WW_SILENCE_RMS  = {silence_max * 1.2:.5f}")
 
-    print("\n🔧 Schritte zum Aktualisieren:")
-    print("   1. nano speech_input.py")
-    print("   2. Zeile 50-51 anpassen")
-    print("   3. launchctl kickstart -k gui/501/com.jarvis.v2.speech")
+    # Speichern in data/vad_calibration.json
+    calib_data = {
+        "voice_rms": round(float(speech_min * 0.8), 6),
+        "silence_rms": round(float(silence_max * 1.2), 6),
+        "max_secs": 5.0,
+        "silence_secs": 0.8,
+        "cmd_silence": 1.5,
+        "calibrated_at": datetime.now().isoformat(timespec="seconds"),
+        "device": sd.query_devices(kind="input").get("name", "unknown") if sd.query_devices() else "unknown"
+    }
+
+    calib_path = os.path.join(os.path.dirname(__file__), "..", "data", "vad_calibration.json")
+    os.makedirs(os.path.dirname(calib_path), exist_ok=True)
+    with open(calib_path, "w") as f:
+        json.dump(calib_data, f, indent=2)
+
+    print(f"\n✅ Gespeichert: {calib_path}")
+    print(f"   Device: {calib_data['device']}")
+    print(f"   Zeit: {calib_data['calibrated_at']}")
+    print("\n📝 speech_input.py liest beim nächsten Start automatisch!")
     print("=" * 60 + "\n")
 
 if __name__ == "__main__":

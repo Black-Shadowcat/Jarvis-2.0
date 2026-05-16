@@ -73,6 +73,28 @@ WW_CMD_SILENCE  = 1.5    # Stille nach Befehl → Aufnahme beenden
 MAX_AUDIO_BUFFER_SECS = 30  # Max 30s of audio in _audio_buffer before forced stop
 MAX_SNIPPET_SECS = 10       # Max 10s per snippet accumulation
 
+# VAD Kalibrierungs-Pfad
+VAD_CALIB_PATH = os.path.join(os.path.dirname(__file__), "data", "vad_calibration.json")
+
+def _load_vad_calibration():
+    global WW_VOICE_RMS, WW_SILENCE_RMS, WW_MAX_SECS, WW_SILENCE_SECS, WW_CMD_SILENCE
+    if os.path.exists(VAD_CALIB_PATH):
+        try:
+            with open(VAD_CALIB_PATH) as f:
+                data = json.load(f)
+            old_voice, old_silence = WW_VOICE_RMS, WW_SILENCE_RMS
+            WW_VOICE_RMS   = data.get("voice_rms",    WW_VOICE_RMS)
+            WW_SILENCE_RMS = data.get("silence_rms",  WW_SILENCE_RMS)
+            WW_MAX_SECS    = data.get("max_secs",     WW_MAX_SECS)
+            WW_SILENCE_SECS = data.get("silence_secs", WW_SILENCE_SECS)
+            WW_CMD_SILENCE = data.get("cmd_silence",  WW_CMD_SILENCE)
+            if old_voice != WW_VOICE_RMS or old_silence != WW_SILENCE_RMS:
+                print(f"[VAD] Calibration loaded: voice={WW_VOICE_RMS:.4f} silence={WW_SILENCE_RMS:.4f}")
+        except Exception as e:
+            print(f"[VAD] Calibration load error (using defaults): {e}")
+
+_load_vad_calibration()
+
 # Bekannte Whisper-Fehltranskriptionen von "Jarvis"
 _JARVIS_ALIASES = {"jarvis", "javis", "jarwis", "jarves", "garvis", "jarvis.", "javis."}
 
@@ -566,6 +588,7 @@ async def _run():
     tracemalloc.start()
 
     _loop  = asyncio.get_running_loop()
+    _loop.add_signal_handler(signal.SIGUSR2, _load_vad_calibration)  # M10: Live-reload VAD calibration
     _queue = asyncio.Queue()
 
     stream   = sd.InputStream(samplerate=SAMPLE_RATE, channels=1,

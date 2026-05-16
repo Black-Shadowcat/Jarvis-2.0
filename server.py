@@ -2879,6 +2879,62 @@ async def get_last_interaction():
     }
 
 
+# ── VAD Configuration (M10) ──────────────────────────────────────────────
+
+_VAD_CALIB_PATH = os.path.join(os.path.dirname(__file__), "data", "vad_calibration.json")
+_VAD_DEFAULTS = {
+    "voice_rms": 0.002,
+    "silence_rms": 0.001,
+    "max_secs": 5.0,
+    "silence_secs": 0.8,
+    "cmd_silence": 1.5
+}
+
+@app.get("/api/vad/config")
+async def get_vad_config():
+    """Return current VAD (Voice Activity Detection) configuration."""
+    if os.path.exists(_VAD_CALIB_PATH):
+        try:
+            with open(_VAD_CALIB_PATH) as f:
+                data = json.load(f)
+            return {"source": "calibration", **data}
+        except Exception as e:
+            log.warning(f"[VAD] Could not load calibration: {e}")
+    return {"source": "default", **_VAD_DEFAULTS}
+
+@app.post("/api/vad/config")
+async def set_vad_config(request: Request):
+    """Update VAD configuration and trigger live-reload in speech_input.py via SIGUSR2."""
+    body = await request.json()
+    allowed = {"voice_rms", "silence_rms", "max_secs", "silence_secs", "cmd_silence"}
+    payload = {k: float(v) for k, v in body.items() if k in allowed}
+    if not payload:
+        return {"error": "No valid VAD keys provided"}, 400
+
+    payload["calibrated_at"] = datetime.utcnow().isoformat(timespec="seconds")
+    os.makedirs(os.path.dirname(_VAD_CALIB_PATH), exist_ok=True)
+    with open(_VAD_CALIB_PATH, "w") as f:
+        json.dump(payload, f, indent=2)
+
+    # Live-reload: send SIGUSR2 to speech_input.py process
+    reloaded = False
+    try:
+        result = subprocess.check_output(["pgrep", "-f", "speech_input.py"], text=True).strip()
+        if result:
+            import signal as _signal
+            pids = result.split("\n")
+            for pid in pids:
+                if pid:
+                    os.kill(int(pid), _signal.SIGUSR2)
+                    reloaded = True
+                    break
+    except Exception as e:
+        log.debug(f"[VAD] Could not reload speech_input: {e}")
+
+    log.info(f"[VAD] Config updated: voice_rms={payload.get('voice_rms', 'unchanged')}, reloaded={reloaded}")
+    return {"ok": True, "reloaded": reloaded, "config": payload}
+
+
 @app.get("/api/update_check")
 async def update_check():
     import time
