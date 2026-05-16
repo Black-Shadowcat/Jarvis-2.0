@@ -4,21 +4,30 @@ echo "════════════════════════�
 echo "  Stoppe Jarvis 2.0"
 echo "════════════════════════════════════════"
 
+_stop_agent() {
+    local name=$1
+    local plist=$2
+    local uid=$(id -u)
+    # Use modern launchctl bootout (macOS Ventura+), fallback to unload
+    launchctl bootout gui/$uid "$plist" 2>/dev/null || launchctl unload "$plist" 2>/dev/null
+    [ $? -eq 0 ] && echo "  ✓ $name gestoppt" || echo "  (war nicht geladen)"
+}
+
 # PHASE 1: Supervisor ZUERST stoppen (verhindert KeepAlive-Restart-Loops)
 echo "→ Phase 1: Entlade Supervisor LaunchAgent (ZUERST!)..."
-launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.supervisor.plist 2>/dev/null && echo "  ✓ Supervisor gestoppt" || echo "  (war nicht geladen)"
+_stop_agent "Supervisor" ~/Library/LaunchAgents/com.jarvis.v2.supervisor.plist
 sleep 1
 
 # PHASE 2: Core Services stoppen
 echo "→ Phase 2: Entlade Core Services..."
-launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.server.plist 2>/dev/null && echo "  ✓ Server gestoppt" || echo "  (war nicht geladen)"
-launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.speech.plist 2>/dev/null && echo "  ✓ Speech-Input gestoppt" || echo "  (war nicht geladen)"
-launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.wake.plist 2>/dev/null && echo "  ✓ Wake-Monitor gestoppt" || echo "  (war nicht geladen)"
+_stop_agent "Server" ~/Library/LaunchAgents/com.jarvis.v2.server.plist
+_stop_agent "Speech-Input" ~/Library/LaunchAgents/com.jarvis.v2.speech.plist
+_stop_agent "Wake-Monitor" ~/Library/LaunchAgents/com.jarvis.v2.wake.plist
 
 # PHASE 3: Microservices stoppen
 echo "→ Phase 3: Entlade Microservices..."
-launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.audio.plist 2>/dev/null && echo "  ✓ jarvis-audio (8341) gestoppt" || echo "  (war nicht geladen)"
-launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.ha.plist 2>/dev/null && echo "  ✓ jarvis-ha (8342) gestoppt" || echo "  (war nicht geladen)"
+_stop_agent "jarvis-audio (8341)" ~/Library/LaunchAgents/com.jarvis.v2.audio.plist
+_stop_agent "jarvis-ha (8342)" ~/Library/LaunchAgents/com.jarvis.v2.ha.plist
 
 # PHASE 4: Backup-Kill falls Prozesse noch aktiv sind
 echo "→ Phase 4: Force-Kill aller Prozesse (Sicherheit)..."

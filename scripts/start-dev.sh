@@ -19,11 +19,13 @@ _start_agent() {
     local name=$1
     local plist=$2
     local port=$3
+    local uid=$(id -u)
     echo "→ Starte $name (Port $port)..."
     if launchctl list "$name" &>/dev/null; then
         launchctl start "$name" 2>/dev/null
     else
-        launchctl load "$plist" 2>/dev/null
+        # Use modern launchctl bootstrap (macOS Ventura+, reliable)
+        launchctl bootstrap gui/$uid "$plist" 2>/dev/null || launchctl load "$plist" 2>/dev/null
     fi
 }
 
