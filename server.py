@@ -721,6 +721,7 @@ conversations: dict[str, list] = {}
 active_connections: set = set()
 stt_connections: set = set()  # speech_input.py WebSocket connections
 _ww_muted: bool = False       # Wake-Word global mute flag
+_last_interaction: float = time.time()  # Track last user interaction (Chat, F19, Wake-Word)
 
 
 def _obsidian_note_done(content: str) -> bool:
@@ -1871,6 +1872,8 @@ async def websocket_endpoint(ws: WebSocket):
             if not user_text:
                 continue
 
+            global _last_interaction
+            _last_interaction = time.time()  # Update last interaction time
             log.info(f"  You:    {user_text}")
             await process_message(session_id, user_text, ws)
 
@@ -2859,6 +2862,23 @@ async def get_supervisor_log(tail: int = 50):
         }
 
 
+@app.get("/api/supervisor/last_interaction")
+async def get_last_interaction():
+    """Return last user interaction (Chat, F19, Wake-Word) timestamp and idle status."""
+    global _last_interaction
+    now = time.time()
+    seconds_idle = now - _last_interaction
+    idle_threshold = 300  # 5 minutes
+
+    return {
+        "last_interaction_timestamp": _last_interaction,
+        "seconds_idle": seconds_idle,
+        "is_idle": seconds_idle > idle_threshold,
+        "idle_threshold_seconds": idle_threshold,
+        "last_interaction_ago": f"{int(seconds_idle // 60)}m {int(seconds_idle % 60)}s" if seconds_idle < 3600 else f"{int(seconds_idle / 3600)}h",
+    }
+
+
 @app.get("/api/update_check")
 async def update_check():
     import time
@@ -2885,6 +2905,7 @@ async def mark_intro_done():
 
 @app.post("/api/ptt/{state}")
 async def ptt_state(state: str):
+    global _last_interaction
     state_map = {
         "start":        "ptt_start",
         "stop":         "ptt_stop",
@@ -2893,6 +2914,9 @@ async def ptt_state(state: str):
     }
     if state not in state_map:
         return {"ok": False}
+    # Update last interaction for PTT (F19) and Wake-Word (listen_open)
+    if state in ("start", "listen_open"):
+        _last_interaction = time.time()
     # Wenn Mikrofon stumm: listen_open nicht an Browser senden
     if state == "listen_open" and _ww_muted:
         return {"ok": True}
