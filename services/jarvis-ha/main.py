@@ -7,21 +7,33 @@ import json
 import logging
 import os
 import subprocess
+import sys
 import time
 from datetime import datetime, timedelta
 from typing import Optional
+from logging.handlers import RotatingFileHandler
 
 import httpx
 from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%H:%M:%S",
-)
+# Configure logging with rotation (prevent unbounded disk growth)
+_log_dir = os.path.expanduser("~/Library/Logs/jarvis-v2")
+os.makedirs(_log_dir, exist_ok=True)
+_log_file = os.path.join(_log_dir, "ha.log")
+
 log = logging.getLogger("jarvis-ha")
+log.setLevel(logging.INFO)
+
+# File handler with rotation: 10 MB max size, keep 5 backups
+_handler = RotatingFileHandler(_log_file, maxBytes=10*1024*1024, backupCount=5)
+_handler.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%H:%M:%S"))
+log.addHandler(_handler)
+
+# Also log to stdout (visible in launchd logs)
+_stdout_handler = logging.StreamHandler(sys.stdout)
+_stdout_handler.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%H:%M:%S"))
+log.addHandler(_stdout_handler)
 
 # Load config from parent directory
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config.json")

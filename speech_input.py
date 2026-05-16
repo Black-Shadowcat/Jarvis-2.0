@@ -21,19 +21,33 @@ import re
 import threading
 import time
 import json
+import os
+import sys
 import urllib.request
 import numpy as np
 import sounddevice as sd
 import mlx_whisper
 from pynput import keyboard
 import websockets
+from logging.handlers import RotatingFileHandler
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%H:%M:%S",
-)
+# Configure logging with rotation (prevent unbounded disk growth)
+_log_dir = os.path.expanduser("~/Library/Logs/jarvis-v2")
+os.makedirs(_log_dir, exist_ok=True)
+_log_file = os.path.join(_log_dir, "speech.log")
+
 log = logging.getLogger("stt")
+log.setLevel(logging.INFO)
+
+# File handler with rotation: 10 MB max size, keep 5 backups
+_handler = RotatingFileHandler(_log_file, maxBytes=10*1024*1024, backupCount=5)
+_handler.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%H:%M:%S"))
+log.addHandler(_handler)
+
+# Also log to stdout (visible in launchd logs)
+_stdout_handler = logging.StreamHandler(sys.stdout)
+_stdout_handler.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%H:%M:%S"))
+log.addHandler(_stdout_handler)
 
 SAMPLE_RATE    = 16000
 CHUNK_SIZE     = 1600   # 100 ms pro Callback-Chunk

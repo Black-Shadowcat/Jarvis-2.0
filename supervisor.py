@@ -27,6 +27,8 @@ except ImportError:
     print("[supervisor] ERROR: websockets not installed. Run: pip install websockets", flush=True)
     sys.exit(1)
 
+from logging.handlers import RotatingFileHandler
+
 # ============================================================================
 # Configuration
 # ============================================================================
@@ -62,14 +64,23 @@ MEMORY_HISTORY_MAX = 144  # 12 hours
 # Logging
 # ============================================================================
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-7s  %(message)s",
-    datefmt="%H:%M:%S",
-    force=True,
-    stream=sys.stdout,
-)
+# Configure logging with rotation (prevent unbounded disk growth)
+_log_dir = os.path.expanduser("~/Library/Logs/jarvis-v2")
+os.makedirs(_log_dir, exist_ok=True)
+_log_file = os.path.join(_log_dir, "supervisor.log")
+
 log = logging.getLogger("supervisor")
+log.setLevel(logging.INFO)
+
+# File handler with rotation: 10 MB max size, keep 5 backups
+_handler = RotatingFileHandler(_log_file, maxBytes=10*1024*1024, backupCount=5)
+_handler.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-7s  %(message)s", datefmt="%H:%M:%S"))
+log.addHandler(_handler)
+
+# Also log to stdout (visible in launchd logs)
+_stdout_handler = logging.StreamHandler(sys.stdout)
+_stdout_handler.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-7s  %(message)s", datefmt="%H:%M:%S"))
+log.addHandler(_stdout_handler)
 
 # Make stdout unbuffered
 sys.stdout = open(sys.stdout.fileno(), 'w', buffering=1)
