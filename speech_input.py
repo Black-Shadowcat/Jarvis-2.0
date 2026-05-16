@@ -103,6 +103,10 @@ _ww_muted:           bool  = False   # Wake-Word via HUD-Click deaktiviert
 _jarvis_speaking:    bool  = False   # True während Jarvis TTS abspielt → WW stumm
 _speaking_started_at: float = 0.0    # Zeitstempel des letzten speaking_start
 
+# ── RMS-Watchdog für Audio-Device-Recovery nach Sleep/Wake ────────────────
+_last_nonzero_rms_time: float = 0.0  # Letzter Zeitpunkt mit Non-Zero-Audio
+_stream_ref: sd.InputStream = None   # Referenz zum Audio-Stream für Restart
+
 
 # ── PTT-State an Browser melden ───────────────────────────────────────────
 
@@ -179,6 +183,13 @@ def _stop_recording_and_transcribe(source: str = "ptt"):
 # ── Audio-Callback ────────────────────────────────────────────────────────
 
 def _audio_cb(indata, frames, time_info, status):
+    global _last_nonzero_rms_time
+
+    # RMS-Tracking für Watchdog (detect audio-device death after sleep)
+    rms = np.sqrt(np.mean(indata**2))
+    if rms > 0.0001:  # Non-silence threshold (avoid floating-point noise)
+        _last_nonzero_rms_time = time.time()
+
     if _recording:
         with _buffer_lock:
             _audio_buffer.append(indata.copy())
@@ -218,6 +229,46 @@ def _transcribe(audio: np.ndarray):
         return
     log.info(f"» {text}")
     asyncio.run_coroutine_threadsafe(_queue.put(text), _loop)
+
+
+# ── RMS-Watchdog: Audio-Device-Recovery nach Sleep/Wake ────────────────────
+
+def _rms_watchdog():
+    """
+    Monitor audio stream for death after system sleep.
+    If >60s of silence (RMS ≈ 0), restart the stream.
+
+    Problem: After macOS sleep, PortAudio CoreAudio handle becomes invalid.
+    The stream appears to run but delivers only zeros. This watchdog detects
+    that silent state and restarts the stream without a full process restart.
+    """
+    global _last_nonzero_rms_time, _stream_ref
+
+    log.info("[watchdog] RMS-Watchdog gestartet (60s Timeout für Audio-Device-Recovery)")
+
+    while True:
+        time.sleep(10)  # Check every 10 seconds
+
+        if _stream_ref is None:
+            continue
+
+        # Check if stream has been silent for >60s
+        elapsed = time.time() - _last_nonzero_rms_time
+
+        if elapsed > 60 and _last_nonzero_rms_time > 0:
+            # Audio device is dead — recover without full restart
+            log.warning(f"[watchdog] Audio-Device silent für {elapsed:.0f}s — restart stream")
+            _write_state("RECOVERING")
+
+            try:
+                _stream_ref.stop()
+                time.sleep(0.5)
+                _stream_ref.start()
+                log.info("[watchdog] ✓ Audio-Stream neugestartet")
+                _write_state("IDLE")
+            except Exception as e:
+                log.error(f"[watchdog] ✗ Stream-Restart fehlgeschlagen: {e}")
+                _write_state("IDLE")
 
 
 # ── Auto-Listen (Gesprächsmodus nach Wake-Word-Antwort) ───────────────────
@@ -450,7 +501,7 @@ async def _receiver(ws):
 
 
 async def _run():
-    global _loop, _queue
+    global _loop, _queue, _stream_ref, _last_nonzero_rms_time
     _loop  = asyncio.get_running_loop()
     _queue = asyncio.Queue()
 
@@ -458,11 +509,16 @@ async def _run():
                                dtype="float32", blocksize=CHUNK_SIZE,
                                callback=_audio_cb)
     listener = keyboard.Listener(on_press=_on_press, on_release=_on_release)
+    _stream_ref = stream  # Store reference for watchdog restart
 
     stream.start()
     listener.start()
 
+    # Initialize RMS watchdog time
+    _last_nonzero_rms_time = time.time()
+
     threading.Thread(target=_ww_thread, daemon=True).start()
+    threading.Thread(target=_rms_watchdog, daemon=True).start()  # NEW: RMS watchdog
 
     log.info("─" * 44)
     log.info("  Jarvis V3 — Spracheingabe")
