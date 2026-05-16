@@ -86,11 +86,40 @@ _CMD_ON = {"an", "ein", "einschalten", "einschalte", "anschalten", "anschalte", 
 _CMD_OFF = {"aus", "ausschalten", "ausschalte", "ausmachen", "ausmache"}
 
 CACHE_TTL = 60.0  # Increased from 30s (tasks don't change frequently)
-_mail_cache = {"data": None, "ts": 0.0}
-_tasks_cache = {"data": None, "ts": 0.0}
+CACHE_RETRY_DELAY = 10.0  # M13: Retry failed calls every 10s instead of waiting 60s
+_mail_cache = {"data": None, "ts": 0.0, "last_good": None}
+_tasks_cache = {"data": None, "ts": 0.0, "last_good": None}
+_weather_cache = {"data": None, "ts": 0.0, "last_good": None}
 _weather_cache = {"data": None, "ts": 0.0}
 
 # ── Dashboard Data Functions ──────────────────────────────────────────────
+
+def _cache_with_fallback(cache_dict, source_fn, timeout=8):
+    """M13: Graceful Degradation — try source, fallback to stale data on failure."""
+    now = time.time()
+    # Return cached data if fresh
+    if cache_dict["data"] is not None and now - cache_dict["ts"] < CACHE_TTL:
+        return cache_dict["data"]
+
+    # Try to fetch fresh data with timeout
+    try:
+        result = source_fn()
+        if result:  # Only cache if non-empty
+            cache_dict["data"] = result
+            cache_dict["last_good"] = result
+            cache_dict["ts"] = now
+            return result
+    except Exception as e:
+        log.warning(f"Source failed: {e}, falling back to last-known-good")
+
+    # Fallback: return stale data instead of error
+    if cache_dict["last_good"] is not None:
+        log.info("Using stale data (last-known-good)")
+        return cache_dict["last_good"]
+
+    # Last resort: empty list/dict
+    return []
+
 
 def get_mail_sync():
     """Fetch unread mails from macOS Mail.app via AppleScript."""
@@ -314,7 +343,7 @@ async def health():
 
 @app.get("/api/get_mails_unread")
 async def get_mails_unread():
-    """Get unread emails with caching."""
+    """M13: Get unread emails with graceful degradation (fallback to stale data)."""
     now = time.time()
     if _mail_cache["data"] is not None and now - _mail_cache["ts"] < CACHE_TTL:
         return _mail_cache["data"]
@@ -324,10 +353,8 @@ async def get_mails_unread():
         mails = []
         for item in fresh:
             if isinstance(item, dict):
-                # Already formatted as dict from get_mail_sync
                 mails.append(item)
             elif isinstance(item, str) and " || " in item:
-                # Legacy string format "sender || subject"
                 parts = item.split(" || ", 1)
                 if len(parts) == 2:
                     sender, subject = parts
@@ -337,19 +364,22 @@ async def get_mails_unread():
                         "subject": subject.strip(),
                         "unread": True
                     })
-
         result = {"mails": mails, "total": len(mails)}
         _mail_cache["data"] = result
+        _mail_cache["last_good"] = result  # M13: Remember successful result
         _mail_cache["ts"] = now
         return result
     except Exception as e:
-        log.error(f"get_mails_unread error: {e}")
-        return {"mails": [], "total": 0, "error": str(e)}
+        log.warning(f"get_mails_unread failed: {e}, falling back to stale data")
+        # M13: Return last-known-good data instead of error
+        if _mail_cache["last_good"]:
+            return _mail_cache["last_good"]
+        return {"mails": [], "total": 0}
 
 
 @app.get("/api/get_tasks")
 async def get_tasks():
-    """Get reminders and calendar events with caching."""
+    """M13: Get reminders and calendar events with graceful degradation."""
     now = time.time()
     if _tasks_cache["data"] is not None and now - _tasks_cache["ts"] < CACHE_TTL:
         return _tasks_cache["data"]
@@ -383,11 +413,15 @@ async def get_tasks():
 
         result = {"tasks": tasks, "total": len(tasks)}
         _tasks_cache["data"] = result
+        _tasks_cache["last_good"] = result  # M13: Remember successful result
         _tasks_cache["ts"] = now
         return result
     except Exception as e:
-        log.error(f"get_tasks error: {e}")
-        return {"tasks": [], "total": 0, "error": str(e)}
+        log.warning(f"get_tasks failed: {e}, falling back to stale data")
+        # M13: Return last-known-good data instead of error
+        if _tasks_cache["last_good"]:
+            return _tasks_cache["last_good"]
+        return {"tasks": [], "total": 0}
 
 
 @app.get("/api/get_obsidian_notes")
@@ -411,19 +445,26 @@ async def get_obsidian_notes():
 
 @app.get("/api/weather")
 async def get_weather():
-    """Get weather data with caching."""
+    """M13: Get weather data with graceful degradation."""
     now = time.time()
     if _weather_cache["data"] is not None and now - _weather_cache["ts"] < 3600:  # 1 hour cache
         return _weather_cache["data"]
 
     try:
         data = get_weather_sync()
-        _weather_cache["data"] = data or {"error": "No weather data"}
-        _weather_cache["ts"] = now
-        return _weather_cache["data"]
+        if data:
+            _weather_cache["data"] = data
+            _weather_cache["last_good"] = data  # M13: Remember successful result
+            _weather_cache["ts"] = now
+            return _weather_cache["data"]
     except Exception as e:
-        log.error(f"get_weather error: {e}")
-        return {"error": str(e)}
+        log.warning(f"get_weather failed: {e}, falling back to stale data")
+
+    # M13: Return last-known-good data instead of error
+    if _weather_cache["last_good"]:
+        log.info("Using stale weather data (last-known-good)")
+        return _weather_cache["last_good"]
+    return {"error": "Weather unavailable"}
 
 
 def complete_task_sync(task_name: str) -> bool:
