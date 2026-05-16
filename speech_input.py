@@ -17,16 +17,18 @@ import asyncio
 import difflib
 import gc
 import logging
+import os
+import psutil
 import queue
 import re
 import signal
+import subprocess
+import sys
 import threading
 import time
-import json
-import os
-import sys
 import tracemalloc
 import urllib.request
+import json
 import numpy as np
 import sounddevice as sd
 import mlx_whisper
@@ -584,6 +586,26 @@ async def _receiver(ws):
             log.info(f"Wake-Word {'deaktiviert' if _ww_muted else 'aktiviert'}")
 
 
+# ── B021: Prevent Duplicate speech_input.py Processes ─────────────────────
+def _ensure_single_instance():
+    """Kill any existing speech_input.py process before starting a new one."""
+    current_pid = os.getpid()
+    current_name = os.path.basename(__file__)
+
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            # Find other python processes running this script
+            if proc.pid == current_pid:
+                continue
+            cmdline = proc.cmdline() if proc.cmdline() else []
+            if current_name in ' '.join(cmdline):
+                log.warning(f"Killing existing process PID {proc.pid} (duplicate instance)")
+                proc.kill()
+                time.sleep(0.5)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+
 async def _run():
     global _loop, _queue, _stream_ref, _last_nonzero_rms_time
 
@@ -635,4 +657,5 @@ async def _run():
 
 
 if __name__ == "__main__":
+    _ensure_single_instance()  # B021: Kill any duplicate processes before starting
     asyncio.run(_run())
