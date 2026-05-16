@@ -121,9 +121,13 @@ Frage nach Name, Taetigkeit und bevorzugter Anrede — diese Infos gehoeren in d
 ## Starten
 
 ```bash
-cd "/Users/matthiasschreiber/jarvis-voice-assistant V_2.1"
+cd ~/<JARVIS_REPO_PATH>  # z.B. ~/Jarvis-2.0
 /opt/homebrew/bin/python3.11 server.py
-# oder via Autostart: Cmd+Shift+J
+# oder via Autostart: Cmd+Shift+J (skhd hook startet launch-session.sh)
 ```
 
 Server laeuft auf `http://localhost:8340` — Dashboard oeffnet sich automatisch via `launch-session.sh`.
+
+**Platzhalter:**
+- `<JARVIS_REPO_PATH>` — Pfad zu Jarvis-2.0 Repo (z.B. `Jarvis-2.0`, `/Users/user/Projects/Jarvis-2.0`, etc.)
+- `<PYTHON>` — `/opt/homebrew/bin/python3.11` (oder `python3.11` wenn in PATH)
