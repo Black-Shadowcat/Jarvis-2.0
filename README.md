@@ -1,14 +1,16 @@
-# J.A.R.V.I.S. — Jarvis 2.0 (macOS v0.4.0-dev)
+# J.A.R.V.I.S. — Jarvis 2.0 (macOS v1.0.0)
 
-> **Jarvis 2.0** replaces the browser-based Web Speech API of the original JARVIS with local Whisper STT running on Apple MLX. Version 0.4.0 introduces **service isolation** — three independent microservices (Core, Audio, Dashboard) for scalability and resilience.
+> **Jarvis 2.0 v1.0.0** is a complete redesign of the original [jarvis-voice-assistant](https://github.com/Black-Shadowcat/jarvis-voice-assistant) (v2.x).  
+> It replaces the browser-based Web Speech API with **local Whisper STT** on Apple MLX.  
+> Production-ready with **3 independent microservices** (Core, Audio, Dashboard) for reliability and scalability.
 >
-> Based on the original idea by [Julian Ivanov](https://github.com/Julian-Ivanov/jarvis-voice-assistant) and jarvis-voice-assistant v2.6.2 by Matthias Schreiber. Built with [Claude Code](https://claude.ai/code). No support provided. Personal use only.
+> Built by Matthias Schreiber with [Claude Code](https://claude.ai/code). No support provided. Personal use only.
 
 ---
 
 ## What Changed vs. v2.x
 
-| Old JARVIS (v2.x) | Jarvis 2.0 (v0.1.x) |
+| Old JARVIS (v2.x) | Jarvis 2.0 (v1.0.0) |
 |---|---|
 | Web Speech API (Chrome) | mlx-whisper large-v3 (local, Apple Silicon) |
 | Chrome microphone permission | pynput + sounddevice (system-level) |
@@ -50,7 +52,7 @@
 
 ---
 
-## Architecture (v0.4.0+: Service Isolation)
+## Architecture (v1.0.0: Service Isolation)
 
 ```
 You (speak "Jarvis, ...")
@@ -95,7 +97,7 @@ Audio chunks → Chrome (kiosk) → You
 | Browser Control | Playwright | Real browser automation |
 | Screen Vision | Claude Vision + Pillow | Screenshot analysis |
 | Reminders/Mail | AppleScript | macOS-native task access |
-| Auto-start | launchd (6 KeepAlive agents) | Core + audio + ha + speech + session + wake |
+| Auto-start | launchd (7 KeepAlive agents) | Core + audio + ha + speech + session + wake + supervisor |
 | Wake handling | wake-monitor.py → /api/wake | Post-sleep reactivation |
 
 ---
@@ -215,10 +217,21 @@ Jarvis 2.0/
 ├── docs/
 │   ├── jarvis.icns        # App icon (all sizes)
 │   └── jarvis-icon.png    # App icon (PNG)
+├── services/
+│   ├── jarvis-audio/           # Port 8341 — TTS Microservice
+│   │   ├── main.py
+│   │   └── requirements.txt
+│   └── jarvis-ha/              # Port 8342 — Dashboard & HA Microservice
+│       ├── main.py
+│       └── requirements.txt
 ├── launchagents/
-│   ├── com.jarvis.v2.server.plist   # Server autostart
-│   ├── com.jarvis.v2.speech.plist   # Speech input autostart
-│   └── com.jarvis.v2.session.plist  # Browser session autostart
+│   ├── com.jarvis.v2.server.plist      # jarvis-core autostart
+│   ├── com.jarvis.v2.audio.plist       # jarvis-audio autostart
+│   ├── com.jarvis.v2.ha.plist          # jarvis-ha autostart
+│   ├── com.jarvis.v2.speech.plist      # Speech input autostart
+│   ├── com.jarvis.v2.session.plist     # Browser session autostart
+│   ├── com.jarvis.v2.wake.plist        # Wake-from-sleep handler
+│   └── com.jarvis.v2.supervisor.plist  # Health supervisor
 └── scripts/
     ├── launch-session.sh  # Starts Chrome in kiosk mode
     └── wake-monitor.py    # Wake-from-sleep → /api/wake
@@ -226,24 +239,31 @@ Jarvis 2.0/
 
 ---
 
-## launchd Agents
+## launchd Agents (7 Services)
 
-Three agents in `~/Library/LaunchAgents/`:
+All agents in `~/Library/LaunchAgents/` — auto-restart on crash:
 
-| Agent | Purpose |
-|---|---|
-| `com.jarvis.v2.server.plist` | FastAPI server, KeepAlive (auto-restarts on crash) |
-| `com.jarvis.v2.speech.plist` | speech_input.py (wake word + F19 PTT), KeepAlive |
-| `com.jarvis.v2.session.plist` | Browser session on login (Chrome kiosk mode) |
+| Agent | Port | Purpose |
+|---|---|---|
+| `com.jarvis.v2.server.plist` | 8340 | **jarvis-core** — LLM Brain + Orchestration |
+| `com.jarvis.v2.audio.plist` | 8341 | **jarvis-audio** — TTS Synthesis |
+| `com.jarvis.v2.ha.plist` | 8342 | **jarvis-ha** — Dashboard + Home Assistant |
+| `com.jarvis.v2.speech.plist` | — | **speech_input.py** — Wake word + F19 PTT |
+| `com.jarvis.v2.session.plist` | — | **Chrome Browser** — Kiosk UI |
+| `com.jarvis.v2.wake.plist` | — | **wake-monitor.py** — Wake-from-sleep detection |
+| `com.jarvis.v2.supervisor.plist` | — | **supervisor.py** — Health Monitor (30s checks) |
 
 ```bash
-# Reload
+# Reload a service
 launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.server.plist
 launchctl load   ~/Library/LaunchAgents/com.jarvis.v2.server.plist
 
-# Logs
-tail -f ~/Library/Logs/Jarvis 2.0/server.log
-tail -f ~/Library/Logs/Jarvis 2.0/speech.log
+# Logs (real-time)
+tail -f ~/Library/Logs/jarvis-v2/server.log
+tail -f ~/Library/Logs/jarvis-v2/audio.log
+tail -f ~/Library/Logs/jarvis-v2/ha.log
+tail -f ~/Library/Logs/jarvis-v2/speech.log
+tail -f ~/Library/Logs/jarvis-v2/supervisor.log
 ```
 
 ---

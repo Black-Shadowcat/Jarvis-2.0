@@ -1,8 +1,8 @@
-# JARVIS Setup (macOS) — Jarvis 2.0 v0.4.0
+# JARVIS Setup (macOS) — Jarvis 2.0 v1.0.0
 
 Dein persönlicher KI-Sprachassistent mit Sprachsteuerung — optimiert für macOS Apple Silicon.
 
-**Version 0.4.0 mit Service Isolation:** Drei unabhängige Microservices für höhere Zuverlässigkeit und Skalierbarkeit.
+**v1.0.0 — Production Ready:** Vollständiger Neubau mit 3 unabhängigen Microservices für höchste Zuverlässigkeit und Skalierbarkeit.
 
 ---
 
@@ -306,7 +306,7 @@ Du sprichst → RMS-VAD erkennt Stimme → blauer Ring leuchtet
 
 ---
 
-## Projektstruktur (v0.4.0+: 3 Microservices)
+## Projektstruktur (v1.0.0: 3 Microservices)
 
 ```
 Jarvis-2.0/
@@ -319,7 +319,7 @@ Jarvis-2.0/
 ├── config.example.json         # Config Template
 ├── voice.json                  # Voice-Bibliothek (gitignored)
 ├── voice.example.json          # Voice Template
-├── version.json                # Versionsnummer (0.4.0+)
+├── version.json                # Versionsnummer (1.0.0)
 ├── CLAUDE.md                   # Anweisungen für Claude Code
 ├── SETUP_macOS.md              # Diese Datei
 ├── README.md                   # Dokumentation mit Architektur-Diagramm
@@ -357,7 +357,7 @@ Jarvis-2.0/
 
 ---
 
-## LaunchAgents (v0.4.0+)
+## LaunchAgents (v1.0.0)
 
 | Plist | Port | Funktion |
 |---|---|---|
@@ -400,7 +400,7 @@ lsof -i :8340 -i :8341 -i :8342
 
 ---
 
-## Troubleshooting (v0.4.0+)
+## Troubleshooting (v1.0.0)
 
 **Services starten nicht / Ports belegt**
 ```bash
@@ -466,7 +466,7 @@ bash ~/Jarvis-2.0/scripts/launch-session.sh
 
 ---
 
-## Nützliche Befehle (v0.4.0+)
+## Nützliche Befehle (v1.0.0)
 
 ```bash
 # ========== STOPP / START ==========
