@@ -17,7 +17,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, ValidationError
 
@@ -479,8 +479,8 @@ def get_wetter_action_sync() -> str:
 
 
 def get_weather_forecast_sync(days: int = 5) -> dict:
-    """Fetch weather forecast from HA (cached in data/weather_forecast.json, TTL 60 min).
-    Aggregates 6h data into daily forecast: morgen, uebermorgen, in_3_tagen, etc."""
+    """Fetch weather forecast from KMW 6h raw data sensor in HA (sensor.kmw_6h_rohdaten).
+    Aggregates 6-hour blocks into daily forecasts (morgen, uebermorgen, etc.)."""
     cache_file = "data/weather_forecast.json"
     ttl_minutes = 60
 
@@ -493,11 +493,11 @@ def get_weather_forecast_sync(days: int = 5) -> dict:
             log.debug(f"[jarvis] Vorhersage: Cache gültig (expires {expires_at.strftime('%H:%M')})")
             return cache.get("data", {})
     except (FileNotFoundError, json.JSONDecodeError, ValueError):
-        pass  # Cache ungültig oder nicht vorhanden
+        pass
 
     # Fetch from HA
     if not HA_URL or not HA_TOKEN:
-        log.info(f"[jarvis] Vorhersage: HA nicht konfiguriert (URL={bool(HA_URL)}, Token={bool(HA_TOKEN)}), nutze Cache")
+        log.info(f"[jarvis] Vorhersage: HA nicht konfiguriert, nutze Cache")
         try:
             with open(cache_file) as f:
                 cached = json.load(f).get("data", {})
@@ -509,35 +509,81 @@ def get_weather_forecast_sync(days: int = 5) -> dict:
 
     try:
         import urllib.request
+
+        # Fetch KMW 6h raw data (contains full forecast with min/max temps)
         req = urllib.request.Request(
-            f"{HA_URL}/api/states/weather.kachelmann_wetter",
+            f"{HA_URL}/api/states/sensor.kmw_6h_rohdaten",
             headers={"Authorization": f"Bearer {HA_TOKEN}"}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
+            sensor_data = json.loads(resp.read())
 
-        forecast_daily = data.get("attributes", {}).get("forecast", [])
-        if not forecast_daily:
+        # Extract forecast data array
+        forecast_array = sensor_data.get("attributes", {}).get("data", [])
+        if not forecast_array:
+            log.info("[jarvis] KMW 6h Rohdaten leer")
             return {}
 
-        # Convert forecast entries to numbered days (morgen, uebermorgen, etc.)
+        # Group by day and aggregate
         result = {}
-        for i, day in enumerate(forecast_daily[:days]):
-            if i == 0:
-                day_name = "morgen"
-            elif i == 1:
-                day_name = "uebermorgen"
-            else:
-                day_name = f"in_{i+1}_tagen"
+        day_labels = ["morgen", "uebermorgen", "in_3_tagen", "in_4_tagen", "in_5_tagen"]
+        today = datetime.now().date()
 
-            # Extract relevant data from forecast entry
-            result[day_name] = {
-                "date": day.get("datetime", "").split("T")[0] if day.get("datetime") else "",
-                "temp": float(day.get("temperature", 0)),
-                "temp_low": float(day.get("templow", day.get("temperature", 0))),
-                "condition": day.get("condition", day.get("icon", "")).replace("mdi:weather-", ""),
-                "precipitation": float(day.get("precipitation", 0)),
-            }
+        # Process forecast data: group by date
+        daily_data = {}
+        for entry in forecast_array:
+            try:
+                dt_str = entry.get("dateTime", "")
+                if not dt_str:
+                    continue
+                # Parse ISO 8601 datetime
+                dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00")).replace(tzinfo=None)
+                day = dt.date()
+                day_key = (day - today).days  # 1 = tomorrow, 2 = day after, etc.
+
+                if day_key < 1 or day_key > 5:
+                    continue
+
+                if day_key not in daily_data:
+                    daily_data[day_key] = []
+                daily_data[day_key].append(entry)
+            except (ValueError, AttributeError):
+                continue
+
+        # Aggregate each day's data
+        for day_offset in range(1, min(6, days + 1)):
+            if day_offset not in daily_data:
+                continue
+
+            entries = daily_data[day_offset]
+            temps_min = []
+            temps_max = []
+            symbols = []
+
+            for entry in entries:
+                try:
+                    temp_min = entry.get("tempMin12h") or entry.get("tempMin6h")
+                    temp_max = entry.get("tempMax12h") or entry.get("tempMax6h")
+                    if temp_min is not None:
+                        temps_min.append(float(temp_min))
+                    if temp_max is not None:
+                        temps_max.append(float(temp_max))
+                    if entry.get("weatherSymbol"):
+                        symbols.append(entry["weatherSymbol"])
+                except (ValueError, TypeError):
+                    continue
+
+            if temps_min or temps_max or symbols:
+                min_temp = min(temps_min) if temps_min else None
+                max_temp = max(temps_max) if temps_max else None
+                condition = max(set(symbols), key=symbols.count) if symbols else "unknown"
+
+                result[day_labels[day_offset - 1]] = {
+                    "temp_min": round(min_temp, 1) if min_temp else None,
+                    "temp_max": round(max_temp, 1) if max_temp else None,
+                    "temp": round((min_temp + max_temp) / 2, 1) if (min_temp and max_temp) else None,
+                    "condition": condition,
+                }
 
         # Save to cache
         now = datetime.now()
@@ -697,7 +743,7 @@ def _label_from_dt(dt) -> str:
 def get_calendar_sync(days: int = 7) -> list[str]:
     """Fetch calendar events from Home Assistant CalDAV integration."""
     import urllib.request
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timedelta
 
     calendars = [
         "calendar.kalender",
@@ -1297,7 +1343,7 @@ end tell'''
         if not OBSIDIAN_INBOX:
             return "Obsidian Inbox Pfad nicht konfiguriert."
         try:
-            from datetime import datetime
+            from datetime import datetime, timedelta
             os.makedirs(OBSIDIAN_INBOX, exist_ok=True)
             ts = datetime.now()
             slug = re.sub(r'[^\w\säöüÄÖÜß-]', '', text).strip()
@@ -2841,7 +2887,7 @@ async def get_supervisor_status():
                 return False
             try:
                 import re
-                from datetime import datetime, timedelta
+                from datetime import datetime, timedelta, timedelta
                 now = datetime.now()
                 five_min_ago = now - timedelta(minutes=5)
                 recent_restarts = 0
@@ -3488,7 +3534,7 @@ async def get_speech_state():
 async def get_system_events():
     """Return system events from Phase 4 observability."""
     from systems.system_events import SystemEvents
-    from datetime import datetime
+    from datetime import datetime, timedelta
 
     try:
         events_raw = SystemEvents.get_events(limit=8)
