@@ -667,19 +667,25 @@ function playNext() {
     const blob = new Blob([bytes], { type: 'audio/mpeg' });
     const url = URL.createObjectURL(blob);
     currentAudio = new Audio(url);
+    currentAudio.muted = true;
     currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; playNext(); };
     currentAudio.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; playNext(); };
-    currentAudio.play().catch(() => {
-        // Chrome hat blockiert — Audio zurück in Queue, auf Klick warten
-        audioQueue.unshift(b64);
-        URL.revokeObjectURL(url);
-        currentAudio = null;
-        isPlaying = false;
-        setOrbState('idle');
-        const st = document.getElementById('status-text');
-        if (st) st.textContent = _i18n.status_click_to_hear || '▶ Klicke um Jarvis zu hören';
-        document.addEventListener('click', () => playNext(), { once: true });
-    });
+    currentAudio.play()
+        .then(() => {
+            // Muted-Autoplay started — unmute after 50ms to bypass Chrome policy
+            setTimeout(() => { if (currentAudio) currentAudio.muted = false; }, 50);
+        })
+        .catch(() => {
+            // Fallback: Audio blockiert auch bei muted, zurück in Queue
+            audioQueue.unshift(b64);
+            URL.revokeObjectURL(url);
+            currentAudio = null;
+            isPlaying = false;
+            setOrbState('idle');
+            const st = document.getElementById('status-text');
+            if (st) st.textContent = _i18n.status_click_to_hear || '▶ Klicke um Jarvis zu hören';
+            document.addEventListener('click', () => playNext(), { once: true });
+        });
 }
 
 // ── Spracherkennung: Web Speech API entfernt — Eingabe via F19 + Whisper (speech_input.py) ──
