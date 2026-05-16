@@ -1,6 +1,6 @@
-# J.A.R.V.I.S. — Jarvis 2.0 (macOS v0.2.0)
+# J.A.R.V.I.S. — Jarvis 2.0 (macOS v0.4.0-dev)
 
-> **Jarvis 2.0** replaces the browser-based Web Speech API of the original JARVIS with local Whisper STT running on Apple MLX.
+> **Jarvis 2.0** replaces the browser-based Web Speech API of the original JARVIS with local Whisper STT running on Apple MLX. Version 0.4.0 introduces **service isolation** — three independent microservices (Core, Audio, Dashboard) for scalability and resilience.
 >
 > Based on the original idea by [Julian Ivanov](https://github.com/Julian-Ivanov/jarvis-voice-assistant) and jarvis-voice-assistant v2.6.2 by Matthias Schreiber. Built with [Claude Code](https://claude.ai/code). No support provided. Personal use only.
 
@@ -50,7 +50,7 @@
 
 ---
 
-## Architecture
+## Architecture (v0.4.0+: Service Isolation)
 
 ```
 You (speak "Jarvis, ...")
@@ -59,31 +59,43 @@ speech_input.py
   RMS-VAD detects voice onset
   → HUD: listen_open (blue ring immediately)
   → mlx-whisper large-v3 (local)
-  → "jarvis" in text? → send command to server
+  → "jarvis" in text? → send to jarvis-core
         ↓
-FastAPI Server (localhost:8340)
-  → Claude Haiku (brain)
-  → parse_structured_action()
+┌────────────────────────────────────────────────┐
+│  jarvis-core (FastAPI, Port 8340)              │
+│  ├─ Orchestration & LLM (Claude Haiku)        │
+│  ├─ Browser Control (Playwright)              │
+│  ├─ Screen Vision (Claude Vision)             │
+│  ├─ Action Execution & Routing                │
+│  └─ HTTP proxies to audio & ha services      │
+└────────────────────────────────────────────────┘
+        ↓                           ↓
+   ┌─────────────┐      ┌──────────────────┐
+   │ jarvis-audio│      │  jarvis-ha       │
+   │Port 8341    │      │  Port 8342       │
+   ├─ElevenLabs  │      ├─Mail (AppleScript)
+   │  TTS        │      ├─Reminders        │
+   │─Text        │      ├─Obsidian Inbox   │
+   │  Processing │      ├─Weather (API)    │
+   │─Chunking &  │      ├─Calendar (HA)    │
+   │  Synthesis  │      └─Lights (HA)      │
+   └─────────────┘      └──────────────────┘
         ↓
-    ┌──────────┬──────────────┬────────────────┐
-    ↓          ↓              ↓                ↓
-ElevenLabs  Playwright    AppleScript    Home Assistant
-  TTS        Browser      Reminders/Mail  Light control
-    ↓
 Audio chunks → Chrome (kiosk) → You
 ```
 
 | Component | Technology | Purpose |
 |---|---|---|
 | Wake Word + PTT | mlx-whisper large-v3 + pynput | Voice-to-text, local |
-| Server | FastAPI (Python 3.11), Port 8340 | Local orchestration |
+| **jarvis-core** | FastAPI (Python 3.11), Port 8340 | LLM orchestration + action routing |
+| **jarvis-audio** | FastAPI microservice, Port 8341 | TTS synthesis (ElevenLabs) |
+| **jarvis-ha** | FastAPI microservice, Port 8342 | Dashboard data + Home Assistant |
 | Brain | Claude Haiku (Anthropic) | Thinking, deciding, responding |
 | Voice | ElevenLabs TTS (eleven_turbo_v2_5) | Natural German speech |
 | Browser Control | Playwright | Real browser automation |
 | Screen Vision | Claude Vision + Pillow | Screenshot analysis |
-| Smart Home | Home Assistant REST API | Light control |
 | Reminders/Mail | AppleScript | macOS-native task access |
-| Auto-start | launchd (3 KeepAlive agents) | Server + speech + session on login |
+| Auto-start | launchd (6 KeepAlive agents) | Core + audio + ha + speech + session + wake |
 | Wake handling | wake-monitor.py → /api/wake | Post-sleep reactivation |
 
 ---
