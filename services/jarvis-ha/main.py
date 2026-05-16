@@ -3,6 +3,7 @@ jarvis-ha Service — Home Assistant, Dashboard Data, Weather, Mail Integration
 FastAPI service on port 8342 for all dashboard aggregation and HA integration
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -381,21 +382,63 @@ async def get_weather():
         return {"error": str(e)}
 
 
+def complete_task_sync(task_name: str) -> bool:
+    """
+    Mark reminder as complete in Reminders.app.
+    Uses AppleScript to find reminder by name (contains search) and set completed=true.
+    """
+    # Escape quotes in task name for AppleScript
+    safe_name = task_name.replace('"', '\\"')
+
+    script = f'''tell application "Reminders"
+    set found to (every reminder whose completed is false and name contains "{safe_name}")
+    repeat with r in found
+        set completed of r to true
+    end repeat
+end tell'''
+
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            log.info(f"✓ Task marked complete: {task_name}")
+            return True
+        else:
+            log.warning(f"complete_task_sync: AppleScript error code {result.returncode}")
+            return False
+    except subprocess.TimeoutExpired:
+        log.error(f"complete_task_sync: Reminders.app timeout (10s) for '{task_name}'")
+        return False
+    except Exception as e:
+        log.error(f"complete_task_sync error for '{task_name}': {e}")
+        return False
+
+
 @app.post("/api/complete_task")
 async def complete_task(request: Request):
-    """Mark task as complete."""
+    """Mark task as complete in Reminders.app."""
     body = await request.json()
     task_id = body.get("task_id", "")
 
-    if task_id.startswith("task_"):
-        # Reminders.app completion
-        try:
-            # Would append ✓ to reminder (simplified)
-            return {"status": "ok", "task_id": task_id}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+    if not task_id:
+        raise HTTPException(status_code=400, detail="task_id is required")
 
-    return {"status": "ok", "task_id": task_id}
+    # Run completion in background (don't block)
+    success = await asyncio.get_event_loop().run_in_executor(
+        None,
+        complete_task_sync,
+        task_id
+    )
+
+    return {
+        "status": "ok" if success else "error",
+        "task_id": task_id,
+        "completed": success
+    }
 
 
 @app.post("/api/complete_note")
