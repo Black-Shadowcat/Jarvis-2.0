@@ -276,6 +276,24 @@ def check_chrome() -> bool:
     return ok
 
 
+def check_jarvis_audio() -> bool:
+    """Check if jarvis-audio (8341) /health endpoint is reachable."""
+    url = "http://localhost:8341/health"
+    ok = _http_get(url, timeout=HTTP_TIMEOUT)
+    if not ok:
+        log.warning(f"✗ jarvis-audio unreachable: {url}")
+    return ok
+
+
+def check_jarvis_ha() -> bool:
+    """Check if jarvis-ha (8342) /health endpoint is reachable."""
+    url = "http://localhost:8342/health"
+    ok = _http_get(url, timeout=HTTP_TIMEOUT)
+    if not ok:
+        log.warning(f"✗ jarvis-ha unreachable: {url}")
+    return ok
+
+
 def check_homeassistant(config: dict) -> Optional[bool]:
     """
     Check if HomeAssistant API is reachable.
@@ -498,6 +516,46 @@ def run_checks(config: dict) -> None:
             log.warning(f"wake FAIL ({n}/{FAILURE_THRESHOLD})")
     else:
         _record_success("wake")
+
+    # ========================================================================
+    # jarvis-audio (8341) Microservice Check
+    # ========================================================================
+    if check_jarvis_audio():
+        log.info("✓ jarvis-audio (8341) OK")
+        SystemEvents.log_event("OK", "jarvis-audio healthy", "service")
+    if not check_jarvis_audio():
+        n = _record_failure("audio")
+        all_ok = False
+        SystemEvents.log_event("WARN", f"Audio FAIL ({n}/{FAILURE_THRESHOLD})", "service")
+        if n >= FAILURE_THRESHOLD and _can_restart("audio"):
+            log.warning(f"audio: {n}/{FAILURE_THRESHOLD} failures → kickstart")
+            _kickstart("com.jarvis.v2.audio")
+            _mark_restarted("audio")
+            SystemEvents.log_event("WARN", "jarvis-audio restarted", "recovery")
+        else:
+            log.warning(f"audio FAIL ({n}/{FAILURE_THRESHOLD})")
+    else:
+        _record_success("audio")
+
+    # ========================================================================
+    # jarvis-ha (8342) Microservice Check
+    # ========================================================================
+    if check_jarvis_ha():
+        log.info("✓ jarvis-ha (8342) OK")
+        SystemEvents.log_event("OK", "jarvis-ha healthy", "service")
+    if not check_jarvis_ha():
+        n = _record_failure("ha")
+        all_ok = False
+        SystemEvents.log_event("WARN", f"HA FAIL ({n}/{FAILURE_THRESHOLD})", "service")
+        if n >= FAILURE_THRESHOLD and _can_restart("ha"):
+            log.warning(f"ha: {n}/{FAILURE_THRESHOLD} failures → kickstart")
+            _kickstart("com.jarvis.v2.ha")
+            _mark_restarted("ha")
+            SystemEvents.log_event("WARN", "jarvis-ha restarted", "recovery")
+        else:
+            log.warning(f"ha FAIL ({n}/{FAILURE_THRESHOLD})")
+    else:
+        _record_success("ha")
 
     # ========================================================================
     # Chrome Check (log only, no restart)
