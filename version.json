@@ -1,4 +1,6 @@
 {
-  "version": "1.0.0",
-  "release_date": "2026-05-16"
+  "version": "1.0.1",
+  "release_date": "2026-05-16",
+  "previous_version": "1.0.0",
+  "release_type": "stability-patch"
 }
