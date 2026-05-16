@@ -5,9 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 
 ---
 
-## [0.4.0-dev] — 2026-05-16
+## [0.4.0] — 2026-05-16
 
-### Phase 2: Service Isolation (In Progress)
+### Phase 2: Service Isolation (✅ Complete)
 
 #### Phase 2.1 — TTS Microservice (✅ Complete)
 - **jarvis-audio Service**: Extracted FastAPI microservice on port 8341
