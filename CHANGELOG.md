@@ -49,7 +49,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 #### Commits in Phase 2.2
 - `e02e9cc` — feat: Extract dashboard aggregation to jarvis-ha microservice
 
-#### Service Architecture (Phase 2.1-2.2)
+#### Phase 2.3 — Core Refactoring (✅ Complete)
+- **startup_and_refresh() Migration**: Now fetches all data from jarvis-ha instead of local *_sync() functions
+  - TASKS_INFO, MAIL_INFO, CALENDAR_INFO loaded from jarvis-ha
+  - Graceful error handling and fallback
+  - Removed unused `refresh_data()` function
+  - Periodic 30-minute refresh now uses jarvis-ha API
+- **API Layer Complete**: All REST endpoints proxy to microservices
+- **Internal Functions Retained**: Kept `*_sync()` functions for backward compatibility in briefing system
+- **Code Reduction**: Cleaner startup flow, better separation of concerns
+
+#### Commits in Phase 2.3
+- `ef615df` — feat: Refactor startup/refresh to use jarvis-ha microservice
+
+#### Service Architecture (Phase 2.1-2.3)
 ```
 ┌─────────────────┐          ┌──────────────────┐          ┌──────────────────┐
 │ jarvis-core     │          │ jarvis-audio     │          │ jarvis-ha        │
