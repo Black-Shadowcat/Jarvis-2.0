@@ -4,6 +4,7 @@ FastAPI service on port 8342 for all dashboard aggregation and HA integration
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -87,12 +88,19 @@ _CMD_OFF = {"aus", "ausschalten", "ausschalte", "ausmachen", "ausmache"}
 
 CACHE_TTL = 60.0  # Increased from 30s (tasks don't change frequently)
 CACHE_RETRY_DELAY = 10.0  # M13: Retry failed calls every 10s instead of waiting 60s
-_mail_cache = {"data": None, "ts": 0.0, "last_good": None}
-_tasks_cache = {"data": None, "ts": 0.0, "last_good": None}
+_mail_cache = {"data": None, "ts": 0.0, "last_good": None, "etag": None}
+_tasks_cache = {"data": None, "ts": 0.0, "last_good": None, "etag": None}
 _weather_cache = {"data": None, "ts": 0.0, "last_good": None}
-_weather_cache = {"data": None, "ts": 0.0}
 
 # ── Dashboard Data Functions ──────────────────────────────────────────────
+
+def _calculate_etag(data: list) -> str:
+    """M14: Calculate ETag (hash) to detect data changes."""
+    if not data:
+        return "empty"
+    serialized = json.dumps(data, sort_keys=True, default=str)
+    return hashlib.sha256(serialized.encode()).hexdigest()[:8]
+
 
 def _cache_with_fallback(cache_dict, source_fn, timeout=8):
     """M13: Graceful Degradation — try source, fallback to stale data on failure."""
@@ -122,7 +130,7 @@ def _cache_with_fallback(cache_dict, source_fn, timeout=8):
 
 
 def get_mail_sync():
-    """Fetch unread mails from macOS Mail.app via AppleScript."""
+    """M14: Fetch unread mails with ETag-based change detection."""
     try:
         # Fetch unread email subjects and senders from all mailboxes
         script = """
@@ -171,10 +179,10 @@ end tell
         )
         if result.returncode == 0:
             output = result.stdout.strip()
+            mails = []
             if output:
                 # Parse newline-delimited "sender|||subject" pairs
                 lines = [s.strip() for s in output.split("\n") if s.strip()]
-                mails = []
                 for i, line in enumerate(lines[:20]):  # Limit to 20 to avoid UI overflow
                     parts = line.split("|||", 1)
                     sender = parts[0] if len(parts) > 0 else ""
@@ -185,16 +193,28 @@ end tell
                         "subject": subject,
                         "unread": True
                     })
-                log.info(f"[mail] {len(mails)} unread mails loaded")
-                return mails
-            return []
+
+            # M14: ETag detection — skip cache update if data unchanged
+            new_etag = _calculate_etag(mails)
+            if new_etag == _mail_cache.get("etag"):
+                log.info(f"[mail] ETag match ({new_etag}) — no change, skipping cache update")
+                return _mail_cache["data"]  # Return cached (don't update ts)
+
+            # Data changed — update cache
+            log.info(f"[mail] ETag changed ({_mail_cache.get('etag')} → {new_etag}) — {len(mails)} unread")
+            result_dict = {"mails": mails, "total": len(mails)}
+            _mail_cache["data"] = result_dict
+            _mail_cache["etag"] = new_etag
+            _mail_cache["last_good"] = result_dict
+            _mail_cache["ts"] = time.time()
+            return result_dict
         else:
             log.warning(f"get_mail_sync: Mail.app error code {result.returncode}")
             if result.stderr:
                 log.debug(f"  stderr: {result.stderr.strip()[:200]}")
             return []
     except subprocess.TimeoutExpired:
-        log.warning(f"get_mail_sync: Mail.app timeout (8s)")
+        log.warning(f"get_mail_sync: Mail.app timeout (15s)")
         return []
     except Exception as e:
         log.warning(f"get_mail_sync error: {type(e).__name__}: {e}")
@@ -202,7 +222,7 @@ end tell
 
 
 def get_tasks_sync():
-    """Fetch reminders due today or tomorrow from macOS Reminders.app."""
+    """M14: Fetch reminders with ETag-based change detection."""
     script = '''tell application "Reminders"
     set cutoff to current date
     set hours of cutoff to 23
@@ -218,11 +238,28 @@ end tell'''
             text=True,
             timeout=10
         )
+
+        tasks_raw = []
         if result.returncode == 0 and result.stdout.strip():
-            return [i.strip() for i in result.stdout.strip().split(",") if i.strip()]
-        if result.returncode != 0:
+            tasks_raw = [i.strip() for i in result.stdout.strip().split(",") if i.strip()]
+        elif result.returncode != 0:
             log.warning(f"get_tasks_sync: Reminders.app returned error code {result.returncode}")
-        return []
+
+        # M14: ETag detection — skip cache update if data unchanged
+        new_etag = _calculate_etag(tasks_raw)
+        if new_etag == _tasks_cache.get("etag"):
+            log.info(f"[tasks] ETag match ({new_etag}) — no change, skipping cache update")
+            return _tasks_cache["data"]  # Return cached (don't update ts)
+
+        # Data changed — update cache
+        log.info(f"[tasks] ETag changed ({_tasks_cache.get('etag')} → {new_etag}) — {len(tasks_raw)} tasks")
+        result_dict = {"tasks": tasks_raw, "total": len(tasks_raw)}
+        _tasks_cache["data"] = result_dict
+        _tasks_cache["etag"] = new_etag
+        _tasks_cache["last_good"] = result_dict
+        _tasks_cache["ts"] = time.time()
+        return result_dict
+
     except subprocess.TimeoutExpired:
         log.error(f"get_tasks_sync: Reminders.app timeout (10s)")
         return []
@@ -343,60 +380,61 @@ async def health():
 
 @app.get("/api/get_mails_unread")
 async def get_mails_unread():
-    """M13: Get unread emails with graceful degradation (fallback to stale data)."""
+    """M13+M14: Get unread emails with graceful degradation (fallback to stale data)."""
     now = time.time()
+    # Check if cached data is still fresh (TTL)
     if _mail_cache["data"] is not None and now - _mail_cache["ts"] < CACHE_TTL:
+        log.debug(f"[mail] Cache hit (fresh for {int(now - _mail_cache['ts'])}s)")
         return _mail_cache["data"]
 
+    # Cache expired — fetch with M14 ETag detection
     try:
-        fresh = get_mail_sync()
-        mails = []
-        for item in fresh:
-            if isinstance(item, dict):
-                mails.append(item)
-            elif isinstance(item, str) and " || " in item:
-                parts = item.split(" || ", 1)
-                if len(parts) == 2:
-                    sender, subject = parts
-                    mails.append({
-                        "id": f"{sender}_{subject}",
-                        "sender": sender.strip(),
-                        "subject": subject.strip(),
-                        "unread": True
-                    })
-        result = {"mails": mails, "total": len(mails)}
-        _mail_cache["data"] = result
-        _mail_cache["last_good"] = result  # M13: Remember successful result
-        _mail_cache["ts"] = now
-        return result
+        result = get_mail_sync()
+        if isinstance(result, dict) and "mails" in result:
+            return result
+        # Fallback if sync returned unexpected format
+        if result and isinstance(result, list):
+            return {"mails": result, "total": len(result)}
+        # Empty result
+        return _mail_cache.get("last_good", {"mails": [], "total": 0})
     except Exception as e:
         log.warning(f"get_mails_unread failed: {e}, falling back to stale data")
         # M13: Return last-known-good data instead of error
-        if _mail_cache["last_good"]:
+        if _mail_cache.get("last_good"):
             return _mail_cache["last_good"]
         return {"mails": [], "total": 0}
 
 
 @app.get("/api/get_tasks")
 async def get_tasks():
-    """M13: Get reminders and calendar events with graceful degradation."""
+    """M13+M14: Get reminders and calendar events with graceful degradation."""
     now = time.time()
+    # Check if cached data is still fresh (TTL)
     if _tasks_cache["data"] is not None and now - _tasks_cache["ts"] < CACHE_TTL:
+        log.debug(f"[tasks] Cache hit (fresh for {int(now - _tasks_cache['ts'])}s)")
         return _tasks_cache["data"]
 
+    # Cache expired — fetch with M14 ETag detection
     try:
-        fresh_tasks = get_tasks_sync()
-        cal_lines = get_calendar_sync(days=2)
+        tasks_result = get_tasks_sync()
 
+        # Parse reminders
         tasks = []
+        if isinstance(tasks_result, dict) and "tasks" in tasks_result:
+            fresh_tasks = tasks_result["tasks"]
+        else:
+            fresh_tasks = tasks_result if isinstance(tasks_result, list) else []
+
         for i, task_name in enumerate(fresh_tasks):
             tasks.append({
                 "id": f"task_{i}",
-                "title": task_name.strip(),
+                "title": task_name.strip() if isinstance(task_name, str) else str(task_name),
                 "source": "reminders",
                 "completed": False
             })
 
+        # Add calendar events
+        cal_lines = get_calendar_sync(days=2)
         for i, line in enumerate(cal_lines):
             if " -- " in line:
                 title, label = line.split(" -- ", 1)
@@ -412,14 +450,16 @@ async def get_tasks():
             })
 
         result = {"tasks": tasks, "total": len(tasks)}
-        _tasks_cache["data"] = result
-        _tasks_cache["last_good"] = result  # M13: Remember successful result
-        _tasks_cache["ts"] = now
+        # Update cache if not already done by get_tasks_sync() (fallback only)
+        if not _tasks_cache["data"] or now - _tasks_cache["ts"] >= CACHE_TTL:
+            _tasks_cache["data"] = result
+            _tasks_cache["last_good"] = result
+            _tasks_cache["ts"] = now
         return result
     except Exception as e:
         log.warning(f"get_tasks failed: {e}, falling back to stale data")
         # M13: Return last-known-good data instead of error
-        if _tasks_cache["last_good"]:
+        if _tasks_cache.get("last_good"):
             return _tasks_cache["last_good"]
         return {"tasks": [], "total": 0}
 
