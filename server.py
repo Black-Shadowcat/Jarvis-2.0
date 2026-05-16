@@ -3055,9 +3055,40 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app):
-    asyncio.create_task(startup_and_refresh())
+    refresh_task = asyncio.create_task(startup_and_refresh())
     asyncio.create_task(_startup_update_check())
     yield
+
+    # ── Graceful Shutdown ─────────────────────────────────────────────
+    log.info("[jarvis] Graceful shutdown initiated…")
+
+    # 1. Cancel infinite refresh loop
+    refresh_task.cancel()
+    try:
+        await refresh_task
+    except asyncio.CancelledError:
+        pass
+
+    # 2. Notify and close WebSocket clients
+    for ws in list(active_connections):
+        try:
+            await ws.close()
+        except Exception:
+            pass
+
+    for ws in list(stt_connections):
+        try:
+            await ws.close()
+        except Exception:
+            pass
+
+    # 3. Close Playwright browser (kills headless Chromium subprocess)
+    await browser_tools.close()
+
+    # 4. Close shared httpx client
+    await http.aclose()
+
+    log.info("[jarvis] Shutdown complete.")
 
 async def _startup_update_check():
     await asyncio.sleep(30)
