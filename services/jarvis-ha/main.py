@@ -121,31 +121,26 @@ def get_mail_sync():
 
 
 def get_tasks_sync():
-    """Fetch reminders from macOS Reminders.app."""
+    """Fetch reminders due today or tomorrow from macOS Reminders.app."""
+    script = '''tell application "Reminders"
+    set cutoff to current date
+    set hours of cutoff to 23
+    set minutes of cutoff to 59
+    set seconds of cutoff to 59
+    set cutoff to cutoff + (1 * days)
+    get name of (every reminder whose completed is false and due date ≤ cutoff)
+end tell'''
     try:
-        script = """
-        tell application "Reminders"
-            set result to {}
-            repeat with lst in lists
-                repeat with rem in reminders of lst
-                    if completed of rem is false then
-                        set end of result to name of rem
-                    end if
-                end repeat
-            end repeat
-            return result
-        end tell
-        """
         result = subprocess.run(
             ["osascript", "-e", script],
             capture_output=True,
             text=True,
-            timeout=3
+            timeout=10
         )
-        if result.returncode == 0:
-            lines = result.stdout.strip().split("\n")
-            return [l.strip() for l in lines if l.strip()]
-        log.warning(f"get_tasks_sync: Reminders.app returned error code {result.returncode}")
+        if result.returncode == 0 and result.stdout.strip():
+            return [i.strip() for i in result.stdout.strip().split(",") if i.strip()]
+        if result.returncode != 0:
+            log.warning(f"get_tasks_sync: Reminders.app returned error code {result.returncode}")
         return []
     except subprocess.TimeoutExpired:
         log.error(f"get_tasks_sync: Reminders.app timeout (3s)")
