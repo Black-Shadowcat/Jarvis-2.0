@@ -439,7 +439,7 @@ def get_weather_sync():
 
 
 def get_wetter_action_sync() -> str:
-    """Fetch weather from Home Assistant for WETTER action."""
+    """Fetch weather from Home Assistant for WETTER action — includes current + forecast."""
     if not HA_URL or not HA_TOKEN:
         return "Home Assistant nicht konfiguriert."
     try:
@@ -473,6 +473,23 @@ def get_wetter_action_sync() -> str:
             parts.append(f"Luftdruck: {attrs.get('pressure')} hPa")
         if attrs.get("dew_point") is not None:
             parts.append(f"Taupunkt: {attrs.get('dew_point')} °C")
+
+        # Add 5-day forecast
+        forecast = get_weather_forecast_sync()
+        if forecast:
+            forecast_parts = []
+            day_labels = {"morgen": "Morgen", "uebermorgen": "Übermorgen", "in_3_tagen": "In 3 Tagen", "in_4_tagen": "In 4 Tagen", "in_5_tagen": "In 5 Tagen"}
+            for key, label in day_labels.items():
+                if key in forecast:
+                    day = forecast[key]
+                    temp_min = day.get("temp_min", "—")
+                    temp_max = day.get("temp_max", "—")
+                    condition = day.get("condition", "Unbekannt")
+                    forecast_parts.append(f"{label}: {temp_min}°-{temp_max}° ({condition})")
+            if forecast_parts:
+                parts.append("\nVorhersage:")
+                parts.extend(forecast_parts)
+
         return "\n".join(parts)
     except Exception as e:
         return f"Wetter-Fehler: {e}"
@@ -874,7 +891,10 @@ def build_system_prompt():
                 if day_key in WEATHER_FORECAST_INFO:
                     day = WEATHER_FORECAST_INFO[day_key]
                     day_label = "Morgen" if day_key == "morgen" else "Übermorgen"
-                    forecast_lines.append(f"{day_label}: {day['temp']}° ({day['condition']}, Regen {day['precipitation']}mm)")
+                    temp_min = day.get("temp_min", "—")
+                    temp_max = day.get("temp_max", "—")
+                    condition = day.get("condition", "?")
+                    forecast_lines.append(f"{day_label}: {temp_min}°-{temp_max}° ({condition})")
             if forecast_lines:
                 weather_block += "\nVorhersage: " + " | ".join(forecast_lines)
 
