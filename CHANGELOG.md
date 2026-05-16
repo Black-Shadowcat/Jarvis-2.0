@@ -25,6 +25,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 #### Commits in Phase 2.1
 - `1556002` — feat: Extract TTS to jarvis-audio microservice
 
+#### Phase 2.2 — Dashboard Aggregation Microservice (✅ Complete)
+- **jarvis-ha Service**: Extracted FastAPI microservice on port 8342
+  - Mail fetching from Apple Mail.app (AppleScript)
+  - Reminders from macOS Reminders.app
+  - Calendar events from Home Assistant
+  - Weather data from Kachelmann API
+  - Obsidian inbox notes (file I/O)
+  - Light control via Home Assistant (LICHT action)
+  - Health check endpoint `/health`
+  - Complete REST API for all dashboard endpoints
+- **server.py Refactoring**:
+  - Added `_call_jarvis_ha()` proxy helper for remote service calls
+  - Proxied dashboard endpoints to jarvis-ha:
+    - GET `/api/get_mails_unread`
+    - GET `/api/get_tasks`
+    - GET `/api/get_obsidian_notes`
+    - POST `/api/complete_task`
+    - POST `/api/complete_note`
+  - Maintained internal `*_sync()` functions for briefing system (compatible with both local and remote)
+  - Graceful degradation if jarvis-ha unavailable
+
+#### Commits in Phase 2.2
+- `e02e9cc` — feat: Extract dashboard aggregation to jarvis-ha microservice
+
+#### Service Architecture (Phase 2.1-2.2)
+```
+┌─────────────────┐          ┌──────────────────┐          ┌──────────────────┐
+│ jarvis-core     │          │ jarvis-audio     │          │ jarvis-ha        │
+│ (Port 8340)     │←HTTP POST─│ (Port 8341)      │          │ (Port 8342)      │
+│                 │  /api/    │ [TTS Synthesis]  │          │ [Dashboard Data] │
+│ FastAPI         │ synthesize│                  │          │ [Home Assistant] │
+│ LLM, Routing    │          └──────────────────┘          └──────────────────┘
+│ WebSocket       │                    ▲                            ▲
+│ Orchestration   │                    │                            │
+│                 │←─────────────HTTP GET/POST──────────────────────┘
+└─────────────────┘          /api/get_mails_unread, /api/get_tasks, etc.
+        ▲
+        │ WebSocket /ws
+        │
+    [Browser: index.html]
+```
+
 ---
 
 ## [0.3.0] — 2026-05-16
