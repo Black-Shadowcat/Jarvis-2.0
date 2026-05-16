@@ -47,8 +47,8 @@ MIN_DURATION   = 0.6    # Sekunden — kürzere Aufnahmen werden verworfen
 SPEECH_STATE_FILE = "data/speech_state.json"
 
 # Wake-Word VAD-Schwellwerte
-WW_VOICE_RMS    = 0.012  # Sprache erkannt (oberhalb) — optimiert für menschliche Sprache
-WW_SILENCE_RMS  = 0.008  # Stille (unterhalb)
+WW_VOICE_RMS    = 0.002   # Sprache erkannt (oberhalb) — optimiert für Sennheiser Profile USB
+WW_SILENCE_RMS  = 0.001   # Stille (unterhalb)
 WW_MAX_SECS     = 5.0    # Maximale Länge des Erkennung-Snippets
 WW_SILENCE_SECS = 0.8    # Stille nach letztem Wort → Snippet fertig
 WW_CMD_SILENCE  = 1.5    # Stille nach Befehl → Aufnahme beenden
