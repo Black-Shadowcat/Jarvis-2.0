@@ -1,6 +1,8 @@
-# JARVIS Setup (macOS) — jarvis-whisper
+# JARVIS Setup (macOS) — Jarvis 2.0 v0.4.0
 
-Dein persönlicher KI-Sprachassistent — optimiert für macOS Apple Silicon.
+Dein persönlicher KI-Sprachassistent mit Sprachsteuerung — optimiert für macOS Apple Silicon.
+
+**Version 0.4.0 mit Service Isolation:** Drei unabhängige Microservices für höhere Zuverlässigkeit und Skalierbarkeit.
 
 ---
 
@@ -173,24 +175,35 @@ open http://localhost:8340/config
 
 ---
 
-## Schritt 8: LaunchAgents laden
+## Schritt 8: LaunchAgents laden (v0.4.0+: 3 Microservices)
 
-Die Plist-Dateien liegen im Repo unter `launchagents/` und müssen nach `~/Library/LaunchAgents/` kopiert und auf den korrekten Projektpfad angepasst werden.
+Ab v0.4.0 laufen **drei Microservices parallel**. Alle werden als LaunchAgents mit KeepAlive konfiguriert.
 
 ```bash
-# Ins LaunchAgents-Verzeichnis kopieren
-cp launchagents/com.jarvis.whisper.server.plist ~/Library/LaunchAgents/
-cp launchagents/com.jarvis.whisper.speech.plist ~/Library/LaunchAgents/
-cp launchagents/com.jarvis.whisper.session.plist ~/Library/LaunchAgents/
+# Status vor dem Setup prüfen
+launchctl list | grep "jarvis.v2"
 
-# Pfade in den Plists anpassen (falls nötig)
-# Lade anschließend
-launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
-launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.speech.plist
-launchctl load ~/Library/LaunchAgents/com.jarvis.whisper.session.plist
+# Alle Services laden (werden bei Absturz automatisch neu gestartet)
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.server.plist      # jarvis-core (8340)
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.audio.plist       # jarvis-audio (8341)
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.ha.plist          # jarvis-ha (8342)
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.speech.plist      # Speech Input
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.session.plist     # Browser Session
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.wake.plist        # Wake Monitor
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.supervisor.plist  # Health Monitor
 
-# Status prüfen
-launchctl list | grep jarvis.whisper
+# Status prüfen (alle sollten laufen)
+sleep 2 && launchctl list | grep "jarvis.v2"
+
+# Ports prüfen (alle 3 Services sollten binden)
+lsof -i :8340 -i :8341 -i :8342 | grep LISTEN
+```
+
+**Logs für die 3 Services:**
+```bash
+tail -f ~/Library/Logs/jarvis-v2/server.log    # jarvis-core
+tail -f ~/Library/Logs/jarvis-v2/audio.log     # jarvis-audio
+tail -f ~/Library/Logs/jarvis-v2/ha.log        # jarvis-ha
 ```
 
 ---
@@ -216,12 +229,27 @@ In **Systemeinstellungen → Datenschutz & Sicherheit** eintragen:
 
 Setup fertig! Sag dem Nutzer:
 
-- **`~/Applications/Jarvis starten.app`** → manueller Start per Doppelklick
-- **`http://localhost:8340`** → Jarvis HUD im Browser
-- **`http://localhost:8340/config`** → Config UI (Einstellungen, Voices, Apps)
-- **Server-Log:** `tail -f ~/Library/Logs/jarvis-whisper/server.log`
-- **Spracheingabe-Log:** `tail -f ~/Library/Logs/jarvis-whisper/speech.log`
-- **Jarvis aktivieren:** Sag „Jarvis" + Befehl oder drücke F19
+**Browser URLs:**
+- **`http://localhost:8340`** → Jarvis HUD + Chat
+- **`http://localhost:8340/config`** → Config UI (API Keys, Voices, Apps)
+- **`http://localhost:8340/handbuch`** → Benutzerhandbuch (Deutsch/English)
+- **`http://localhost:8340/health`** → Health Monitor (System Status)
+
+**Service Status prüfen:**
+- **`curl http://localhost:8340/`** → jarvis-core (should return HTML)
+- **`curl http://localhost:8341/health`** → jarvis-audio (should return JSON)
+- **`curl http://localhost:8342/health`** → jarvis-ha (should return JSON)
+
+**Logs:**
+- **Core:** `tail -f ~/Library/Logs/jarvis-v2/server.log`
+- **Audio:** `tail -f ~/Library/Logs/jarvis-v2/audio.log`
+- **Dashboard:** `tail -f ~/Library/Logs/jarvis-v2/ha.log`
+- **Speech Input:** `tail -f ~/Library/Logs/jarvis-v2/speech.log`
+
+**Jarvis aktivieren:**
+- Sag **„Jarvis, …"** + Befehl (Wake Word, offline)
+- Oder drücke **F19** (Push-to-Talk)
+- Oder verwende **Cmd+Shift+J** → startet alle Services und öffnet Browser
 
 ---
 
@@ -278,117 +306,210 @@ Du sprichst → RMS-VAD erkennt Stimme → blauer Ring leuchtet
 
 ---
 
-## Projektstruktur
+## Projektstruktur (v0.4.0+: 3 Microservices)
 
 ```
-jarvis-whisper/
-├── server.py              # FastAPI Backend — Hauptlogik (Port 8340)
-├── speech_input.py        # mlx-whisper STT + Wake Word + F19 PTT
-├── browser_tools.py       # Playwright Browser-Steuerung
-├── screen_capture.py      # Screenshot + Claude Vision
-├── requirements.txt       # Python Dependencies
-├── config.json            # Deine Config (gitignored)
-├── config.example.json    # Template
-├── voice.json             # Deine Voice-Bibliothek (gitignored)
-├── voice.example.json     # Voice Template
-├── version.json           # Versionsnummer (Single Source of Truth)
-├── CLAUDE.md              # Anweisungen für Claude Code
-├── SETUP_macOS.md         # Diese Datei
-├── launchagents/
-│   ├── com.jarvis.whisper.server.plist
-│   ├── com.jarvis.whisper.speech.plist
-│   └── com.jarvis.whisper.session.plist
+Jarvis-2.0/
+├── server.py                   # jarvis-core (Port 8340) — LLM Orchestration
+├── speech_input.py             # mlx-whisper STT + Wake Word + F19 PTT
+├── browser_tools.py            # Playwright Browser-Steuerung
+├── screen_capture.py           # Screenshot + Claude Vision
+├── requirements.txt            # Python Dependencies (Core)
+├── config.json                 # Deine Config (gitignored)
+├── config.example.json         # Config Template
+├── voice.json                  # Voice-Bibliothek (gitignored)
+├── voice.example.json          # Voice Template
+├── version.json                # Versionsnummer (0.4.0+)
+├── CLAUDE.md                   # Anweisungen für Claude Code
+├── SETUP_macOS.md              # Diese Datei
+├── README.md                   # Dokumentation mit Architektur-Diagramm
+├── CHANGELOG.md                # Version History
+│
+├── services/                   # 🆕 v0.4.0: Microservices
+│   ├── jarvis-audio/           # Port 8341 — TTS Synthese
+│   │   ├── main.py             # ElevenLabs TTS Microservice
+│   │   └── requirements.txt    # Audio-Dependencies (FastAPI, httpx)
+│   │
+│   └── jarvis-ha/              # Port 8342 — Dashboard & Home Assistant
+│       ├── main.py             # HA Integration Microservice
+│       └── requirements.txt    # HA-Dependencies (FastAPI, httpx)
+│
 ├── frontend/
-│   ├── index.html         # JARVIS HUD (Kiosk, Port 8340)
-│   ├── config.html        # Config UI
-│   ├── config.js          # Config UI Logik
-│   ├── handbuch.html      # Benutzerhandbuch
+│   ├── index.html              # JARVIS HUD + Chat (Kiosk)
+│   ├── config.html             # Config UI
+│   ├── handbuch.html           # Benutzerhandbuch
 │   └── i18n/
-│       ├── de.json
-│       └── en.json
-└── scripts/
-    ├── launch-session.sh  # Chrome im Kiosk-Modus starten
-    └── wake-monitor.py    # Wake-from-Sleep → /api/wake
+│       ├── de.json             # Deutsche UI-Labels
+│       └── en.json             # English UI-Labels
+│
+├── scripts/
+│   ├── launch-session.sh       # Chrome im Kiosk-Modus starten
+│   ├── start-dev.sh            # Starte alle Services lokal
+│   ├── stop-dev.sh             # Stoppe alle Services
+│   └── wake-monitor.py         # Wake-from-Sleep → /api/wake
+│
+├── systems/
+│   └── daily_brief.py          # Daily Brief Memory System
+│
+└── data/                       # (gitignored)
+    └── daily_brief_memory.json # Tagesgedächtnis
 ```
 
 ---
 
-## LaunchAgents
+## LaunchAgents (v0.4.0+)
 
-| Plist | Funktion |
-|---|---|
-| `com.jarvis.whisper.server.plist` | Server KeepAlive (startet bei Absturz neu) |
-| `com.jarvis.whisper.speech.plist` | speech_input.py KeepAlive (Wake Word + F19 PTT) |
-| `com.jarvis.whisper.session.plist` | Chrome Kiosk beim Login |
+| Plist | Port | Funktion |
+|---|---|---|
+| `com.jarvis.v2.server.plist` | 8340 | **jarvis-core** — LLM & Orchestration |
+| `com.jarvis.v2.audio.plist` | 8341 | **jarvis-audio** — TTS Synthese |
+| `com.jarvis.v2.ha.plist` | 8342 | **jarvis-ha** — Dashboard & Home Assistant |
+| `com.jarvis.v2.speech.plist` | — | **speech_input.py** — Wake Word + F19 PTT |
+| `com.jarvis.v2.session.plist` | — | **Chrome Browser** — Kiosk beim Login |
+| `com.jarvis.v2.wake.plist` | — | **wake-monitor.py** — Wake-from-Sleep Detection |
+| `com.jarvis.v2.supervisor.plist` | — | **supervisor.py** — Health Monitor UI |
 
+**Service-Architektur:**
+```
+User: "Jarvis, ..."
+         ↓
+   speech_input.py (Wake Word detection)
+         ↓
+   jarvis-core (8340) — LLM Brain
+      ↙         ↘
+   jarvis-audio   jarvis-ha
+   (8341)         (8342)
+   TTS           Dashboard/HA
+```
+
+**Befehle:**
 ```bash
-# Status
-launchctl list | grep jarvis.whisper
+# Status aller Services
+launchctl list | grep "jarvis.v2"
 
-# Neu laden
-launchctl unload ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
-launchctl load   ~/Library/LaunchAgents/com.jarvis.whisper.server.plist
+# Einzelnen Service neu laden
+launchctl unload ~/Library/LaunchAgents/com.jarvis.v2.server.plist
+launchctl load   ~/Library/LaunchAgents/com.jarvis.v2.server.plist
 
-# Logs
-tail -f ~/Library/Logs/jarvis-whisper/server.log
-tail -f ~/Library/Logs/jarvis-whisper/speech.log
+# Alle Logs live
+tail -f ~/Library/Logs/jarvis-v2/*.log
+
+# Ports prüfen
+lsof -i :8340 -i :8341 -i :8342
 ```
 
 ---
 
-## Troubleshooting
+## Troubleshooting (v0.4.0+)
 
-**Server startet nicht / Port belegt**
+**Services starten nicht / Ports belegt**
 ```bash
-lsof -i :8340
-kill <PID>
-/opt/homebrew/bin/python3.11 server.py
+# Alle Jarvis-Prozesse killen
+pkill -9 -f "jarvis"
+sleep 2
+
+# Ports prüfen
+lsof -i :8340 -i :8341 -i :8342
+
+# Services neu laden
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.server.plist
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.audio.plist
+launchctl load ~/Library/LaunchAgents/com.jarvis.v2.ha.plist
+sleep 2
+
+# Ports sollten jetzt binden
+lsof -i :8340 -i :8341 -i :8342 | grep LISTEN
+```
+
+**jarvis-audio antwortet nicht (Port 8341)**
+```bash
+curl http://localhost:8341/health
+# Sollte: {"status":"healthy","service":"jarvis-audio",...}
+# Logs: tail -f ~/Library/Logs/jarvis-v2/audio.log
+```
+
+**jarvis-ha antwortet nicht (Port 8342)**
+```bash
+curl http://localhost:8342/health
+# Sollte: {"status":"healthy","service":"jarvis-ha",...}
+# Logs: tail -f ~/Library/Logs/jarvis-v2/ha.log
+# Prüfe: Home Assistant URL, Token, Obsidian Pfad in config.json
 ```
 
 **Wake Word / F19 funktioniert nicht**
 ```bash
-tail -f ~/Library/Logs/jarvis-whisper/speech.log
+tail -f ~/Library/Logs/jarvis-v2/speech.log
 # → Bedienungshilfen-Berechtigung prüfen
+# Systemeinstellungen → Datenschutz → Bedienungshilfen → Terminal hinzufügen
 ```
 
 **Jarvis spricht nicht (TTS Fehler)**
-→ ElevenLabs Key in Config UI testen. Voice ID in `voice.json` prüfen.
+```bash
+curl http://localhost:8341/health
+# Prüfe ElevenLabs Key + Voice ID in config.json und voice.json
+# Teste TTS in Config UI: http://localhost:8340/config
+```
 
 **Chrome öffnet sich nicht**
 ```bash
 bash ~/Jarvis-2.0/scripts/launch-session.sh
 ```
 
-**Kein Wetter**
-→ Kachelmann API Key fehlt oder ungültig. Ohne Key: kein Wetter.
-
-**Home Assistant antwortet nicht**
-→ `ha_url` und `ha_token` in Config UI prüfen.
-
-**Obsidian Notiz wird nicht erstellt**
-→ `obsidian_inbox_path` muss absoluter Pfad sein und der Ordner muss existieren.
+**Dashboard lädt nicht (Mail/Tasks/Wetter leer)**
+- Prüfe `curl http://localhost:8342/api/get_mails_unread`
+- Mail.app muss offen sein (AppleScript-Zugriff)
+- Prüfe Reminders.app Zugriff
+- Kachelmann Key für Wetter? (optional)
 
 **Screen Capture funktioniert nicht**
 → Systemeinstellungen → Datenschutz → Bildschirmaufnahme → Terminal hinzufügen.
 
 ---
 
-## Nützliche Befehle
+## Nützliche Befehle (v0.4.0+)
 
 ```bash
-# Server neu starten (launchd startet automatisch neu)
-pkill -f "server.py"
+# ========== STOPP / START ==========
+# Alle Services stoppen
+pkill -9 -f "jarvis"
 
-# speech_input neu starten
-pkill -f "speech_input.py"
+# Einzelnen Service neu starten (launchd restarts automatisch)
+pkill -f "server.py"          # jarvis-core neu starten
+pkill -f "services/jarvis-audio"  # jarvis-audio neu starten
+pkill -f "services/jarvis-ha"     # jarvis-ha neu starten
+pkill -f "speech_input.py"    # Speech Input neu starten
 
-# Jarvis komplett neu starten (Browser + alles)
-bash ~/Jarvis-2.0/scripts/launch-session.sh
+# ========== STATUS ==========
+# Alle Ports prüfen
+lsof -i :8340 -i :8341 -i :8342
+
+# Service Health prüfen
+curl http://localhost:8340/ | head -1
+curl http://localhost:8341/health | jq .
+curl http://localhost:8342/health | jq .
+
+# ========== LOGS ==========
+# Live-Logs aller Services
+tail -f ~/Library/Logs/jarvis-v2/*.log
+
+# Nur einen Service loggen
+tail -f ~/Library/Logs/jarvis-v2/server.log
+tail -f ~/Library/Logs/jarvis-v2/audio.log
+tail -f ~/Library/Logs/jarvis-v2/ha.log
+
+# ========== BROWSER ==========
+# HUD öffnen
+open http://localhost:8340
 
 # Config UI
 open http://localhost:8340/config
 
-# Logs live
-tail -f ~/Library/Logs/jarvis-whisper/server.log
-tail -f ~/Library/Logs/jarvis-whisper/speech.log
+# Health Monitor
+open http://localhost:8340/health
+
+# ========== HOTKEY ==========
+# Cmd+Shift+J: Startet launch-session.sh (alle Services + Browser)
+# Wird durch skhd-Config in ~/.skhdrc definiert
+# Manuell ausführen:
+bash ~/Jarvis-2.0/scripts/launch-session.sh
 ```
