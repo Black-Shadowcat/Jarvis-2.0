@@ -50,13 +50,14 @@ Frage nach Name, Taetigkeit und bevorzugter Anrede — diese Infos gehoeren in d
 │       ├── de.json              # Deutsche UI-Labels (28 Keys, via /static/i18n/de.json)
 │       └── en.json              # Englische UI-Labels
 ├── docs/
-│   ├── JARVIS_Handbuch.pdf      # PDF-Handbuch
-│   └── Jarvis-Start.mp4         # Demo-Video
+│   └── JARVIS_Handbuch.pdf      # PDF-Handbuch
 ├── scripts/
 │   ├── launch-session.sh        # Startet Server + Chrome App Mode
-│   ├── mic-mute-menubar.py      # Mic-Mute in macOS Menuleiste
+│   ├── setup-plists.sh          # LaunchAgent Installation mit Pfad-Anpassung
+│   ├── start-dev.sh             # Lokales Development Startup
+│   ├── stop-dev.sh              # Services stoppen
+│   ├── calibrate-vad.py         # Mikrofon-VAD Kalibrierung (optional)
 │   └── wake-monitor.py          # Wake-from-Sleep → /api/wake (wartet auf Screen-Unlock)
-└── JARVIS_Handbuch.html         # HTML-Handbuch (Quelle fuer PDF)
 ```
 
 ---
