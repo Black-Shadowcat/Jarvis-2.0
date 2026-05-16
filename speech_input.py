@@ -586,24 +586,36 @@ async def _receiver(ws):
             log.info(f"Wake-Word {'deaktiviert' if _ww_muted else 'aktiviert'}")
 
 
-# ── B021: Prevent Duplicate speech_input.py Processes ─────────────────────
+# ── B021: Prevent Duplicate speech_input.py Processes (File-Lock) ──────────
 def _ensure_single_instance():
-    """Kill any existing speech_input.py process before starting a new one."""
+    """Ensure only one speech_input.py process runs using file-based lock."""
+    lock_file = os.path.expanduser("~/.jarvis-speech-input.lock")
     current_pid = os.getpid()
-    current_name = os.path.basename(__file__)
 
-    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-        try:
-            # Find other python processes running this script
-            if proc.pid == current_pid:
-                continue
-            cmdline = proc.cmdline() if proc.cmdline() else []
-            if current_name in ' '.join(cmdline):
-                log.warning(f"Killing existing process PID {proc.pid} (duplicate instance)")
-                proc.kill()
-                time.sleep(0.5)
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
+    try:
+        # Read existing lock file if it exists
+        if os.path.exists(lock_file):
+            with open(lock_file, 'r') as f:
+                old_pid_str = f.read().strip()
+            try:
+                old_pid = int(old_pid_str)
+                # Check if old process still exists
+                if psutil.pid_exists(old_pid):
+                    old_proc = psutil.Process(old_pid)
+                    if 'speech_input.py' in ' '.join(old_proc.cmdline() or []):
+                        log.warning(f"Killing existing speech_input.py process PID {old_pid}")
+                        old_proc.kill()
+                        time.sleep(0.2)
+            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
+        # Write current PID to lock file (atomic via temp file)
+        with open(lock_file, 'w') as f:
+            f.write(str(current_pid))
+        log.info(f"[B021] Single-instance lock acquired (PID {current_pid})")
+
+    except Exception as e:
+        log.warning(f"[B021] Lock initialization failed: {e} (continuing anyway)")
 
 
 async def _run():
