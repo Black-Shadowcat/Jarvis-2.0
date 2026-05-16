@@ -2,6 +2,7 @@ import json
 import os
 import random
 import shutil
+import statistics
 from datetime import datetime, date
 from typing import Optional
 
@@ -22,6 +23,77 @@ _EMPTY_STATE = {
         "scheduled_after": "17:00",
     },
 }
+
+
+def _extract_pause_duration_from_check(check: dict) -> Optional[float]:
+    """M15: Extract pause duration from a status_check entry."""
+    ts = check.get("timestamp")
+    if not ts:
+        return None
+    try:
+        check_time = datetime.fromisoformat(ts)
+        return (datetime.now() - check_time).total_seconds() / 60
+    except (ValueError, TypeError):
+        return None
+
+
+def analyze_pause_patterns(archive_dir: str = ARCHIVE_DIR) -> dict:
+    """M15: Analyze historical pause/absence patterns from archived daily_brief files."""
+    pause_durations = []
+    absence_durations = []
+
+    if not os.path.exists(archive_dir):
+        return {"error": "Archive directory not found"}
+
+    try:
+        for fname in os.listdir(archive_dir):
+            if not fname.endswith(".json"):
+                continue
+            fpath = os.path.join(archive_dir, fname)
+            try:
+                with open(fpath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                # Extract status checks (pause returns + absences)
+                for check in data.get("status_checks", []):
+                    trigger = check.get("trigger", "")
+                    if trigger == "pause_return":
+                        pause_durations.append(check.get("duration_minutes", 0))
+                    elif trigger == "long_absence_return":
+                        absence_durations.append(check.get("duration_minutes", 0))
+            except (json.JSONDecodeError, IOError):
+                pass
+    except Exception:
+        pass
+
+    # Calculate statistics
+    stats = {}
+    if pause_durations:
+        stats["pause_median"] = statistics.median(pause_durations)
+        stats["pause_count"] = len(pause_durations)
+    if absence_durations:
+        stats["absence_median"] = statistics.median(absence_durations)
+        stats["absence_count"] = len(absence_durations)
+
+    return stats
+
+
+def calculate_adaptive_thresholds(stats: dict) -> dict:
+    """M15: Calculate new thresholds from historical statistics."""
+    thresholds = {
+        "pause_threshold_minutes": 30,           # Default
+        "long_absence_threshold_minutes": 90,    # Default
+    }
+
+    # If we have pause data: use median * 1.2 (20% buffer)
+    if "pause_median" in stats and stats["pause_count"] >= 3:
+        thresholds["pause_threshold_minutes"] = max(20, int(stats["pause_median"] * 1.2))
+
+    # If we have absence data: use median * 1.1 (10% buffer)
+    if "absence_median" in stats and stats["absence_count"] >= 3:
+        thresholds["long_absence_threshold_minutes"] = max(60, int(stats["absence_median"] * 1.1))
+
+    return thresholds
 
 
 class DailyBrief:
@@ -67,6 +139,15 @@ class DailyBrief:
     def _fresh_state(self, preserve_from: dict = None) -> dict:
         state = json.loads(json.dumps(_EMPTY_STATE))
         state["date"] = str(date.today())
+
+        # M15: Try adaptive thresholds from historical analysis
+        stats = analyze_pause_patterns()
+        if stats and "pause_median" in stats:
+            adaptive = calculate_adaptive_thresholds(stats)
+            state["pause_tracking"]["pause_threshold_minutes"] = adaptive["pause_threshold_minutes"]
+            state["pause_tracking"]["long_absence_threshold_minutes"] = adaptive["long_absence_threshold_minutes"]
+
+        # Preserve explicit threshold overrides from config (if any)
         if preserve_from:
             pt = preserve_from.get("pause_tracking", {})
             for key in ("pause_threshold_minutes", "long_absence_threshold_minutes"):
@@ -266,9 +347,12 @@ class DailyBrief:
         current_ids = [f"{m.get('sender','')}_{m.get('subject','')}" for m in current_mails]
         diff = self.compare_mail_ids(known_ids, current_ids)
 
+        # M15: Track pause duration for adaptive thresholds
+        pause_duration = self._minutes_since_last_activity()
         self._data["status_checks"].append({
             "timestamp": datetime.now().isoformat(),
             "trigger": "pause_return",
+            "duration_minutes": pause_duration,  # M15: For adaptive thresholds
             "new_count": diff["new_count"],
             "deleted_count": diff["deleted_count"],
             "current_count": diff["current_count"],
@@ -304,9 +388,12 @@ class DailyBrief:
         current_ids = [f"{m.get('sender','')}_{m.get('subject','')}" for m in current_mails]
         diff = self.compare_mail_ids(known_ids, current_ids)
 
+        # M15: Track absence duration for adaptive thresholds
+        absence_duration = self._minutes_since_last_activity()
         self._data["status_checks"].append({
             "timestamp": datetime.now().isoformat(),
             "trigger": "long_absence_return",
+            "duration_minutes": absence_duration,  # M15: For adaptive thresholds
             "new_count": diff["new_count"],
             "deleted_count": diff["deleted_count"],
             "current_count": diff["current_count"],
