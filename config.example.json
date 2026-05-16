@@ -11,7 +11,7 @@
   "ha_url": "http://YOUR_HA_IP:8123",
   "ha_token": "YOUR_HA_LONG_LIVED_TOKEN",
   "ha_enabled": false,
-  "workspace_path": "/Users/YOUR_USERNAME/jarvis-voice-assistant",
+  "workspace_path": "/Users/YOUR_USERNAME/Jarvis-2.0",
   "obsidian_inbox_path": "",
   "obsidian_archive_path": "",
   "programs": [null, null, null, null, null, null],
