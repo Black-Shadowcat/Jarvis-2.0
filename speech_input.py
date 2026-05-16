@@ -212,6 +212,7 @@ def _stop_recording_and_transcribe(source: str = "ptt"):
     threading.Thread(target=_notify_ptt, args=("stop",), daemon=True).start()
     with _buffer_lock:
         chunks = list(_audio_buffer)
+        _audio_buffer.clear()  # B020: Empty buffer to prevent accumulation
     if chunks:
         audio = np.concatenate(chunks).flatten()
         duration = len(audio) / SAMPLE_RATE
@@ -223,6 +224,7 @@ def _stop_recording_and_transcribe(source: str = "ptt"):
             threading.Thread(target=_transcribe, args=(audio,), daemon=True).start()
     else:
         log.info(f"✗ keine Aufnahme [{source}]")
+    gc.collect()  # Explicit GC after buffer cleanup to return memory to OS
 
 
 # ── Audio-Callback ────────────────────────────────────────────────────────
