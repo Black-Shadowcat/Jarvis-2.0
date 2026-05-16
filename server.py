@@ -2668,18 +2668,30 @@ async def get_supervisor_status():
         if not os.path.exists(log_file):
             log_file = os.path.expanduser("~/Library/Logs/jarvis-v2/supervisor.log")
 
+        server_pid = os.getpid()
+        speech_pid = get_pid("speech_input.py")
+        wake_pid = get_pid("wake-monitor.py")
+        chrome_pid = get_pid("jarvis-v2-chrome-profile")
+
+        services = [
+            {"name": "SERVER", "status": "healthy" if server_pid > 0 else "error", "pid": server_pid},
+            {"name": "WEBSOCKET", "status": "healthy" if server_pid > 0 else "error", "pid": server_pid},
+            {"name": "SPEECH INPUT", "status": "healthy" if speech_pid > 0 else "error", "pid": speech_pid},
+            {"name": "WAKE MONITOR", "status": "healthy" if wake_pid > 0 else "error", "pid": wake_pid},
+            {"name": "CHROME FRONTEND", "status": "healthy" if chrome_pid > 0 else "error", "pid": chrome_pid},
+            {"name": "HOME ASSISTANT", "status": "healthy", "pid": 0},  # HA optional, always healthy if configured
+        ]
+
+        # Calculate health score: 100 for all critical, -20 per missing critical service
+        critical_services = [s for s in services[:5]]  # First 5 are critical, HA is optional
+        missing_critical = sum(1 for s in critical_services if s["status"] == "error")
+        health_score = max(0, 100 - (missing_critical * 20))
+
         status = {
-            "status": "operational",
-            "healthScore": 100,
+            "status": "operational" if health_score >= 80 else "degraded" if health_score >= 50 else "error",
+            "healthScore": health_score,
             "uptime": "12D 04:32:17",
-            "services": [
-                {"name": "SERVER", "status": "healthy", "pid": os.getpid()},
-                {"name": "WEBSOCKET", "status": "healthy", "pid": os.getpid()},
-                {"name": "SPEECH INPUT", "status": "healthy", "pid": get_pid("speech_input.py")},
-                {"name": "WAKE MONITOR", "status": "healthy", "pid": get_pid("wake-monitor.py")},
-                {"name": "CHROME FRONTEND", "status": "healthy", "pid": get_pid("jarvis-v2-chrome-profile")},
-                {"name": "HOME ASSISTANT", "status": "healthy", "pid": 0},
-            ],
+            "services": services,
             "metrics": {
                 "cpu": 12,
                 "memory": 284,
@@ -2700,7 +2712,7 @@ async def get_supervisor_status():
                         status["status"] = "operational"
                     elif "WARNING" in last_line or "FAIL" in last_line:
                         status["status"] = "degraded"
-                        status["healthScore"] = 80
+                        status["healthScore"] = min(status["healthScore"], 80)
 
         return status
     except Exception as e:
