@@ -212,6 +212,7 @@ def _stop_recording_and_transcribe(source: str = "ptt"):
     threading.Thread(target=_notify_ptt, args=("stop",), daemon=True).start()
     with _buffer_lock:
         chunks = list(_audio_buffer)
+        _audio_buffer.clear()  # CRITICAL: Empty buffer to prevent memory leak
     if chunks:
         audio = np.concatenate(chunks).flatten()
         duration = len(audio) / SAMPLE_RATE
@@ -394,7 +395,7 @@ def _auto_listen(timeout: float):
 # ── Queue-Hilfsfunktion ───────────────────────────────────────────────────
 
 def _detect_q_flush():
-    while not _detect_q.empty():
+    while True:
         try:
             _detect_q.get_nowait()
         except queue.Empty:
