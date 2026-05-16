@@ -922,105 +922,6 @@ def parse_structured_action(reply: str) -> Optional[ActionModel]:
         return None
 
 
-def _tts_sanitize(text: str) -> str:
-    """Convert symbols and number formats to speakable text before ElevenLabs TTS."""
-    if LANGUAGE == "de":
-        # °C mit Dezimalstelle: "12.5°C" → "12 Komma 5 Grad"
-        text = re.sub(r'(-?\d+)\.(\d+)\s*°[CcKk]', lambda m: f"{m.group(1)} Komma {m.group(2)} Grad", text)
-        # °C ganzzahlig: "12°C" → "12 Grad"
-        text = re.sub(r'(-?\d+)\s*°[CcKk]', r'\1 Grad', text)
-        text = text.replace('°', '')
-        # % → " Prozent" (with space to avoid digit concatenation)
-        text = re.sub(r'(\d+)\s*%', r'\1 Prozent', text)
-        # Clean up numbers followed by letters to prevent misreading (e.g., "87Prozent" → "87 Prozent")
-        text = re.sub(r'(\d)([a-zäöüß])', r'\1 \2', text)
-        # € → Euro
-        text = re.sub(r'€\s*(\d+)', r'\1 Euro', text)
-        text = re.sub(r'(\d+)\s*€', r'\1 Euro', text)
-        # HH:MM → "H Uhr" / "H Uhr M"
-        def _fmt_time(m):
-            h, mi = int(m.group(1)), int(m.group(2))
-            return f"{h} Uhr {mi}" if mi else f"{h} Uhr"
-        text = re.sub(r'\b([01]?\d|2[0-3]):([0-5]\d)\b(?!\s*Uhr)', _fmt_time, text)
-        # Kurzdatum "07.05." oder "07.05" am Satzende → "7. Mai"
-        def _fmt_short_date(m):
-            d, mo = int(m.group(1)), int(m.group(2))
-            if 1 <= mo <= 12 and 1 <= d <= 31:
-                return f"{d}. {_DE_MONTHS[mo]}"
-            return m.group(0)
-        text = re.sub(r'\b(\d{1,2})\.(\d{1,2})\.\B', _fmt_short_date, text)
-        # Dezimalpunkt in Zahlen: "12.5" → "12 Komma 5" (nicht bei Versionsnummern wie 3.11)
-        text = re.sub(r'\b(\d+)\.(\d{1,2})\b(?!\.\d)', r'\1 Komma \2', text)
-        # km/h → Kilometer pro Stunde
-        text = re.sub(r'(\d+)\s*km/h\b', r'\1 Kilometer pro Stunde', text)
-    else:
-        # °C → degrees
-        text = re.sub(r'(-?\d+(?:\.\d+)?)\s*°[CcKk]', r'\1 degrees', text)
-        text = text.replace('°', '')
-        # % → percent
-        text = re.sub(r'(\d+)\s*%', r'\1 percent', text)
-        # € → Euro
-        text = re.sub(r'€\s*(\d+)', r'\1 Euro', text)
-        text = re.sub(r'(\d+)\s*€', r'\1 Euro', text)
-        # km/h → kilometers per hour
-        text = re.sub(r'(\d+)\s*km/h\b', r'\1 kilometers per hour', text)
-    return text
-
-
-async def synthesize_speech(text: str, voice_id: Optional[str] = None) -> bytes:
-    if not text.strip():
-        return b""
-
-    text = text.replace("J.A.R.V.I.S.", "Jarvis")
-    text = _tts_sanitize(text)
-
-    # Split long text into chunks at sentence boundaries to avoid ElevenLabs cutoff
-    chunks = []
-    if len(text) > 250:
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        current = ""
-        for s in sentences:
-            if len(current) + len(s) > 250 and current:
-                chunks.append(current.strip())
-                current = s
-            else:
-                current = (current + " " + s).strip()
-        if current:
-            chunks.append(current.strip())
-    else:
-        chunks = [text]
-
-    async def _tts_chunk(chunk: str) -> bytes:
-        vid = voice_id or ELEVENLABS_VOICE_ID
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}"
-        payload = {
-            "text": chunk,
-            "model_id": "eleven_turbo_v2_5",
-            "voice_settings": {"stability": 0.65, "similarity_boost": 0.85},
-        }
-        headers = {
-            "xi-api-key": ELEVENLABS_API_KEY,
-            "Content-Type": "application/json",
-            "Accept": "audio/mpeg",
-        }
-        for attempt in range(2):
-            try:
-                resp = await http.post(url, headers=headers, json=payload)
-                if resp.status_code == 200:
-                    log.debug(f"  TTS OK: {len(resp.content)} bytes")
-                    return resp.content
-                log.warning(f"  TTS error ({attempt+1}/2): {resp.status_code} {resp.text[:100]}")
-            except Exception as e:
-                log.error(f"  TTS EXCEPTION ({attempt+1}/2): {e}")
-            if attempt == 0:
-                await asyncio.sleep(1)
-        return b""
-
-    parts = await asyncio.gather(*[_tts_chunk(c) for c in chunks])
-    total = b"".join(parts)
-    log.debug(f"  TTS final: {len(total)} bytes total")
-    return total
-
 
 async def execute_action(action: dict) -> str:
     global TASKS_INFO, _last_result_url
@@ -1382,13 +1283,37 @@ async def _send_listen_open(delay: float):
     await _send_stt({"type": "listen_open", "timeout": 6})
 
 
+async def _synthesize_audio(text: str, voice_id: Optional[str] = None) -> str:
+    """Call jarvis-audio service to synthesize text to speech. Returns base64 audio string."""
+    if not text.strip():
+        return ""
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                "http://127.0.0.1:8341/api/synthesize",
+                json={"text": text, "voice_id": voice_id} if voice_id else {"text": text}
+            )
+            if resp.status_code == 200:
+                return resp.json().get("audio", "")
+            else:
+                log.warning(f"jarvis-audio error ({resp.status_code}): {resp.text[:100]}")
+    except Exception as e:
+        log.error(f"jarvis-audio call failed: {e}")
+
+    return ""
+
+
 async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
-    """TTS, append to history, broadcast to all connections.
+    """TTS (via jarvis-audio service), append to history, broadcast to all connections.
     display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet."""
-    audio = await synthesize_speech(text)
+    audio_b64 = await _synthesize_audio(text)
+    if audio_b64:
+        log.debug(f"  TTS OK: {len(audio_b64)} chars (base64)")
+
     log.info(f"  Jarvis: {text[:100]}")
     conversations[session_id].append({"role": "assistant", "content": text})
-    tts_failed = not audio and bool(text.strip())
+    tts_failed = not audio_b64 and bool(text.strip())
     if tts_failed:
         log.warning(f"  TTS fehlgeschlagen — kein Audio für: {text[:60]}")
         for conn in list(active_connections):
@@ -1399,7 +1324,7 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
     payload = {
         "type": "response",
         "text": display or text,
-        "audio": base64.b64encode(audio).decode("utf-8") if audio else "",
+        "audio": audio_b64,
     }
     # Vor Broadcast: STT informieren dass Jarvis jetzt spricht → WW stumm
     await _send_stt({"type": "speaking_start"})
@@ -1409,8 +1334,8 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
         except Exception:
             pass
     # Nach TTS: Mikrofon-Fenster öffnen (speech_input.py reagiert nur wenn im Gespräch)
-    if audio:
-        delay = max(1.0, len(audio) / 16000) + 0.5  # 128kbps ≈ 16 KB/s + Buffer
+    if audio_b64:
+        delay = max(1.0, len(audio_b64) / 5000) + 0.5  # base64 ≈ 1.33x original size
     else:
         delay = 1.5
     asyncio.create_task(_send_listen_open(delay))
@@ -1577,10 +1502,10 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
 
     # SCREEN — brief audio hint while vision API runs
     if structured.action == "screen":
-        hint_audio = await synthesize_speech("Einen Moment.")
+        hint_audio_b64 = await _synthesize_audio("Einen Moment.")
         await ws.send_json({
             "type": "response", "text": "…",
-            "audio": base64.b64encode(hint_audio).decode("utf-8") if hint_audio else "",
+            "audio": hint_audio_b64,
         })
 
     try:
@@ -1802,10 +1727,10 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
 
     # Brief audio hint only for SCREEN (screenshot + vision API takes a few seconds)
     if action["type"] == "SCREEN":
-        hint_audio = await synthesize_speech("Einen Moment.")
+        hint_audio_b64 = await _synthesize_audio("Einen Moment.")
         await ws.send_json({
             "type": "response", "text": "…",
-            "audio": base64.b64encode(hint_audio).decode("utf-8") if hint_audio else "",
+            "audio": hint_audio_b64,
         })
 
     try:
@@ -2710,8 +2635,8 @@ async def tts_endpoint(request: Request):
     text = body.get("text", "").strip()
     if not text:
         return JSONResponse({"audio": ""})
-    audio = await synthesize_speech(text)
-    return JSONResponse({"audio": base64.b64encode(audio).decode("utf-8") if audio else ""})
+    audio_b64 = await _synthesize_audio(text)
+    return JSONResponse({"audio": audio_b64})
 
 
 @app.get("/api/config")
@@ -3127,9 +3052,9 @@ async def preview_voice(request: Request):
         return {"success": False, "error": "No voice_id"}
 
     try:
-        audio_data = await synthesize_speech("Hallo, ich bin Jarvis.", voice_id)
-        if audio_data:
-            return {"audio": base64.b64encode(audio_data).decode("utf-8")}
+        audio_b64 = await _synthesize_audio("Hallo, ich bin Jarvis.", voice_id)
+        if audio_b64:
+            return {"audio": audio_b64}
         return {"success": False, "error": "TTS failed"}
     except Exception as e:
         return {"success": False, "error": str(e)[:100]}
