@@ -691,20 +691,7 @@ end tell'''
         return []
 
 
-def refresh_data():
-    """Refresh weather, tasks, mail and calendar."""
-    global WEATHER_INFO, WEATHER_FORECAST_INFO, TASKS_INFO, MAIL_INFO, CALENDAR_INFO
-    WEATHER_INFO = get_weather_sync()
-    WEATHER_FORECAST_INFO = get_weather_forecast_sync(days=5)
-    TASKS_INFO = get_tasks_sync()
-    MAIL_INFO = get_mail_sync()
-    CALENDAR_INFO = get_calendar_sync(days=7)
-    log.info(f"[jarvis] Wetter: {WEATHER_INFO}")
-    log.info(f"[jarvis] Vorhersage: {len(WEATHER_FORECAST_INFO)} Tage")
-    log.info(f"[jarvis] Tasks: {len(TASKS_INFO)} geladen")
-    log.info(f"[jarvis] Mails: {len(MAIL_INFO)} ungelesen")
-    log.info(f"[jarvis] Kalender: {len(CALENDAR_INFO)} Termine (7 Tage)")
-
+# Global state — loaded async in startup_and_refresh() from jarvis-ha service
 WEATHER_INFO = None
 WEATHER_FORECAST_INFO = {}
 TASKS_INFO = []
@@ -713,7 +700,6 @@ CALENDAR_INFO = []
 OBSIDIAN_INFO: list[str] = []
 NEWS_INFO: list[dict] = []
 _mail_lock = asyncio.Lock()
-# Data is loaded async in startup_and_refresh() — no blocking call at import time
 
 # Action parsing
 ACTION_PATTERN = re.compile(r'\[ACTION:(\w+)\]\s*(.*?)$', re.DOTALL | re.MULTILINE)
@@ -2838,17 +2824,37 @@ async def startup_and_refresh():
     global WEATHER_INFO, WEATHER_FORECAST_INFO, TASKS_INFO, MAIL_INFO, CALENDAR_INFO, OBSIDIAN_INFO, NEWS_INFO
     loop = asyncio.get_event_loop()
 
-    log.info("[jarvis] Startup: Lade Daten...")
+    log.info("[jarvis] Startup: Lade Daten von jarvis-ha...")
 
-    # Tasks, mail, calendar, obsidian don't need external network — load immediately
-    TASKS_INFO = await loop.run_in_executor(None, get_tasks_sync)
-    MAIL_INFO = await loop.run_in_executor(None, get_mail_sync)
-    CALENDAR_INFO = await loop.run_in_executor(None, lambda: get_calendar_sync(days=7))
-    OBSIDIAN_INFO = await loop.run_in_executor(None, get_obsidian_info_sync)
-    log.info(f"[jarvis] Tasks: {len(TASKS_INFO)} geladen")
-    log.info(f"[jarvis] Mails: {len(MAIL_INFO)} ungelesen")
-    log.info(f"[jarvis] Kalender: {len(CALENDAR_INFO)} Termine (7 Tage)")
-    log.info(f"[jarvis] Obsidian: {len(OBSIDIAN_INFO)} offene Notizen")
+    # Get dashboard data from jarvis-ha service
+    try:
+        tasks_resp = await _call_jarvis_ha("/api/get_tasks")
+        TASKS_INFO = []  # jarvis-ha returns structured data, extract what we need
+        for task in tasks_resp.get("tasks", []):
+            if task.get("source") == "reminders":
+                TASKS_INFO.append(task["title"])
+
+        mail_resp = await _call_jarvis_ha("/api/get_mails_unread")
+        MAIL_INFO = []
+        for mail in mail_resp.get("mails", []):
+            MAIL_INFO.append(f"{mail['sender']} || {mail['subject']}")
+
+        calendar_resp = await _call_jarvis_ha("/api/get_tasks")  # includes calendar
+        CALENDAR_INFO = []
+        for task in calendar_resp.get("tasks", []):
+            if task.get("source") == "calendar":
+                label = f" -- {task.get('label', '')}" if task.get('label') else ""
+                CALENDAR_INFO.append(f"{task['title']}{label}")
+
+        notes_resp = await _call_jarvis_ha("/api/get_obsidian_notes")
+        OBSIDIAN_INFO = [n["title"] for n in notes_resp.get("notes", [])]
+
+        log.info(f"[jarvis] Tasks: {len(TASKS_INFO)} geladen")
+        log.info(f"[jarvis] Mails: {len(MAIL_INFO)} ungelesen")
+        log.info(f"[jarvis] Kalender: {len(CALENDAR_INFO)} Termine (7 Tage)")
+        log.info(f"[jarvis] Obsidian: {len(OBSIDIAN_INFO)} offene Notizen")
+    except Exception as e:
+        log.warning(f"[jarvis] Fehler beim Laden von jarvis-ha: {e}")
 
     try:
         archive = await news.get_archive()
@@ -2884,14 +2890,27 @@ async def startup_and_refresh():
     # Normal 30-minute refresh loop
     while True:
         await asyncio.sleep(30 * 60)
-        log.info("[jarvis] Periodic refresh...")
-        WEATHER_INFO = await loop.run_in_executor(None, get_weather_sync)
-        WEATHER_FORECAST_INFO = await loop.run_in_executor(None, lambda: get_weather_forecast_sync(days=5))
-        TASKS_INFO = await loop.run_in_executor(None, get_tasks_sync)
-        MAIL_INFO = await loop.run_in_executor(None, get_mail_sync)
-        CALENDAR_INFO = await loop.run_in_executor(None, lambda: get_calendar_sync(days=7))
-        OBSIDIAN_INFO = await loop.run_in_executor(None, get_obsidian_info_sync)
-        log.info(f"[jarvis] Refresh done: Tasks={len(TASKS_INFO)}, Mails={len(MAIL_INFO)}, Kalender={len(CALENDAR_INFO)}, Obsidian={len(OBSIDIAN_INFO)}, Vorhersage={len(WEATHER_FORECAST_INFO)}")
+        log.info("[jarvis] Periodic refresh from jarvis-ha...")
+        try:
+            tasks_resp = await _call_jarvis_ha("/api/get_tasks")
+            TASKS_INFO = [t["title"] for t in tasks_resp.get("tasks", []) if t.get("source") == "reminders"]
+
+            mail_resp = await _call_jarvis_ha("/api/get_mails_unread")
+            MAIL_INFO = [f"{m['sender']} || {m['subject']}" for m in mail_resp.get("mails", [])]
+
+            notes_resp = await _call_jarvis_ha("/api/get_obsidian_notes")
+            OBSIDIAN_INFO = [n["title"] for n in notes_resp.get("notes", [])]
+
+            calendar_resp = await _call_jarvis_ha("/api/get_tasks")
+            CALENDAR_INFO = []
+            for task in calendar_resp.get("tasks", []):
+                if task.get("source") == "calendar":
+                    label = f" -- {task.get('label', '')}" if task.get('label') else ""
+                    CALENDAR_INFO.append(f"{task['title']}{label}")
+
+            log.info(f"[jarvis] Refresh: Tasks={len(TASKS_INFO)}, Mails={len(MAIL_INFO)}, Kalender={len(CALENDAR_INFO)}, Obsidian={len(OBSIDIAN_INFO)}")
+        except Exception as e:
+            log.warning(f"[jarvis] Refresh error: {e}")
 
 
 from contextlib import asynccontextmanager
