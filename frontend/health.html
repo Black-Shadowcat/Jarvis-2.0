@@ -1044,10 +1044,18 @@
                             const dotClass = isRunning ? 'watch-dot' : 'watch-dot error';
                             const status = isRunning ? 'RUNNING' : 'STOPPED';
 
+                            const launchctlIcon = service.launchctl_status === 'loaded' ? '✓' :
+                                                  service.launchctl_status === 'unloaded' ? '✗' :
+                                                  service.launchctl_status === 'optional' ? '◯' : '—';
+
+                            const keepaliveWarning = service.keepalive_error ? ' <span style="color: #ff6b6b; font-weight: bold;">⚠ FLAPPING</span>' : '';
+                            const restartBadge = service.restart_count > 0 ? `<span style="font-size: 11px; color: #ffb03b;">${service.restart_count}×</span>` : '';
+
                             item.innerHTML = `
                                 <span class="${dotClass}"></span>
                                 <span class="watch-label">${service.name}</span>
                                 <span class="watch-status">${status}</span>
+                                <span style="font-size: 11px; color: #888; margin-left: auto;">${launchctlIcon} ${restartBadge}${keepaliveWarning}</span>
                             `;
                             container.appendChild(item);
                         });

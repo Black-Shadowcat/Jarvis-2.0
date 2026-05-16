@@ -2651,7 +2651,7 @@ async def get_language():
 
 @app.get("/api/supervisor/status")
 async def get_supervisor_status():
-    """Return current health monitor status with live PIDs."""
+    """Return current health monitor status with live PIDs, LaunchAgent status, restart counts."""
     try:
         def get_pid(pattern):
             """Get PID of process matching pattern."""
@@ -2664,6 +2664,52 @@ async def get_supervisor_status():
                 print(f"[ERROR] get_pid({pattern}): {e}")
             return 0
 
+        def get_launchctl_status(service_name):
+            """Check if LaunchAgent is loaded in launchd."""
+            try:
+                result = subprocess.run(['launchctl', 'list', service_name], capture_output=True, text=True, timeout=2)
+                return "loaded" if result.returncode == 0 else "unloaded"
+            except Exception:
+                return "unknown"
+
+        def count_restarts(service_name, log_file):
+            """Count restart events for a service in supervisor.log."""
+            if not os.path.exists(log_file):
+                return 0
+            count = 0
+            try:
+                with open(log_file, "r") as f:
+                    for line in f:
+                        if f"restart" in line.lower() and service_name in line:
+                            count += 1
+            except Exception:
+                pass
+            return count
+
+        def detect_keepalive_error(service_name, log_file):
+            """Detect if service is restarting too frequently (>3 restarts in 5 minutes)."""
+            if not os.path.exists(log_file):
+                return False
+            try:
+                import re
+                from datetime import datetime, timedelta
+                now = datetime.now()
+                five_min_ago = now - timedelta(minutes=5)
+                recent_restarts = 0
+                with open(log_file, "r") as f:
+                    for line in f:
+                        if f"restart" in line.lower() and service_name in line:
+                            try:
+                                time_str = line.split()[0]
+                                restart_time = datetime.strptime(time_str, "%H:%M:%S").replace(year=now.year, month=now.month, day=now.day)
+                                if restart_time >= five_min_ago:
+                                    recent_restarts += 1
+                            except Exception:
+                                pass
+                return recent_restarts > 3
+            except Exception:
+                return False
+
         log_file = os.path.join(os.path.dirname(__file__), "..", "Library", "Logs", "jarvis-v2", "supervisor.log")
         if not os.path.exists(log_file):
             log_file = os.path.expanduser("~/Library/Logs/jarvis-v2/supervisor.log")
@@ -2674,18 +2720,61 @@ async def get_supervisor_status():
         chrome_pid = get_pid("jarvis-v2-chrome-profile")
 
         services = [
-            {"name": "SERVER", "status": "healthy" if server_pid > 0 else "error", "pid": server_pid},
-            {"name": "WEBSOCKET", "status": "healthy" if server_pid > 0 else "error", "pid": server_pid},
-            {"name": "SPEECH INPUT", "status": "healthy" if speech_pid > 0 else "error", "pid": speech_pid},
-            {"name": "WAKE MONITOR", "status": "healthy" if wake_pid > 0 else "error", "pid": wake_pid},
-            {"name": "CHROME FRONTEND", "status": "healthy" if chrome_pid > 0 else "error", "pid": chrome_pid},
-            {"name": "HOME ASSISTANT", "status": "healthy", "pid": 0},  # HA optional, always healthy if configured
+            {
+                "name": "SERVER",
+                "status": "healthy" if server_pid > 0 else "error",
+                "pid": server_pid,
+                "launchctl_status": get_launchctl_status("com.jarvis.v2.server"),
+                "restart_count": count_restarts("SERVER", log_file),
+                "keepalive_error": detect_keepalive_error("SERVER", log_file),
+            },
+            {
+                "name": "WEBSOCKET",
+                "status": "healthy" if server_pid > 0 else "error",
+                "pid": server_pid,
+                "launchctl_status": "—",
+                "restart_count": 0,
+                "keepalive_error": False,
+            },
+            {
+                "name": "SPEECH INPUT",
+                "status": "healthy" if speech_pid > 0 else "error",
+                "pid": speech_pid,
+                "launchctl_status": get_launchctl_status("com.jarvis.v2.speech"),
+                "restart_count": count_restarts("SPEECH", log_file),
+                "keepalive_error": detect_keepalive_error("SPEECH", log_file),
+            },
+            {
+                "name": "WAKE MONITOR",
+                "status": "healthy" if wake_pid > 0 else "error",
+                "pid": wake_pid,
+                "launchctl_status": get_launchctl_status("com.jarvis.v2.wake"),
+                "restart_count": count_restarts("WAKE", log_file),
+                "keepalive_error": detect_keepalive_error("WAKE", log_file),
+            },
+            {
+                "name": "CHROME FRONTEND",
+                "status": "healthy" if chrome_pid > 0 else "error",
+                "pid": chrome_pid,
+                "launchctl_status": "—",
+                "restart_count": count_restarts("CHROME", log_file),
+                "keepalive_error": detect_keepalive_error("CHROME", log_file),
+            },
+            {
+                "name": "HOME ASSISTANT",
+                "status": "healthy",
+                "pid": 0,
+                "launchctl_status": "optional",
+                "restart_count": 0,
+                "keepalive_error": False,
+            },
         ]
 
-        # Calculate health score: 100 for all critical, -20 per missing critical service
+        # Calculate health score: 100 for all critical, -20 per missing critical service, -10 per keepalive error
         critical_services = [s for s in services[:5]]  # First 5 are critical, HA is optional
         missing_critical = sum(1 for s in critical_services if s["status"] == "error")
-        health_score = max(0, 100 - (missing_critical * 20))
+        keepalive_errors = sum(1 for s in critical_services if s.get("keepalive_error", False))
+        health_score = max(0, 100 - (missing_critical * 20) - (keepalive_errors * 10))
 
         status = {
             "status": "operational" if health_score >= 80 else "degraded" if health_score >= 50 else "error",
