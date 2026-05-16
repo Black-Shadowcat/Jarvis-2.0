@@ -624,9 +624,19 @@ async def _run():
     # Enable memory profiling for C3 leak detection
     tracemalloc.start()
 
+    # B020 WORKAROUND: Restart process every 30min to prevent mlx_whisper memory leak
+    async def _memory_watchdog():
+        while True:
+            await asyncio.sleep(1800)  # 30 minutes
+            log.warning("[B020] Memory watchdog: restarting process to clear mlx_whisper leak")
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+
     _loop  = asyncio.get_running_loop()
     _loop.add_signal_handler(signal.SIGUSR2, _load_vad_calibration)  # M10: Live-reload VAD calibration
     _queue = asyncio.Queue()
+
+    # Start memory watchdog (B020 workaround)
+    asyncio.create_task(_memory_watchdog())
 
     stream   = sd.InputStream(samplerate=SAMPLE_RATE, channels=1,
                                dtype="float32", blocksize=CHUNK_SIZE,
