@@ -252,6 +252,31 @@ with open(os.path.join(os.path.dirname(__file__), "version.json")) as _vf:
 
 _update_cache: dict = {"checked_at": None, "result": None}
 
+# ── M11: Transcript Caching & Deduplication ────────────────────────
+import hashlib
+
+_dedup_last: dict = {}       # session_id → {"text": str, "ts": float}
+_DEDUP_WINDOW = 5.0          # seconds
+
+_summary_cache: dict = {}    # key → {"summary": str, "ts": float, "hits": int}
+_SUMMARY_CACHE_TTL = 1800    # 30 minutes
+
+def _summary_cache_key(action_type: str, action_result: str) -> str:
+    raw = f"{action_type}|{action_result}"
+    return hashlib.md5(raw.encode()).hexdigest()[:16]
+
+def _get_summary_cached(action_type: str, action_result: str) -> str | None:
+    key = _summary_cache_key(action_type, action_result)
+    entry = _summary_cache.get(key)
+    if entry and time.time() - entry["ts"] < _SUMMARY_CACHE_TTL:
+        entry["hits"] += 1
+        return entry["summary"]
+    return None
+
+def _set_summary_cached(action_type: str, action_result: str, summary: str):
+    key = _summary_cache_key(action_type, action_result)
+    _summary_cache[key] = {"summary": summary, "ts": time.time(), "hits": 0}
+
 def _semver_gt(a: str, b: str) -> bool:
     try:
         return [int(x) for x in a.lstrip("v").split(".")] > [int(x) for x in b.lstrip("v").split(".")]
@@ -1563,14 +1588,21 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
                 f"KEINE Tags in eckigen Klammern. KEINE ACTION-Tags."
             )
             max_tok = 80
-        summary_resp = await ai.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=max_tok,
-            system=summary_system,
-            messages=[{"role": "user", "content": action_result}],
-        )
-        summary = summary_resp.content[0].text
-        summary, _ = extract_action(summary)
+        # ── M11: Check Summary Cache ───────────────────────────────
+        cached_summary = _get_summary_cached(action["type"], action_result)
+        if cached_summary:
+            log.info(f"[cache] HIT {action['type']}")
+            summary = cached_summary
+        else:
+            summary_resp = await ai.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=max_tok,
+                system=summary_system,
+                messages=[{"role": "user", "content": action_result}],
+            )
+            summary = summary_resp.content[0].text
+            summary, _ = extract_action(summary)
+            _set_summary_cached(action["type"], action_result, summary)
     else:
         summary = f"Das hat leider nicht funktioniert, {USER_ADDRESS}."
 
@@ -1589,6 +1621,13 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     global MAIL_INFO, _last_activate_spoken, _morning_news_text
     if session_id not in conversations:
         conversations[session_id] = []
+
+    # ── M11: Deduplication Guard ───────────────────────────────────
+    last = _dedup_last.get(session_id)
+    if last and last["text"] == user_text and time.time() - last["ts"] < _DEDUP_WINDOW:
+        log.info(f"[dedup] Duplicate dropped within {_DEDUP_WINDOW}s: '{user_text[:40]}'")
+        return
+    _dedup_last[session_id] = {"text": user_text, "ts": time.time()}
 
     if "jarvis activate" in user_text.lower():
         # Debounce: suppress rapid duplicates from WS reconnects / multiple tabs
@@ -1811,14 +1850,21 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
                 f"KEINE Tags in eckigen Klammern. KEINE ACTION-Tags."
             )
             max_tok = 80
-        summary_resp = await ai.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=max_tok,
-            system=summary_system,
-            messages=[{"role": "user", "content": action_result}],
-        )
-        summary = summary_resp.content[0].text
-        summary, _ = extract_action(summary)
+        # ── M11: Check Summary Cache ───────────────────────────────
+        cached_summary = _get_summary_cached(action["type"], action_result)
+        if cached_summary:
+            log.info(f"[cache] HIT {action['type']}")
+            summary = cached_summary
+        else:
+            summary_resp = await ai.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=max_tok,
+                system=summary_system,
+                messages=[{"role": "user", "content": action_result}],
+            )
+            summary = summary_resp.content[0].text
+            summary, _ = extract_action(summary)
+            _set_summary_cached(action["type"], action_result, summary)
     else:
         summary = f"Das hat leider nicht funktioniert, {USER_ADDRESS}."
 
@@ -2933,6 +2979,27 @@ async def set_vad_config(request: Request):
 
     log.info(f"[VAD] Config updated: voice_rms={payload.get('voice_rms', 'unchanged')}, reloaded={reloaded}")
     return {"ok": True, "reloaded": reloaded, "config": payload}
+
+
+# ── M11: Cache Stats Endpoint ──────────────────────────────────────
+
+@app.get("/api/cache/stats")
+async def get_cache_stats():
+    """Return transcript cache statistics."""
+    now = time.time()
+    active = {k: v for k, v in _summary_cache.items()
+              if now - v["ts"] < _SUMMARY_CACHE_TTL}
+    total_hits = sum(v["hits"] for v in active.values())
+    return {
+        "entries": len(active),
+        "total_hits": total_hits,
+        "ttl_seconds": _SUMMARY_CACHE_TTL,
+        "entries_detail": [
+            {"hits": v["hits"], "age_s": int(now - v["ts"]),
+             "summary_preview": v["summary"][:60]}
+            for v in sorted(active.values(), key=lambda x: -x["hits"])[:5]
+        ]
+    }
 
 
 @app.get("/api/update_check")
