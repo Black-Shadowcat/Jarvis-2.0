@@ -15,6 +15,7 @@ Gesprächsmodus:
 
 import asyncio
 import difflib
+import gc
 import logging
 import queue
 import re
@@ -23,6 +24,7 @@ import time
 import json
 import os
 import sys
+import tracemalloc
 import urllib.request
 import numpy as np
 import sounddevice as sd
@@ -66,6 +68,10 @@ WW_SILENCE_RMS  = 0.001   # Stille (unterhalb)
 WW_MAX_SECS     = 5.0    # Maximale Länge des Erkennung-Snippets
 WW_SILENCE_SECS = 0.8    # Stille nach letztem Wort → Snippet fertig
 WW_CMD_SILENCE  = 1.5    # Stille nach Befehl → Aufnahme beenden
+
+# Memory limits (prevent unbounded growth)
+MAX_AUDIO_BUFFER_SECS = 30  # Max 30s of audio in _audio_buffer before forced stop
+MAX_SNIPPET_SECS = 10       # Max 10s per snippet accumulation
 
 # Bekannte Whisper-Fehltranskriptionen von "Jarvis"
 _JARVIS_ALIASES = {"jarvis", "javis", "jarwis", "jarves", "garvis", "jarvis.", "javis."}
@@ -117,6 +123,22 @@ def _notify_ptt(state: str):
         urllib.request.urlopen(req, timeout=1)
     except Exception:
         pass
+
+
+# ── Memory Profiling (detect leaks) ──────────────────────────────────────
+
+def _log_memory_snapshot(label: str):
+    """Log current memory usage for C3 leak detection."""
+    try:
+        gc.collect()  # Force garbage collection before snapshot
+        snap = tracemalloc.take_snapshot()
+        top_stats = snap.statistics('lineno')[:3]
+        total_mb = sum(stat.size for stat in snap.statistics('lineno')) / 1024 / 1024
+        log.debug(f"[memory] {label}: {total_mb:.1f} MB total")
+        for stat in top_stats:
+            log.debug(f"  {stat}")
+    except Exception as e:
+        log.debug(f"[memory] snapshot failed: {e}")
 
 
 # ── Phase 2 Observability: Speech State Tracking ────────────────────────
@@ -218,17 +240,24 @@ def _on_release(key):
 
 def _transcribe(audio: np.ndarray):
     log.info("■ Transkribiere…")
-    result = mlx_whisper.transcribe(
-        audio,
-        path_or_hf_repo=WHISPER_MODEL,
-        language="de",
-    )
-    text = result["text"].strip()
-    if not text or text.lower() in _HALLUCINATIONS:
-        log.debug(f"(verworfen: '{text}')")
-        return
-    log.info(f"» {text}")
-    asyncio.run_coroutine_threadsafe(_queue.put(text), _loop)
+    try:
+        _log_memory_snapshot("[transcribe] before")
+        result = mlx_whisper.transcribe(
+            audio,
+            path_or_hf_repo=WHISPER_MODEL,
+            language="de",
+        )
+        text = result["text"].strip()
+        if not text or text.lower() in _HALLUCINATIONS:
+            log.debug(f"(verworfen: '{text}')")
+            return
+        log.info(f"» {text}")
+        asyncio.run_coroutine_threadsafe(_queue.put(text), _loop)
+    finally:
+        # Explicitly free the audio buffer and force GC
+        del audio
+        gc.collect()
+        _log_memory_snapshot("[transcribe] after")
 
 
 # ── RMS-Watchdog: Audio-Device-Recovery nach Sleep/Wake ────────────────────
@@ -310,10 +339,17 @@ def _auto_listen(timeout: float):
         rec_start = time.time()
         while _recording and (time.time() - rec_start) < max_secs:
             time.sleep(0.1)
+
+            # Check buffer size to prevent unbounded growth
             with _buffer_lock:
+                buffer_secs = sum(len(chunk) for chunk in _audio_buffer) / SAMPLE_RATE
+                if buffer_secs > MAX_AUDIO_BUFFER_SECS:
+                    log.warning(f"auto_listen: buffer exceeded {MAX_AUDIO_BUFFER_SECS}s — stopping")
+                    break
                 if not _audio_buffer:
                     continue
                 recent = _audio_buffer[-1]
+
             rms_c = float(np.sqrt(np.mean(recent.astype(np.float32) ** 2)))
             if rms_c < WW_SILENCE_RMS:
                 silence_c += 0.1
@@ -355,8 +391,15 @@ def _ww_thread():
     chunk_secs = CHUNK_SIZE / SAMPLE_RATE  # 0.1 s
     chunk_count = 0
     last_rms_log = 0
+    last_gc = time.time()
 
     while True:
+        # Periodic garbage collection (every 30s) to prevent unbounded growth
+        if time.time() - last_gc > 30:
+            gc.collect()
+            _log_memory_snapshot("[_ww_thread] periodic GC")
+            last_gc = time.time()
+
         # 1. Warte auf Sprachbeginn (RMS-VAD)
         # Timeout nötig: wenn _jarvis_speaking=True füllt _audio_cb die Queue nicht —
         # ohne Timeout würde .get() ewig blockieren und der Auto-Reset nie greifen.
@@ -394,6 +437,11 @@ def _ww_thread():
         total_secs   = chunk_secs
 
         while total_secs < WW_MAX_SECS and not _recording and not _ww_muted and not _jarvis_speaking:
+            # Safety limit: prevent snippet from growing unbounded
+            if total_secs > MAX_SNIPPET_SECS:
+                log.warning(f"_ww_thread: snippet exceeded {MAX_SNIPPET_SECS}s — truncating")
+                break
+
             try:
                 c = _detect_q.get(timeout=0.3)
             except queue.Empty:
@@ -415,21 +463,32 @@ def _ww_thread():
 
         # 3. Transkribiere Snippet
         audio_snip = np.concatenate(snippet).flatten()
+        del snippet  # Explicit cleanup
+
         if len(audio_snip) / SAMPLE_RATE < 0.3:
             threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
             _write_state("IDLE", inference_active=False)  # Phase 2: Back to idle
+            del audio_snip
+            gc.collect()
             continue
 
         _write_state("TRANSCRIBING", inference_active=False)  # Phase 2: Before model load
         start_time = time.time()
-        result = mlx_whisper.transcribe(
-            audio_snip,
-            path_or_hf_repo=WHISPER_MODEL,
-            language="de",
-            initial_prompt="Jarvis.",
-        )
-        transcription_duration = time.time() - start_time
-        text = result["text"].strip()
+        try:
+            _log_memory_snapshot("[ww_thread] before whisper")
+            result = mlx_whisper.transcribe(
+                audio_snip,
+                path_or_hf_repo=WHISPER_MODEL,
+                language="de",
+                initial_prompt="Jarvis.",
+            )
+            transcription_duration = time.time() - start_time
+            text = result["text"].strip()
+            _log_memory_snapshot("[ww_thread] after whisper")
+        finally:
+            del audio_snip  # Explicit cleanup of audio buffer
+            gc.collect()
+
         _detect_q_flush()
         _write_state("IDLE", inference_active=False, last_duration_s=transcription_duration)  # Phase 2: Done
 
@@ -502,6 +561,10 @@ async def _receiver(ws):
 
 async def _run():
     global _loop, _queue, _stream_ref, _last_nonzero_rms_time
+
+    # Enable memory profiling for C3 leak detection
+    tracemalloc.start()
+
     _loop  = asyncio.get_running_loop()
     _queue = asyncio.Queue()
 
