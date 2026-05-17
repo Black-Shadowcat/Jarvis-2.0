@@ -1767,9 +1767,9 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
             )
             max_tok = 80
         # ── M11: Check Summary Cache ───────────────────────────────
-        cached_summary = _get_summary_cached(action["type"], action_result)
+        cached_summary = _get_summary_cached(legacy["type"], action_result)
         if cached_summary:
-            log.info(f"[cache] HIT {action['type']}")
+            log.info(f"[cache] HIT {legacy['type']}")
             summary = cached_summary
         else:
             summary_resp = await ai.messages.create(
@@ -1780,7 +1780,7 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
             )
             summary = summary_resp.content[0].text
             summary, _ = extract_action(summary)
-            _set_summary_cached(action["type"], action_result, summary)
+            _set_summary_cached(legacy["type"], action_result, summary)
     else:
         summary = f"Das hat leider nicht funktioniert, {USER_ADDRESS}."
 
@@ -2039,9 +2039,9 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
             )
             max_tok = 80
         # ── M11: Check Summary Cache ───────────────────────────────
-        cached_summary = _get_summary_cached(action["type"], action_result)
+        cached_summary = _get_summary_cached(legacy["type"], action_result)
         if cached_summary:
-            log.info(f"[cache] HIT {action['type']}")
+            log.info(f"[cache] HIT {legacy['type']}")
             summary = cached_summary
         else:
             summary_resp = await ai.messages.create(

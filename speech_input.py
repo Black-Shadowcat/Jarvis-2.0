@@ -250,6 +250,8 @@ def _audio_cb(indata, frames, time_info, status):
 def _on_press(key):
     if key == PTT_KEY:
         global _in_conversation, _recording
+        if _jarvis_speaking:
+            return  # Aufnahme während TTS verursacht Echo — ignorieren
         _in_conversation = False  # F19 beendet aktiven Gesprächsmodus
         if not _ptt_active:       # Nur auto_listen unterbrechen, nicht eigene PTT-Aufnahme
             _recording = False
@@ -620,9 +622,14 @@ def _ensure_single_instance():
                         return _ensure_single_instance()
             except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
-            # If we can't kill, just continue (log warning)
-            log.warning("[B021] Another instance holds lock, but couldn't determine PID")
+            # Lock held but PID unlesbar — Lock-Datei löschen und neu versuchen
+            log.warning("[B021] Lock held but PID unreadable — removing stale lock and retrying")
             os.close(fd)
+            try:
+                os.remove(lock_file)
+            except OSError:
+                pass
+            return _ensure_single_instance()
 
     except Exception as e:
         log.warning(f"[B021] Lock failed: {e} (continuing anyway)")
