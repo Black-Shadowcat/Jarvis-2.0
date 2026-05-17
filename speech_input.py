@@ -15,6 +15,7 @@ Gesprächsmodus:
 
 import asyncio
 import difflib
+import fcntl
 import gc
 import logging
 import os
@@ -587,36 +588,46 @@ async def _receiver(ws):
             log.info(f"Wake-Word {'deaktiviert' if _ww_muted else 'aktiviert'}")
 
 
-# ── B021: Prevent Duplicate speech_input.py Processes (File-Lock) ──────────
+# ── B021: Prevent Duplicate speech_input.py Processes (OS-Level Lock) ──────
 def _ensure_single_instance():
-    """Ensure only one speech_input.py process runs using file-based lock."""
+    """Ensure only one speech_input.py process runs using OS-level fcntl lock."""
     lock_file = os.path.expanduser("~/.jarvis-speech-input.lock")
     current_pid = os.getpid()
 
     try:
-        # Read existing lock file if it exists
-        if os.path.exists(lock_file):
-            with open(lock_file, 'r') as f:
-                old_pid_str = f.read().strip()
+        # Create lock file and try exclusive lock
+        fd = os.open(lock_file, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o644)
+        try:
+            # Try exclusive lock (will fail if another process holds it)
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # We got the lock! Write PID and keep fd open
+            os.write(fd, str(current_pid).encode())
+            log.info(f"[B021] OS-level lock acquired (PID {current_pid})")
+            # Keep fd open to hold the lock
+            return
+        except IOError:
+            # Lock held by another process — kill it if stale
             try:
+                with open(lock_file, 'r') as f:
+                    old_pid_str = f.read().strip()
                 old_pid = int(old_pid_str)
-                # Check if old process still exists
                 if psutil.pid_exists(old_pid):
                     old_proc = psutil.Process(old_pid)
                     if 'speech_input.py' in ' '.join(old_proc.cmdline() or []):
-                        log.warning(f"Killing existing speech_input.py process PID {old_pid}")
+                        log.warning(f"Killing stale speech_input.py process PID {old_pid}")
                         old_proc.kill()
-                        time.sleep(0.2)
+                        time.sleep(0.5)
+                        # Recursively try lock again
+                        os.close(fd)
+                        return _ensure_single_instance()
             except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
-
-        # Write current PID to lock file (atomic via temp file)
-        with open(lock_file, 'w') as f:
-            f.write(str(current_pid))
-        log.info(f"[B021] Single-instance lock acquired (PID {current_pid})")
+            # If we can't kill, just continue (log warning)
+            log.warning("[B021] Another instance holds lock, but couldn't determine PID")
+            os.close(fd)
 
     except Exception as e:
-        log.warning(f"[B021] Lock initialization failed: {e} (continuing anyway)")
+        log.warning(f"[B021] Lock failed: {e} (continuing anyway)")
 
 
 async def _run():
@@ -678,6 +689,5 @@ async def _run():
 
 
 if __name__ == "__main__":
-    # TEMP: Disabled for debugging — causes rapid memory growth
-    # _ensure_single_instance()  # B021: Kill any duplicate processes before starting
+    _ensure_single_instance()  # B021 v3: OS-level fcntl lock (robust)
     asyncio.run(_run())
