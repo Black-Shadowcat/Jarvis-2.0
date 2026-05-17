@@ -1453,11 +1453,23 @@ async def _send_stt(msg: dict):
             pass
 
 
+_pending_listen_task: asyncio.Task | None = None
+
+
 async def _send_listen_open(delay: float):
-    """Nach TTS: sendet speaking_end + listen_open nach geschätzter Abspieldauer."""
+    """Fallback: sendet speaking_end + listen_open wenn audio_done nie eintrifft."""
+    global _pending_listen_task
     await asyncio.sleep(delay)
     await _send_stt({"type": "speaking_end"})
     await _send_stt({"type": "listen_open", "timeout": 6})
+    _pending_listen_task = None
+
+
+def _cancel_listen_task():
+    global _pending_listen_task
+    if _pending_listen_task and not _pending_listen_task.done():
+        _pending_listen_task.cancel()
+    _pending_listen_task = None
 
 
 async def _synthesize_audio(text: str, voice_id: Optional[str] = None) -> str:
@@ -1532,11 +1544,13 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
         except Exception:
             pass
     # Nach TTS: Mikrofon-Fenster öffnen (speech_input.py reagiert nur wenn im Gespräch)
+    _cancel_listen_task()
     if audio_b64:
-        delay = max(1.0, len(audio_b64) / 5000) + 0.5  # base64 ≈ 1.33x original size
+        # audio_done from frontend triggers speaking_end; 60s fallback if it never arrives
+        _pending_listen_task = asyncio.create_task(_send_listen_open(60.0))
     else:
-        delay = 1.5
-    asyncio.create_task(_send_listen_open(delay))
+        # No audio (TTS failed) — send speaking_end after short delay
+        _pending_listen_task = asyncio.create_task(_send_listen_open(1.5))
 
 
 # ── Structured Output Dispatcher ──────────────────────────────────────────
@@ -2077,6 +2091,11 @@ async def websocket_endpoint(ws: WebSocket):
         while True:
             data = await ws.receive_json()
             if data.get("type") == "ping":
+                continue
+            if data.get("type") == "audio_done":
+                _cancel_listen_task()
+                await _send_stt({"type": "speaking_end"})
+                await _send_stt({"type": "listen_open", "timeout": 6})
                 continue
             user_text = data.get("text", "").strip()
             if not user_text:
