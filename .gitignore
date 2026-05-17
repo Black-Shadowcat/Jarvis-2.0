@@ -18,3 +18,7 @@ venv/
 
 # Logs
 *.log
+
+# Rust / Tauri
+target/
+src-tauri/target/
