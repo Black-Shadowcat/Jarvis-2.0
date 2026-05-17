@@ -3654,4 +3654,4 @@ if __name__ == "__main__":
     log.info("  J.A.R.V.I.S. V2 Server")
     log.info(f"  http://localhost:{port}")
     log.info("=" * 50)
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port, ws_ping_interval=15, ws_ping_timeout=10)
