@@ -3,10 +3,10 @@
 # Wartet auf macOS-Bereitschaft + Server, dann öffnet Frontend.
 #
 # Umgebungsvariablen:
-#   USE_TAURI=0  → Chrome Kiosk-Mode (Standard, Production)
-#   USE_TAURI=1  → Native Tauri-App (Phase 3 Migration)
+#   USE_TAURI=1  → Native Tauri-App (Standard, v2.0.0)
+#   USE_TAURI=0  → Chrome Kiosk-Mode (Legacy-Fallback)
 
-USE_TAURI="${USE_TAURI:-0}"
+USE_TAURI="${USE_TAURI:-1}"
 JARVIS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TAURI_BINARY="$JARVIS_DIR/target/debug/jarvis-tauri"
 

@@ -1,7 +1,7 @@
-# J.A.R.V.I.S. — Jarvis 2.0 (macOS v1.0.0)
+# J.A.R.V.I.S. — Jarvis 2.0 (macOS v2.0.0-beta)
 
-> **Jarvis 2.0 v1.0.0** is a complete redesign of the original [jarvis-voice-assistant](https://github.com/Black-Shadowcat/jarvis-voice-assistant) (v2.x).  
-> It replaces the browser-based Web Speech API with **local Whisper STT** on Apple MLX.  
+> **Jarvis 2.0 v2.0.0-beta** is a complete redesign of the original [jarvis-voice-assistant](https://github.com/Black-Shadowcat/jarvis-voice-assistant) (v2.x).  
+> It replaces the browser-based Web Speech API with **local Whisper STT** on Apple MLX, and uses a **native Tauri app** instead of Chrome Kiosk (86% less memory).  
 > Production-ready with **3 independent microservices** (Core, Audio, Dashboard) for reliability and scalability.
 >
 > Built by Matthias Schreiber with [Claude Code](https://claude.ai/code). No support provided. Personal use only.
@@ -10,15 +10,15 @@
 
 ## What Changed vs. v2.x
 
-| Old JARVIS (v2.x) | Jarvis 2.0 (v1.0.0) |
+| Old JARVIS (v2.x) | Jarvis 2.0 (v2.0.0-beta) |
 |---|---|
 | Web Speech API (Chrome) | mlx-whisper large-v3 (local, Apple Silicon) |
 | Chrome microphone permission | pynput + sounddevice (system-level) |
 | No wake word | Wake word **"Jarvis"** (say "Jarvis, …") |
 | F19 PTT only | F19 PTT **+** Wake Word |
 | Port 8340 | Port **8340** |
-| `--app --start-fullscreen` | `--kiosk` (true kiosk mode) |
-| Cmd+Shift+J launch | Automator App + LaunchAgent |
+| Chrome `--kiosk` (400–600 MB) | **Native Tauri App** (~66 MB, WKWebView) |
+| Cmd+Shift+J launch | Cmd+Shift+J → Tauri via LaunchAgent |
 
 ---
 
@@ -46,7 +46,7 @@
 - **Daily Brief Memory System** — Morning/pause/absence/evening briefs with state tracking.
 - **Wake-from-Sleep** — Detects screen unlock, delivers contextual brief.
 - **Update Badge** — All pages show a badge when a new GitHub release is available.
-- **Kiosk Mode** — Chrome opens in true kiosk mode (no browser chrome, full screen).
+- **Native Tauri App** — Replaces Chrome Kiosk. ~66 MB vs. 480 MB (86% less memory), no Chrome required. Chrome fallback still available via `USE_TAURI=0`.
 - **Automator App** — `~/Applications/Jarvis starten.app` for manual start with custom icon.
 - **launchd Autostart** — Server, speech input, and session launch on login.
 
@@ -83,11 +83,14 @@ speech_input.py
    │  Synthesis  │      └─Lights (HA)      │
    └─────────────┘      └──────────────────┘
         ↓
-Audio chunks → Chrome (kiosk) → You
+Audio chunks → Tauri (native WKWebView) → You
+                [Chrome fallback: USE_TAURI=0]
 ```
 
 | Component | Technology | Purpose |
 |---|---|---|
+| **Frontend (Primary)** | Tauri 2 + WKWebView (~66 MB) | Native macOS app, fullscreen 1920×1200 |
+| **Frontend (Fallback)** | Chrome `--kiosk` (`USE_TAURI=0`) | Legacy fallback, always available |
 | Wake Word + PTT | mlx-whisper large-v3 + pynput | Voice-to-text, local |
 | **jarvis-core** | FastAPI (Python 3.11), Port 8340 | LLM orchestration + action routing |
 | **jarvis-audio** | FastAPI microservice, Port 8341 | TTS synthesis (ElevenLabs) |
@@ -106,7 +109,8 @@ Audio chunks → Chrome (kiosk) → You
 
 - **macOS 14+** (Apple Silicon, tested on M4)
 - **Python 3.11** via Homebrew (`/opt/homebrew/bin/python3.11`)
-- **Google Chrome**
+- **Rust + Cargo** (for Tauri build, installed automatically if missing — see Quick Start)
+- **Google Chrome** (optional — legacy fallback only, not required for normal use)
 - **Accessibility permission** for speech_input.py (System Settings → Privacy → Accessibility)
 - **Home Assistant** (optional, for lights and CalDAV calendar)
 
@@ -155,20 +159,24 @@ No STT API key needed — Whisper runs locally on Apple Silicon.
    launchctl load ~/Library/LaunchAgents/com.jarvis.v2.session.plist
    ```
 
-5. Open `http://localhost:8340` if Chrome doesn't open automatically.
+5. The Tauri app opens automatically. If not: `bash ~/Jarvis-2.0/scripts/launch-session.sh`
+   (Chrome fallback: `USE_TAURI=0 bash ~/Jarvis-2.0/scripts/launch-session.sh`)
 
 ---
 
 ## Manual Start
 
-**Option A — Automator App** (recommended):
-```
-Double-click: ~/Applications/Jarvis starten.app
-```
+**Option A — Hotkey** (recommended): `Cmd+Shift+J` → starts Tauri automatically
 
 **Option B — Terminal:**
 ```bash
-bash ~/Jarvis-2.0/scripts/launch-session.sh
+bash ~/Jarvis-2.0/scripts/launch-session.sh       # Tauri (default)
+USE_TAURI=0 bash ~/Jarvis-2.0/scripts/launch-session.sh  # Chrome (fallback)
+```
+
+**Option C — Automator App:**
+```
+Double-click: ~/Applications/Jarvis starten.app
 ```
 
 ---
@@ -232,8 +240,12 @@ Jarvis 2.0/
 │   ├── com.jarvis.v2.session.plist     # Browser session autostart
 │   ├── com.jarvis.v2.wake.plist        # Wake-from-sleep handler
 │   └── com.jarvis.v2.supervisor.plist  # Health supervisor
+├── src-tauri/             # Tauri native app (Rust)
+│   ├── src/lib.rs         # IPC bridge (get_status, get_version, send_chat)
+│   ├── tauri.conf.json    # Tauri config (devUrl → http://localhost:8340)
+│   └── Cargo.toml
 └── scripts/
-    ├── launch-session.sh  # Starts Chrome in kiosk mode
+    ├── launch-session.sh  # Starts Tauri (default) or Chrome (USE_TAURI=0)
     └── wake-monitor.py    # Wake-from-sleep → /api/wake
 ```
 
@@ -249,7 +261,7 @@ All agents in `~/Library/LaunchAgents/` — auto-restart on crash:
 | `com.jarvis.v2.audio.plist` | 8341 | **jarvis-audio** — TTS Synthesis |
 | `com.jarvis.v2.ha.plist` | 8342 | **jarvis-ha** — Dashboard + Home Assistant |
 | `com.jarvis.v2.speech.plist` | — | **speech_input.py** — Wake word + F19 PTT |
-| `com.jarvis.v2.session.plist` | — | **Chrome Browser** — Kiosk UI |
+| `com.jarvis.v2.session.plist` | — | **Tauri App** — Native UI (Chrome fallback via `USE_TAURI=0`) |
 | `com.jarvis.v2.wake.plist` | — | **wake-monitor.py** — Wake-from-sleep detection |
 | `com.jarvis.v2.supervisor.plist` | — | **supervisor.py** — Health Monitor (30s checks) |
 
@@ -274,7 +286,8 @@ tail -f ~/Library/Logs/jarvis-v2/supervisor.log
 |---|---|
 | Server not responding | `pkill -f "server.py"` — launchd restarts automatically |
 | Wake word not working | Check `~/Library/Logs/Jarvis 2.0/speech.log` |
-| Chrome won't open | Run `bash ~/Jarvis-2.0/scripts/launch-session.sh` manually |
+| Tauri won't open | Run `bash ~/Jarvis-2.0/scripts/launch-session.sh` — builds binary on first run |
+| Chrome fallback | `USE_TAURI=0 bash ~/Jarvis-2.0/scripts/launch-session.sh` |
 | Microphone permission | System Settings → Privacy → Accessibility → allow Terminal |
 | Reminders not showing | Check `~/Library/Logs/Jarvis 2.0/server.log` |
 | Browser automation fails | Run `playwright install chromium` again |
