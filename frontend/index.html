@@ -692,6 +692,10 @@ function playNext() {
 }
 
 // ── Spracherkennung: Web Speech API entfernt — Eingabe via F19 + Whisper (speech_input.py) ──
+// F19 (keyCode 130) per preventDefault() abfangen — verhindert macOS-Systemsound im WKWebView.
+// pynput verarbeitet F19 global, WKWebView soll es nicht sehen.
+document.addEventListener('keydown', e => { if (e.keyCode === 130) e.preventDefault(); }, true);
+document.addEventListener('keyup',   e => { if (e.keyCode === 130) e.preventDefault(); }, true);
 
 // ── HUD klickbar — reserviert für zukünftige Funktionen ──
 
