@@ -14,12 +14,12 @@
     "windows": [
       {
         "title": "Jarvis",
-        "width": 900,
-        "height": 700,
+        "width": 1920,
+        "height": 1200,
         "minWidth": 600,
         "minHeight": 500,
         "resizable": true,
-        "fullscreen": false,
+        "fullscreen": true,
         "center": true
       }
     ],
