@@ -52,7 +52,7 @@
 
 ---
 
-## Architecture (v1.0.0: Service Isolation)
+## Architecture (v2.0.0-beta: Tauri Native + Service Isolation)
 
 ```
 You (speak "Jarvis, ...")
