@@ -485,8 +485,8 @@ code {
         <td>Mittel</td>
     </tr>
     <tr>
-        <td><strong>Chrome HUD</strong></td>
-        <td>Browser-Frontend im Kiosk-Modus</td>
+        <td><strong>Tauri App (HUD)</strong></td>
+        <td>Native macOS-App (WKWebView)</td>
         <td>Mittel</td>
     </tr>
 </table>
@@ -496,7 +496,7 @@ code {
 <!-- ═════════════════════════════════════════ -->
 <h2 id="das-hud">Das HUD verstehen</h2>
 
-<p>Das HUD (Heads-Up Display) ist Jarvis' Oberfläche – ein Chrome-Fenster im Vollbild-Kiosk-Modus ohne Browser-Leisten.</p>
+<p>Das HUD (Heads-Up Display) ist Jarvis' Oberfläche – eine native macOS-App (Tauri/WKWebView) im Vollbild ohne Browser-Leisten. Chrome wird nicht benötigt.</p>
 
 <div class="screenshot-frame">
     <div class="label">📸 Das Jarvis HUD</div>
@@ -791,13 +791,13 @@ Oder: Zahnrad-Symbol im HUD.</p>
         <td>Process Restart<br>via supervisor</td>
     </tr>
     <tr>
-        <td><strong>Chrome HUD</strong><br>(Browser)</td>
+        <td><strong>Tauri App (HUD)</strong><br>(Native WKWebView)</td>
         <td>
             Benutzer-Interface<br>
             WebSocket Reconnect<br>
             Echtzeit-Status
         </td>
-        <td>Browser-Reload<br>automatisch</td>
+        <td>Cmd+R Reload<br>automatisch</td>
     </tr>
 </table>
 
@@ -1140,7 +1140,7 @@ Doppelklick auf <code>~/Applications/Jarvis starten.app</code></p>
 <ol>
     <li>Server startet (falls noch nicht laufend)</li>
     <li>Speech Input startet (Wake-Word bereit)</li>
-    <li>Chrome öffnet im Kiosk-Modus (ganzer Bildschirm)</li>
+    <li>Tauri-App öffnet im Vollbild (ganzer Bildschirm)</li>
     <li>Jarvis begrüßt dich mit Wetter, Aufgaben, Kalender</li>
 </ol>
 
@@ -1208,8 +1208,8 @@ Doppelklick auf <code>~/Applications/Jarvis starten.app</code></p>
 <!-- ═════════════════════════════════════════ -->
 <h2 id="grenzen">Bekannte Grenzen</h2>
 
-<h3>Browser-Audio</h3>
-<p>Die Audioausgabe läuft über Chrome – systembedingt könnten es Echo-Probleme bei schlecht gelosten Räumen geben.</p>
+<h3>Audio-Ausgabe</h3>
+<p>Die Audioausgabe läuft über die native Tauri-App (WKWebView) – ohne Chrome-Autoplay-Beschränkungen. Echo-Probleme durch Browser-Policies sind damit Geschichte.</p>
 
 <h3>macOS Sleep/Wake</h3>
 <p>macOS Wake-Events sind nicht immer konsistent. Manchmal doppelt, manchmal zu spät. Das ist ein macOS-Problem, nicht Jarvis.</p>
@@ -1250,8 +1250,9 @@ Doppelklick auf <code>~/Applications/Jarvis starten.app</code></p>
 <h3>Kein Wetter in Begrüßung</h3>
 <p>Kachelmann API Key fehlt oder ist falsch. Optional – ohne Key kein Wetter, aber alles andere funktioniert.</p>
 
-<h3>Chrome öffnet sich nicht</h3>
-<p>Manuell starten: Doppelklick <code>~/Applications/Jarvis starten.app</code> oder Terminal-Befehl oben.</p>
+<h3>Tauri-App öffnet sich nicht</h3>
+<p>Manuell starten: <code>bash ~/Jarvis-2.0/scripts/launch-session.sh</code><br>
+Chrome-Fallback: <code>USE_TAURI=0 bash ~/Jarvis-2.0/scripts/launch-session.sh</code></p>
 
 <!-- ═════════════════════════════════════════ -->
 <h2 id="tipps">Tipps & Tricks</h2>

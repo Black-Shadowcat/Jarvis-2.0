@@ -5,6 +5,96 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 
 ---
 
+## [2.0.0-beta] — 2026-05-17 — Native Tauri App (Release Candidate)
+
+> **Beta / Release Candidate.** GA-Release folgt nach 48h Nutzertest.  
+> Tauri ersetzt Chrome Kiosk vollständig. Chrome bleibt als Fallback verfügbar (`USE_TAURI=0`).
+
+### 🚀 Major: Chrome Kiosk → Native Tauri App
+
+#### Native App
+- **Tauri 2 (WKWebView)** ersetzt Chrome Kiosk als Standard-Frontend
+- Speicherverbrauch: **~66 MB** statt ~482 MB (86% weniger)
+- Kein Chrome erforderlich — Rust/Cargo als neue Voraussetzung
+- Fenster: 1920×1200, Fullscreen, ohne Browser-Leisten
+- **B006 (Audio-Blocking)** behoben: WKWebView kennt keine Autoplay-Policy
+
+#### App Bundle & Icon
+- Echtes macOS `.app` Bundle in `~/Applications/Jarvis.app`
+- Neues Icon: dunkler Orb mit Cyan-Rim-Light + Wellenform + J.A.R.V.I.S (Apple HIG compliant)
+- Icon im Dock sichtbar, Spotlight/Launchpad-Integration
+- Doppelklick-Start und Cmd+Shift+J öffnen die native App
+
+#### Stabilität & Bugs (T15 QA + T16 Stress-Test)
+- **B021+** Stale-Lock fix: Duplikat-Prozesse nach `kill -9` verhindert
+- **B023** WebSocket-Scope: `websocket`-Variable in `handle_text` korrekt übergeben
+- **B024** STT-Endpoint blockiert nicht mehr den Server-Start
+- **B025** `tts_done`-Event: `audio_done` wird erst nach echtem Playback-Ende gesendet
+- **B026** `action`-Variable nicht definiert in `handle_structured_action` bei komplexen Actions
+- **F19-Guard** F19 während TTS startet keine Aufnahme mehr (Echo-Schutz)
+- **Cmd+R** lädt WKWebView neu (Browser-Reload-Shortcut)
+- **F19 Key-Repeat** zerstörte Audio-Buffer — gefixt
+
+#### Tauri IPC Bridge (Rust)
+- `get_status` → `GET /api/supervisor/status`
+- `get_version` → `GET /api/version`
+- `send_chat` → `POST /api/chat`
+
+### 🔄 Migration
+Bestehende Nutzer: Kein manueller Eingriff nötig — LaunchAgent startet automatisch Tauri.  
+Chrome-Fallback: `USE_TAURI=0 bash scripts/launch-session.sh`
+
+---
+
+## [1.1.1] — 2026-05-17 — Stability Patch
+
+> Bugfix-Release für B017–B022. Basis-Version für die Tauri-Migration.
+
+### 🔴 Kritische Bugfixes
+
+- **B020** Memory Leak: `tracemalloc.start()` war die eigentliche Ursache (nicht der `_audio_buffer`)
+- **B021** Duplikat-Prozesse: OS-level `fcntl`-Lock ersetzt fehleranfällige Prozess-Enumeration
+- **B022** System-Prompt fehlte das aktuelle Datum
+
+### 🟡 Weitere Fixes
+
+- `speech_input.py`: `import signal` fehlte nach M10-Regression
+- Weather: Kachelmann API → Home Assistant Migration
+- Mail: AppleScript Sender + Subject-Fetch repariert
+- Weather: 6h-Forecast korrekt aus KMW Raw-Daten
+
+### 📖 Dokumentation
+
+- Vollständige Projektdoku-Restructure (Obsidian-Vault)
+- RUNTIME_ANALYSIS Runbook finalisiert
+
+---
+
+## [1.1.0] — 2026-05-17 — M-Phase Complete (M1–M17)
+
+> Vollständige Feature-Phase mit 17 Milestones.
+
+### ✨ Features
+
+- **M8** Idle-Monitoring: Letzte Nutzer-Interaktion wird getrackt
+- **M9** Graceful Shutdown: SIGTERM Lifespan Teardown
+- **M10** VAD Optimierung: Personalisierte Schwellwerte + Live-Reload
+- **M11** Transcript Caching & Deduplication
+- **M12** Vollständige Englisch-Übersetzung des System-Prompts
+- **M13** Graceful Degradation: Fallback auf Stale-Data bei Service-Ausfall
+- **M14** Email/Tasks Polling via ETag-Optimierung
+- **M15** Daily Brief Intelligence: Adaptive Schwellwerte + Kalender-Integration
+- **M16** Performance Profiling: Parallelisierung
+- **M17** Dokumentation & Runbook
+
+### 🔄 Infrastruktur
+
+- **M5** LaunchAgent: Moderne `launchctl bootstrap/bootout` Migration
+- **M6** Health Monitor: LaunchAgent-Status, Restart-Count, KeepAlive-Fehler
+- **B006** Wake-Briefing Audio: Muted-Autoplay Workaround
+
+---
+
 ## [1.0.2] — 2026-05-16 — Critical Bugfix (C4 Regression)
 
 > **Urgency:** All v1.0.1 users should upgrade immediately.

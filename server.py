@@ -1453,11 +1453,24 @@ async def _send_stt(msg: dict):
             pass
 
 
+_pending_listen_task: asyncio.Task | None = None
+_active_speaks: int = 0  # Zählt laufende _speak() Calls — tts_done nur wenn 0
+
+
 async def _send_listen_open(delay: float):
-    """Nach TTS: sendet speaking_end + listen_open nach geschätzter Abspieldauer."""
+    """Fallback: sendet speaking_end + listen_open wenn audio_done nie eintrifft."""
+    global _pending_listen_task
     await asyncio.sleep(delay)
     await _send_stt({"type": "speaking_end"})
     await _send_stt({"type": "listen_open", "timeout": 6})
+    _pending_listen_task = None
+
+
+def _cancel_listen_task():
+    global _pending_listen_task
+    if _pending_listen_task and not _pending_listen_task.done():
+        _pending_listen_task.cancel()
+    _pending_listen_task = None
 
 
 async def _synthesize_audio(text: str, voice_id: Optional[str] = None) -> str:
@@ -1505,38 +1518,51 @@ async def _call_jarvis_ha(endpoint: str, method: str = "GET", json_body: Optiona
 async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
     """TTS (via jarvis-audio service), append to history, broadcast to all connections.
     display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet."""
-    audio_b64 = await _synthesize_audio(text)
-    if audio_b64:
-        log.debug(f"  TTS OK: {len(audio_b64)} chars (base64)")
+    global _active_speaks
+    _active_speaks += 1
+    try:
+        audio_b64 = await _synthesize_audio(text)
+        if audio_b64:
+            log.debug(f"  TTS OK: {len(audio_b64)} chars (base64)")
 
-    log.info(f"  Jarvis: {text[:100]}")
-    conversations[session_id].append({"role": "assistant", "content": text})
-    tts_failed = not audio_b64 and bool(text.strip())
-    if tts_failed:
-        log.warning(f"  TTS fehlgeschlagen — kein Audio für: {text[:60]}")
+        log.info(f"  Jarvis: {text[:100]}")
+        conversations[session_id].append({"role": "assistant", "content": text})
+        tts_failed = not audio_b64 and bool(text.strip())
+        if tts_failed:
+            log.warning(f"  TTS fehlgeschlagen — kein Audio für: {text[:60]}")
+            for conn in list(active_connections):
+                try:
+                    await conn.send_json({"type": "tts_error"})
+                except Exception:
+                    pass
+        payload = {
+            "type": "response",
+            "text": display or text,
+            "audio": audio_b64,
+        }
+        # Vor Broadcast: STT informieren dass Jarvis jetzt spricht → WW stumm
+        await _send_stt({"type": "speaking_start"})
         for conn in list(active_connections):
             try:
-                await conn.send_json({"type": "tts_error"})
+                await conn.send_json(payload)
             except Exception:
                 pass
-    payload = {
-        "type": "response",
-        "text": display or text,
-        "audio": audio_b64,
-    }
-    # Vor Broadcast: STT informieren dass Jarvis jetzt spricht → WW stumm
-    await _send_stt({"type": "speaking_start"})
-    for conn in list(active_connections):
-        try:
-            await conn.send_json(payload)
-        except Exception:
-            pass
-    # Nach TTS: Mikrofon-Fenster öffnen (speech_input.py reagiert nur wenn im Gespräch)
-    if audio_b64:
-        delay = max(1.0, len(audio_b64) / 5000) + 0.5  # base64 ≈ 1.33x original size
-    else:
-        delay = 1.5
-    asyncio.create_task(_send_listen_open(delay))
+    finally:
+        _active_speaks -= 1
+
+    # Letzter _speak()-Call: tts_done senden → Browser weiß: jetzt darf audio_done kommen
+    if _active_speaks == 0:
+        for conn in list(active_connections):
+            try:
+                await conn.send_json({"type": "tts_done"})
+            except Exception:
+                pass
+        _cancel_listen_task()
+        if audio_b64:
+            # audio_done from frontend triggers speaking_end + listen_open; 60s fallback
+            _pending_listen_task = asyncio.create_task(_send_listen_open(60.0))
+        else:
+            _pending_listen_task = asyncio.create_task(_send_listen_open(1.5))
 
 
 # ── Structured Output Dispatcher ──────────────────────────────────────────
@@ -1741,9 +1767,9 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
             )
             max_tok = 80
         # ── M11: Check Summary Cache ───────────────────────────────
-        cached_summary = _get_summary_cached(action["type"], action_result)
+        cached_summary = _get_summary_cached(legacy["type"], action_result)
         if cached_summary:
-            log.info(f"[cache] HIT {action['type']}")
+            log.info(f"[cache] HIT {legacy['type']}")
             summary = cached_summary
         else:
             summary_resp = await ai.messages.create(
@@ -1754,7 +1780,7 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
             )
             summary = summary_resp.content[0].text
             summary, _ = extract_action(summary)
-            _set_summary_cached(action["type"], action_result, summary)
+            _set_summary_cached(legacy["type"], action_result, summary)
     else:
         summary = f"Das hat leider nicht funktioniert, {USER_ADDRESS}."
 
@@ -2013,9 +2039,9 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
             )
             max_tok = 80
         # ── M11: Check Summary Cache ───────────────────────────────
-        cached_summary = _get_summary_cached(action["type"], action_result)
+        cached_summary = _get_summary_cached(legacy["type"], action_result)
         if cached_summary:
-            log.info(f"[cache] HIT {action['type']}")
+            log.info(f"[cache] HIT {legacy['type']}")
             summary = cached_summary
         else:
             summary_resp = await ai.messages.create(
@@ -2058,12 +2084,20 @@ async def stt_endpoint(ws: WebSocket):
                 except Exception:
                     pass
             browser_ws = next(iter(active_connections), None)
-            await process_message(session_id, user_text, browser_ws or ws)
+            target_ws = browser_ws or ws
+            asyncio.create_task(_stt_process_with_timeout(session_id, user_text, target_ws))
     except WebSocketDisconnect:
         conversations.pop(session_id, None)
     finally:
         stt_connections.discard(ws)
         log.info(f"[jarvis] STT disconnected session={session_id}")
+
+
+async def _stt_process_with_timeout(session_id: str, user_text: str, ws: WebSocket):
+    try:
+        await asyncio.wait_for(process_message(session_id, user_text, ws), timeout=60.0)
+    except asyncio.TimeoutError:
+        log.error(f"[jarvis] process_message timeout after 60s: {user_text[:50]!r}")
 
 
 @app.websocket("/ws")
@@ -2076,6 +2110,14 @@ async def websocket_endpoint(ws: WebSocket):
     try:
         while True:
             data = await ws.receive_json()
+            if data.get("type") == "ping":
+                continue
+            if data.get("type") == "audio_done":
+                _cancel_listen_task()
+                await _send_stt({"type": "speaking_end"})
+                await asyncio.sleep(2.0)  # Echo-Schutz: 2s nach Audioende bevor Mikrofon öffnet
+                await _send_stt({"type": "listen_open", "timeout": 6})
+                continue
             user_text = data.get("text", "").strip()
             if not user_text:
                 continue
@@ -3354,10 +3396,23 @@ async def startup_and_refresh():
 
 from contextlib import asynccontextmanager
 
+async def _ws_keepalive():
+    """Sendet alle 20s ein Keepalive an alle WS-Clients (verhindert WKWebView Idle-Timeout)."""
+    while True:
+        await asyncio.sleep(20)
+        dead = set()
+        for conn in list(active_connections):
+            try:
+                await conn.send_json({"type": "keepalive"})
+            except Exception:
+                dead.add(conn)
+        active_connections.difference_update(dead)
+
 @asynccontextmanager
 async def lifespan(app):
     refresh_task = asyncio.create_task(startup_and_refresh())
     asyncio.create_task(_startup_update_check())
+    asyncio.create_task(_ws_keepalive())
     yield
 
     # ── Graceful Shutdown ─────────────────────────────────────────────
@@ -3639,4 +3694,4 @@ if __name__ == "__main__":
     log.info("  J.A.R.V.I.S. V2 Server")
     log.info(f"  http://localhost:{port}")
     log.info("=" * 50)
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port, ws_ping_interval=15, ws_ping_timeout=10)

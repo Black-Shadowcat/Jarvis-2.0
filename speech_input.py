@@ -124,6 +124,7 @@ _HALLUCINATIONS = {
 
 _audio_buffer: list  = []
 _recording:    bool  = False
+_ptt_active:   bool  = False   # True während F19 gehalten wird — verhindert Key-Repeat Reset
 _buffer_lock         = threading.Lock()
 _loop:  asyncio.AbstractEventLoop = None
 _queue: asyncio.Queue             = None
@@ -190,10 +191,11 @@ def _write_state(state: str, inference_active: bool = False, last_duration_s: fl
 # ── Gemeinsamer Start/Stop ────────────────────────────────────────────────
 
 def _start_recording(source: str = "ptt"):
-    global _recording
+    global _recording, _ptt_active
     if _recording:
         return
     _recording = True
+    _ptt_active = (source == "F19")
     with _buffer_lock:
         _audio_buffer.clear()
     log.info(f"● Aufnahme läuft… [{source}]")
@@ -201,10 +203,11 @@ def _start_recording(source: str = "ptt"):
 
 
 def _stop_recording_and_transcribe(source: str = "ptt"):
-    global _recording
+    global _recording, _ptt_active
     if not _recording:
         return
     _recording = False
+    _ptt_active = False
     threading.Thread(target=_notify_ptt, args=("stop",), daemon=True).start()
     with _buffer_lock:
         chunks = list(_audio_buffer)
@@ -246,8 +249,12 @@ def _audio_cb(indata, frames, time_info, status):
 
 def _on_press(key):
     if key == PTT_KEY:
-        global _in_conversation
+        global _in_conversation, _recording
+        if _jarvis_speaking:
+            return  # Aufnahme während TTS verursacht Echo — ignorieren
         _in_conversation = False  # F19 beendet aktiven Gesprächsmodus
+        if not _ptt_active:       # Nur auto_listen unterbrechen, nicht eigene PTT-Aufnahme
+            _recording = False
         _start_recording("F19")
 
 
@@ -615,9 +622,14 @@ def _ensure_single_instance():
                         return _ensure_single_instance()
             except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
-            # If we can't kill, just continue (log warning)
-            log.warning("[B021] Another instance holds lock, but couldn't determine PID")
+            # Lock held but PID unlesbar — Lock-Datei löschen und neu versuchen
+            log.warning("[B021] Lock held but PID unreadable — removing stale lock and retrying")
             os.close(fd)
+            try:
+                os.remove(lock_file)
+            except OSError:
+                pass
+            return _ensure_single_instance()
 
     except Exception as e:
         log.warning(f"[B021] Lock failed: {e} (continuing anyway)")

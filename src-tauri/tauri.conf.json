@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Jarvis",
+  "version": "2.0.0",
+  "identifier": "de.matthiasschreiber.jarvis",
+  "build": {
+    "beforeDevCommand": "",
+    "devUrl": "http://localhost:8340",
+    "beforeBuildCommand": "",
+    "frontendDist": "http://localhost:8340"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Jarvis",
+        "width": 1920,
+        "height": 1200,
+        "minWidth": 600,
+        "minHeight": 500,
+        "resizable": true,
+        "fullscreen": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "entitlements": "entitlements.plist",
+      "exceptionDomain": "localhost",
+      "frameworks": [],
+      "minimumSystemVersion": "12.0"
+    }
+  }
+}

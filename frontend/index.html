@@ -531,6 +531,7 @@ let _i18n        = {};
 let dashboardWs  = null;
 let audioQueue   = [];
 let isPlaying    = false;
+let _ttsAllDone  = false;
 let audioEndTime = 0;
 let isMuted      = false;
 let audioContext = null;
@@ -657,6 +658,9 @@ function playNext() {
         isPlaying = false;
         audioEndTime = Date.now();
         setOrbState('idle');
+        if (_ttsAllDone && dashboardWs && dashboardWs.readyState === WebSocket.OPEN) {
+            dashboardWs.send(JSON.stringify({type: "audio_done"}));
+        }
         return;
     }
     isPlaying = true;
@@ -689,6 +693,13 @@ function playNext() {
 }
 
 // ── Spracherkennung: Web Speech API entfernt — Eingabe via F19 + Whisper (speech_input.py) ──
+// F19 (keyCode 130) per preventDefault() abfangen — verhindert macOS-Systemsound im WKWebView.
+// pynput verarbeitet F19 global, WKWebView soll es nicht sehen.
+document.addEventListener('keydown', e => {
+    if (e.keyCode === 130) e.preventDefault();
+    if ((e.metaKey || e.ctrlKey) && e.key === 'r') { e.preventDefault(); window.location.reload(); }
+}, true);
+document.addEventListener('keyup',   e => { if (e.keyCode === 130) e.preventDefault(); }, true);
 
 // ── HUD klickbar — reserviert für zukünftige Funktionen ──
 
@@ -714,7 +725,15 @@ function initWS() {
     };
     dashboardWs.onmessage = e => {
         const data = JSON.parse(e.data);
-        if (data.type === 'response') {
+        if (data.type === 'keepalive') return;
+        if (data.type === 'tts_done') {
+            _ttsAllDone = true;
+            if (!isPlaying && audioQueue.length === 0) {
+                if (dashboardWs && dashboardWs.readyState === WebSocket.OPEN)
+                    dashboardWs.send(JSON.stringify({type: "audio_done"}));
+            }
+        } else if (data.type === 'response') {
+            _ttsAllDone = false;
             clearTimeout(window._thinkTimeout);
             setOrbState('speaking');
             addMsg('jarvis', data.text);
@@ -749,10 +768,15 @@ function initWS() {
     };
     dashboardWs.onclose = () => {
         setOrbState('idle');
+        if (window._wsHeartbeat) { clearInterval(window._wsHeartbeat); window._wsHeartbeat = null; }
         setTimeout(initWS, _wsDelay);
         _wsDelay = Math.min(_wsDelay * 2, 60000);
     };
     dashboardWs.onerror = () => {};
+    // Heartbeat alle 20s — verhindert WKWebView Idle-Timeout (~30s)
+    window._wsHeartbeat = setInterval(() => {
+        if (dashboardWs?.readyState === WebSocket.OPEN) wsSend({ type: 'ping' });
+    }, 20000);
 }
 
 // ── Chat ──

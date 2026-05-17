@@ -1,8 +1,8 @@
-# JARVIS Setup (macOS) — Jarvis 2.0 v1.0.0
+# JARVIS Setup (macOS) — Jarvis 2.0 v2.0.0-beta
 
 Dein persönlicher KI-Sprachassistent mit Sprachsteuerung — optimiert für macOS Apple Silicon.
 
-**v1.0.0 — Production Ready:** Vollständiger Neubau mit 3 unabhängigen Microservices für höchste Zuverlässigkeit und Skalierbarkeit.
+**v2.0.0-beta — Tauri Native App:** Vollständiger Neubau mit 3 unabhängigen Microservices + nativer Tauri-App statt Chrome Kiosk (~66 MB statt 480 MB).
 
 ---
 
@@ -29,8 +29,11 @@ sw_vers | grep "ProductVersion"
 # Python 3.11 verfügbar?
 which python3.11 || echo "FEHLT: Siehe unten"
 
-# Google Chrome
-ls "/Applications/Google Chrome.app" 2>/dev/null && echo "OK" || echo "FEHLT"
+# Rust/Cargo (für Tauri-Build)
+which cargo || echo "FEHLT: brew install rustup && rustup-init"
+
+# Google Chrome (optional — nur als Legacy-Fallback nötig)
+ls "/Applications/Google Chrome.app" 2>/dev/null && echo "OK (optional)" || echo "Nicht installiert (optional)"
 ```
 
 ### Falls Python 3.11 fehlt:
@@ -41,8 +44,16 @@ brew install python@3.11
 /opt/homebrew/bin/python3.11 --version  # sollte 3.11.x zeigen
 ```
 
-### Falls Chrome fehlt:
-Herunterladen von google.com/chrome
+### Falls Rust/Cargo fehlt:
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+# Verifizieren
+cargo --version  # sollte cargo 1.x.x zeigen
+```
+
+> **Hinweis:** Chrome ist nicht mehr Pflicht. Die Jarvis-App ist jetzt eine native Tauri-App.  
+> Chrome kann als Fallback weiterhin verwendet werden: `USE_TAURI=0 bash scripts/launch-session.sh`
 
 ---
 
@@ -214,13 +225,19 @@ Alle drei sollten antworten. ✓
 
 ---
 
-## Schritt 10: Browser öffnen
+## Schritt 10: Jarvis-App öffnen
+
+Die Tauri-App startet automatisch via LaunchAgent. Falls nicht:
 
 ```bash
-open http://localhost:8340
+bash ~/Jarvis-2.0/scripts/launch-session.sh
 ```
 
+Beim ersten Start wird die Tauri-App gebaut (~2 Min einmalig). Danach öffnet sie sofort.  
 Du solltest das **Jarvis HUD** (blauer Ring mit Chat) sehen!
+
+> **Fallback auf Chrome:** `USE_TAURI=0 bash ~/Jarvis-2.0/scripts/launch-session.sh`  
+> **Browser direkt:** `open http://localhost:8340`
 
 ---
 
@@ -247,7 +264,7 @@ Neustarten:
 skhd --restart
 ```
 
-Jetzt: **Cmd+Shift+J** → öffnet Jarvis + Chrome automatisch! 🚀
+Jetzt: **Cmd+Shift+J** → öffnet Jarvis als native Tauri-App automatisch! 🚀
 
 ---
 
@@ -292,7 +309,7 @@ tail -f ~/Library/Logs/jarvis-v2/speech.log
 - 🔍 Browser-Automation (suchen, URLs öffnen)
 - 👁️ Screenshot + Claude Vision ("Was siehst du?")
 - 📰 RSS News
-- 🎮 Web-basiertes HUD (Chrome Kiosk)
+- 🖥️ Native Tauri-App (WKWebView, ~66 MB — kein Chrome nötig)
 
 ---
 
@@ -360,7 +377,7 @@ Jarvis-2.0/
 | `com.jarvis.v2.audio` | 8341 | TTS Synthese (ElevenLabs) |
 | `com.jarvis.v2.ha` | 8342 | Dashboard + Home Assistant |
 | `com.jarvis.v2.speech` | — | STT + Wake Word Detection |
-| `com.jarvis.v2.session` | — | Chrome Browser (Kiosk) |
+| `com.jarvis.v2.session` | — | Tauri Native App (Chrome Fallback: `USE_TAURI=0`) |
 | `com.jarvis.v2.wake` | — | Wake-from-Sleep Handler |
 | `com.jarvis.v2.supervisor` | — | Health Monitor (30s checks) |
 
@@ -453,14 +470,17 @@ curl http://localhost:8342/health | jq .
 # Kachelmann-API Key gesetzt? (für Wetter)
 ```
 
-### Chrome öffnet nicht / Kiosk-Problem
+### Tauri-App öffnet nicht
 
 ```bash
+# Tauri-App manuell starten
 bash ~/Jarvis-2.0/scripts/launch-session.sh
 
-# Oder manuell:
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
-  --kiosk --no-first-run http://localhost:8340
+# Oder direkt (nach erstem Build):
+~/Jarvis-2.0/target/debug/jarvis-tauri
+
+# Fallback auf Chrome (Legacy):
+USE_TAURI=0 bash ~/Jarvis-2.0/scripts/launch-session.sh
 ```
 
 ### Cmd+Shift+J funktioniert nicht
@@ -510,7 +530,8 @@ open http://localhost:8340/health           # Health Monitor
 # ===== ENTWICKLUNG =====
 bash scripts/start-dev.sh                   # Alle Services lokal starten
 bash scripts/stop-dev.sh                    # Alle Services stoppen
-bash scripts/launch-session.sh              # Chrome Kiosk + Services starten
+bash scripts/launch-session.sh              # Tauri + Services starten (Default)
+USE_TAURI=0 bash scripts/launch-session.sh  # Chrome Kiosk (Legacy-Fallback)
 ```
 
 ---
