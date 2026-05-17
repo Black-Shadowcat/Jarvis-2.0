@@ -678,5 +678,6 @@ async def _run():
 
 
 if __name__ == "__main__":
-    _ensure_single_instance()  # B021: Kill any duplicate processes before starting
+    # TEMP: Disabled for debugging — causes rapid memory growth
+    # _ensure_single_instance()  # B021: Kill any duplicate processes before starting
     asyncio.run(_run())
