@@ -10,6 +10,7 @@
     "frontendDist": "http://localhost:8340"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Jarvis",
