@@ -2072,12 +2072,20 @@ async def stt_endpoint(ws: WebSocket):
                 except Exception:
                     pass
             browser_ws = next(iter(active_connections), None)
-            await process_message(session_id, user_text, browser_ws or ws)
+            target_ws = browser_ws or ws
+            asyncio.create_task(_stt_process_with_timeout(session_id, user_text, target_ws))
     except WebSocketDisconnect:
         conversations.pop(session_id, None)
     finally:
         stt_connections.discard(ws)
         log.info(f"[jarvis] STT disconnected session={session_id}")
+
+
+async def _stt_process_with_timeout(session_id: str, user_text: str, ws: WebSocket):
+    try:
+        await asyncio.wait_for(process_message(session_id, user_text, ws), timeout=60.0)
+    except asyncio.TimeoutError:
+        log.error(f"[jarvis] process_message timeout after 60s: {user_text[:50]!r}")
 
 
 @app.websocket("/ws")

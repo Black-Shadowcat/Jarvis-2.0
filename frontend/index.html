@@ -657,8 +657,8 @@ function playNext() {
         isPlaying = false;
         audioEndTime = Date.now();
         setOrbState('idle');
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({type: "audio_done"}));
+        if (dashboardWs && dashboardWs.readyState === WebSocket.OPEN) {
+            dashboardWs.send(JSON.stringify({type: "audio_done"}));
         }
         return;
     }
