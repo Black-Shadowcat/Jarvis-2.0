@@ -37,8 +37,8 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "entitlements": null,
-      "exceptionDomain": "",
+      "entitlements": "entitlements.plist",
+      "exceptionDomain": "localhost",
       "frameworks": [],
       "minimumSystemVersion": "12.0"
     }
