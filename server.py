@@ -1454,6 +1454,7 @@ async def _send_stt(msg: dict):
 
 
 _pending_listen_task: asyncio.Task | None = None
+_active_speaks: int = 0  # Zählt laufende _speak() Calls — tts_done nur wenn 0
 
 
 async def _send_listen_open(delay: float):
@@ -1517,40 +1518,51 @@ async def _call_jarvis_ha(endpoint: str, method: str = "GET", json_body: Optiona
 async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
     """TTS (via jarvis-audio service), append to history, broadcast to all connections.
     display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet."""
-    audio_b64 = await _synthesize_audio(text)
-    if audio_b64:
-        log.debug(f"  TTS OK: {len(audio_b64)} chars (base64)")
+    global _active_speaks
+    _active_speaks += 1
+    try:
+        audio_b64 = await _synthesize_audio(text)
+        if audio_b64:
+            log.debug(f"  TTS OK: {len(audio_b64)} chars (base64)")
 
-    log.info(f"  Jarvis: {text[:100]}")
-    conversations[session_id].append({"role": "assistant", "content": text})
-    tts_failed = not audio_b64 and bool(text.strip())
-    if tts_failed:
-        log.warning(f"  TTS fehlgeschlagen — kein Audio für: {text[:60]}")
+        log.info(f"  Jarvis: {text[:100]}")
+        conversations[session_id].append({"role": "assistant", "content": text})
+        tts_failed = not audio_b64 and bool(text.strip())
+        if tts_failed:
+            log.warning(f"  TTS fehlgeschlagen — kein Audio für: {text[:60]}")
+            for conn in list(active_connections):
+                try:
+                    await conn.send_json({"type": "tts_error"})
+                except Exception:
+                    pass
+        payload = {
+            "type": "response",
+            "text": display or text,
+            "audio": audio_b64,
+        }
+        # Vor Broadcast: STT informieren dass Jarvis jetzt spricht → WW stumm
+        await _send_stt({"type": "speaking_start"})
         for conn in list(active_connections):
             try:
-                await conn.send_json({"type": "tts_error"})
+                await conn.send_json(payload)
             except Exception:
                 pass
-    payload = {
-        "type": "response",
-        "text": display or text,
-        "audio": audio_b64,
-    }
-    # Vor Broadcast: STT informieren dass Jarvis jetzt spricht → WW stumm
-    await _send_stt({"type": "speaking_start"})
-    for conn in list(active_connections):
-        try:
-            await conn.send_json(payload)
-        except Exception:
-            pass
-    # Nach TTS: Mikrofon-Fenster öffnen (speech_input.py reagiert nur wenn im Gespräch)
-    _cancel_listen_task()
-    if audio_b64:
-        # audio_done from frontend triggers speaking_end; 60s fallback if it never arrives
-        _pending_listen_task = asyncio.create_task(_send_listen_open(60.0))
-    else:
-        # No audio (TTS failed) — send speaking_end after short delay
-        _pending_listen_task = asyncio.create_task(_send_listen_open(1.5))
+    finally:
+        _active_speaks -= 1
+
+    # Letzter _speak()-Call: tts_done senden → Browser weiß: jetzt darf audio_done kommen
+    if _active_speaks == 0:
+        for conn in list(active_connections):
+            try:
+                await conn.send_json({"type": "tts_done"})
+            except Exception:
+                pass
+        _cancel_listen_task()
+        if audio_b64:
+            # audio_done from frontend triggers speaking_end + listen_open; 60s fallback
+            _pending_listen_task = asyncio.create_task(_send_listen_open(60.0))
+        else:
+            _pending_listen_task = asyncio.create_task(_send_listen_open(1.5))
 
 
 # ── Structured Output Dispatcher ──────────────────────────────────────────
@@ -2103,6 +2115,7 @@ async def websocket_endpoint(ws: WebSocket):
             if data.get("type") == "audio_done":
                 _cancel_listen_task()
                 await _send_stt({"type": "speaking_end"})
+                await asyncio.sleep(2.0)  # Echo-Schutz: 2s nach Audioende bevor Mikrofon öffnet
                 await _send_stt({"type": "listen_open", "timeout": 6})
                 continue
             user_text = data.get("text", "").strip()

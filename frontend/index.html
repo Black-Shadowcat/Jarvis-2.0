@@ -531,6 +531,7 @@ let _i18n        = {};
 let dashboardWs  = null;
 let audioQueue   = [];
 let isPlaying    = false;
+let _ttsAllDone  = false;
 let audioEndTime = 0;
 let isMuted      = false;
 let audioContext = null;
@@ -657,7 +658,7 @@ function playNext() {
         isPlaying = false;
         audioEndTime = Date.now();
         setOrbState('idle');
-        if (dashboardWs && dashboardWs.readyState === WebSocket.OPEN) {
+        if (_ttsAllDone && dashboardWs && dashboardWs.readyState === WebSocket.OPEN) {
             dashboardWs.send(JSON.stringify({type: "audio_done"}));
         }
         return;
@@ -722,7 +723,14 @@ function initWS() {
     dashboardWs.onmessage = e => {
         const data = JSON.parse(e.data);
         if (data.type === 'keepalive') return;
-        if (data.type === 'response') {
+        if (data.type === 'tts_done') {
+            _ttsAllDone = true;
+            if (!isPlaying && audioQueue.length === 0) {
+                if (dashboardWs && dashboardWs.readyState === WebSocket.OPEN)
+                    dashboardWs.send(JSON.stringify({type: "audio_done"}));
+            }
+        } else if (data.type === 'response') {
+            _ttsAllDone = false;
             clearTimeout(window._thinkTimeout);
             setOrbState('speaking');
             addMsg('jarvis', data.text);
