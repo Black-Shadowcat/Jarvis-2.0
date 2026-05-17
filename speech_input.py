@@ -636,17 +636,27 @@ async def _run():
     # Enable memory profiling for C3 leak detection
     tracemalloc.start()
 
-    # B020 WORKAROUND: DISABLED — caused issues with process restart loop
-    # Reverting to rely on _audio_buffer.clear() fix instead
-    async def _memory_watchdog_disabled():
-        pass  # Do nothing — fix should prevent leak
+    # B020 WORKAROUND: Memory watchdog with 500MB threshold
+    # Restarts process if memory exceeds threshold to prevent OOM
+    async def _memory_watchdog():
+        import psutil
+        while True:
+            await asyncio.sleep(10)  # Check every 10 seconds
+            try:
+                current_process = psutil.Process()
+                memory_mb = current_process.memory_info().rss / 1024 / 1024
+                if memory_mb > 500:  # Restart if > 500MB
+                    log.warning(f"[B020] Memory threshold exceeded ({memory_mb:.0f}MB) — restarting")
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
+            except Exception as e:
+                log.debug(f"[B020] Watchdog check failed: {e}")
 
     _loop  = asyncio.get_running_loop()
     _loop.add_signal_handler(signal.SIGUSR2, _load_vad_calibration)  # M10: Live-reload VAD calibration
     _queue = asyncio.Queue()
 
-    # B020: Memory watchdog disabled (was causing restart loop issues)
-    # asyncio.create_task(_memory_watchdog_disabled())
+    # Start memory watchdog (B020 — threshold-based)
+    asyncio.create_task(_memory_watchdog())
 
     stream   = sd.InputStream(samplerate=SAMPLE_RATE, channels=1,
                                dtype="float32", blocksize=CHUNK_SIZE,
