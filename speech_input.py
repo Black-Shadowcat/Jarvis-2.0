@@ -151,20 +151,13 @@ def _notify_ptt(state: str):
         pass
 
 
-# ── Memory Profiling (detect leaks) ──────────────────────────────────────
+# ── Memory Profiling (DISABLED - was causing B020 memory leak!) ──────────
+# tracemalloc accumulates ALL allocations indefinitely → 3.5GB in 10s
+# Disabled: only enable temporarily for debugging, never in production
 
 def _log_memory_snapshot(label: str):
-    """Log current memory usage for C3 leak detection."""
-    try:
-        gc.collect()  # Force garbage collection before snapshot
-        snap = tracemalloc.take_snapshot()
-        top_stats = snap.statistics('lineno')[:3]
-        total_mb = sum(stat.size for stat in snap.statistics('lineno')) / 1024 / 1024
-        log.debug(f"[memory] {label}: {total_mb:.1f} MB total")
-        for stat in top_stats:
-            log.debug(f"  {stat}")
-    except Exception as e:
-        log.debug(f"[memory] snapshot failed: {e}")
+    """No-op: tracemalloc was causing B020 memory leak."""
+    pass
 
 
 # ── Phase 2 Observability: Speech State Tracking ────────────────────────
@@ -634,29 +627,13 @@ async def _run():
     global _loop, _queue, _stream_ref, _last_nonzero_rms_time
 
     # Enable memory profiling for C3 leak detection
-    tracemalloc.start()
-
-    # B020 WORKAROUND: Memory watchdog with 500MB threshold
-    # Restarts process if memory exceeds threshold to prevent OOM
-    async def _memory_watchdog():
-        import psutil
-        while True:
-            await asyncio.sleep(10)  # Check every 10 seconds
-            try:
-                current_process = psutil.Process()
-                memory_mb = current_process.memory_info().rss / 1024 / 1024
-                if memory_mb > 500:  # Restart if > 500MB
-                    log.warning(f"[B020] Memory threshold exceeded ({memory_mb:.0f}MB) — restarting")
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
-            except Exception as e:
-                log.debug(f"[B020] Watchdog check failed: {e}")
+    # B020 FIX: tracemalloc.start() REMOVED - was the actual leak source!
+    # tracemalloc accumulates ALL allocations indefinitely (3.5GB in 10s)
+    # Memory watchdog REMOVED - not needed anymore after fixing tracemalloc
 
     _loop  = asyncio.get_running_loop()
     _loop.add_signal_handler(signal.SIGUSR2, _load_vad_calibration)  # M10: Live-reload VAD calibration
     _queue = asyncio.Queue()
-
-    # Start memory watchdog (B020 — threshold-based)
-    asyncio.create_task(_memory_watchdog())
 
     stream   = sd.InputStream(samplerate=SAMPLE_RATE, channels=1,
                                dtype="float32", blocksize=CHUNK_SIZE,
