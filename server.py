@@ -2076,6 +2076,8 @@ async def websocket_endpoint(ws: WebSocket):
     try:
         while True:
             data = await ws.receive_json()
+            if data.get("type") == "ping":
+                continue
             user_text = data.get("text", "").strip()
             if not user_text:
                 continue
@@ -3354,10 +3356,23 @@ async def startup_and_refresh():
 
 from contextlib import asynccontextmanager
 
+async def _ws_keepalive():
+    """Sendet alle 20s ein Keepalive an alle WS-Clients (verhindert WKWebView Idle-Timeout)."""
+    while True:
+        await asyncio.sleep(20)
+        dead = set()
+        for conn in list(active_connections):
+            try:
+                await conn.send_json({"type": "keepalive"})
+            except Exception:
+                dead.add(conn)
+        active_connections.difference_update(dead)
+
 @asynccontextmanager
 async def lifespan(app):
     refresh_task = asyncio.create_task(startup_and_refresh())
     asyncio.create_task(_startup_update_check())
+    asyncio.create_task(_ws_keepalive())
     yield
 
     # ── Graceful Shutdown ─────────────────────────────────────────────

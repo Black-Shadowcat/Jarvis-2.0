@@ -714,6 +714,7 @@ function initWS() {
     };
     dashboardWs.onmessage = e => {
         const data = JSON.parse(e.data);
+        if (data.type === 'keepalive') return;
         if (data.type === 'response') {
             clearTimeout(window._thinkTimeout);
             setOrbState('speaking');
@@ -749,10 +750,15 @@ function initWS() {
     };
     dashboardWs.onclose = () => {
         setOrbState('idle');
+        if (window._wsHeartbeat) { clearInterval(window._wsHeartbeat); window._wsHeartbeat = null; }
         setTimeout(initWS, _wsDelay);
         _wsDelay = Math.min(_wsDelay * 2, 60000);
     };
     dashboardWs.onerror = () => {};
+    // Heartbeat alle 20s — verhindert WKWebView Idle-Timeout (~30s)
+    window._wsHeartbeat = setInterval(() => {
+        if (dashboardWs?.readyState === WebSocket.OPEN) wsSend({ type: 'ping' });
+    }, 20000);
 }
 
 // ── Chat ──
