@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 
 ---
 
+## [2.0.1] — 2026-05-19 — Hotfix: Briefing-JSON abgeschnitten
+
+### 🔧 Fixes
+
+- **Bug #2 (Root Cause)** `server.py`: Rohes JSON im Abend/Morgen-Briefing nach Cmd+Shift+J  
+  Eigentliche Ursache: `max_tokens=300` war zu klein für das lange Briefing-JSON (Wetter + Mails + Kalender + News). LLM-Antwort wurde mittendrin abgeschnitten → kein schließendes `}` → `_extract_first_json()` gab `None` zurück → Fallback sprach rohen Text.  
+  Fix: `max_tokens=800` für alle `jarvis activate`-Anfragen (300 für alle anderen).
+- **Fallback-Guard** `server.py`: Guard erweitert auf Backtick-Fences (`startswith('`')`) — fängt Fälle wo `_strip_json_blocks` die Fence nicht entfernt.
+- **start-dev.sh**: Öffnet `/Applications/Jarvis.app` statt `http://localhost:8340` (verhindert Safari-Start).
+- **launch-session.sh**: `TAURI_APP` auf `/Applications/Jarvis.app` korrigiert (war `~/Applications/`).
+
+---
+
 ## [2.0.0] — 2026-05-19 — Native Tauri App (GA)
 
 > **Production Release.** Upgrade von v2.0.0-beta — Beta-Feedback eingearbeitet.
