@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 
 ---
 
+## [2.0.0] — 2026-05-19 — Native Tauri App (GA)
+
+> **Production Release.** Upgrade von v2.0.0-beta — Beta-Feedback eingearbeitet.
+
+### 🔧 Fixes seit Beta
+
+- **B027** `speech_input.py`: Reconnect nach Server-Kill (`kill -9`) zuverlässig  
+  Wurzel: `asyncio.gather()` liess verwaiste `_sender`-Tasks laufen; `ConnectionRefusedError` (Server noch nicht oben) wurde nicht abgefangen. Fix: Explizite Task-Verwaltung mit `create_task` + `cancel`, Exponential-Backoff-Loop (3 s → 60 s) der alle Ausnahmen korrekt behandelt.
+- **Bug #1 (App Nap)** `src-tauri/info.plist`: Nach 30 h Standby kam Begrüßung erst nach manuellem Tauri-Fokus  
+  Ursache: macOS App Nap friert WKWebView-JavaScript + WebSocket nach längerer Hintergrund-Inaktivität ein. Fix: `NSAppSleepDisabled = true` in `src-tauri/info.plist`, referenziert via `bundle.macOS.infoPlist` in `tauri.conf.json`. WS-Verbindung bleibt nun dauerhaft aktiv.  
+  ⚠️ Offene Frage (B028): AudioContext-Suspension nach langer Inaktivität — 30h-Test ausstehend.
+- **Bug #2** `server.py`: Rohes JSON-Objekt statt Sprachtext in Briefing/Chat  
+  Ursache: `json.loads()` schlug fehl wenn der LLM Sonderzeichen im `response`-Feld produzierte → `parse_structured_action()` gab `None` zurück → Fallback-Pfad sprach das rohe JSON. Fix: `_extract_response_field()` als Regex-Fallback bei `JSONDecodeError`; gleicher Guard im Legacy-Fallback-Pfad; `structured.response or reply` → sicherer Fallback ohne rohen LLM-Output.
+- **B028** `frontend/index.html`: Kein Ton nach 30 h+ Standby (AudioContext-Suspension)  
+  WKWebView suspendiert die Audio-Session bei langer Inaktivität; `new Audio().play()` teilt dieselbe Session. Fix: `audioContext.resume()` in `playNext()` via `_resumeCtx.finally()`-Pattern, bevor `currentAudio.play()` aufgerufen wird.
+- **Greeting** `server.py`: Deutschen Systemprompt präzisiert — LLM darf nur "Guten Morgen", "Guten Tag", "Guten Abend" oder "Moin" verwenden. "Guten Nachmittag" explizit verboten.
+- Unbenutzter `import tracemalloc` entfernt (war seit B020-Fix in v1.1.1 totes Code)
+
+---
+
 ## [2.0.0-beta] — 2026-05-17 — Native Tauri App (Release Candidate)
 
 > **Beta / Release Candidate.** GA-Release folgt nach 48h Nutzertest.  

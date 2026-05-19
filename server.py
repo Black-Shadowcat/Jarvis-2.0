@@ -1027,7 +1027,7 @@ Bei news_search: parameters: {{"stichwort": "suchbegriff"}}
 Falls JSON nicht moeglich: altes Format [ACTION:TYP] payload bleibt gueltig.
 
 WENN {USER_NAME} "Jarvis activate" sagt:
-- Begruesse {USER_ADDRESS} passend zur Tageszeit (heutiges Datum: {{date}}, aktuelle Zeit: {{time}}).
+- Begruesse {USER_ADDRESS} passend zur Tageszeit (heutiges Datum: {{date}}, aktuelle Zeit: {{time}}). Erlaubte Begruessungsformen: "Guten Morgen" (bis ca. 11 Uhr), "Guten Tag" (11–17 Uhr), "Guten Abend" (ab 17 Uhr) — oder das norddeutsche "Moin" (passt zu JEDER Tageszeit, gelegentlich verwenden). "Guten Nachmittag" ist im Deutschen NICHT gebraeuchlich — NIEMALS verwenden.
 - Gebe eine kurze Info ueber das Wetter — Temperatur, Bedingung (Sonne/Regen/etc), Wind und falls vorhanden: Vorhersage für morgen/übermorgen. Keine Luftfeuchtigkeit/Luftdruck.
 - Fasse die Aufgaben kurz als Ueberblick in einem Satz zusammen, ohne dabei jede einzelne Aufgabe einfach vorzulesen. Gebe gerne einen humorvollen Kommentar am Ende an.
 - Erwaehne kurz die Anzahl ungelesener Mails. Wenn keine: lass es weg.
@@ -1080,9 +1080,21 @@ def _extract_first_json(text: str) -> Optional[str]:
 def _strip_json_blocks(text: str) -> str:
     """Remove markdown JSON code blocks from text before speaking."""
     import re
-    text = re.sub(r'```json.*?```', '', text, flags=re.DOTALL)
+    text = re.sub(r'```json.*?```', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
     return ' '.join(text.split()).strip()
+
+
+def _extract_response_field(text: str) -> Optional[str]:
+    """Regex fallback: extract the 'response' string from potentially malformed JSON."""
+    import re
+    m = re.search(r'"response"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL)
+    if not m:
+        return None
+    try:
+        return json.loads('"' + m.group(1) + '"')
+    except Exception:
+        return m.group(1)
 
 
 def parse_structured_action(reply: str) -> Optional[ActionModel]:
@@ -1091,7 +1103,14 @@ def parse_structured_action(reply: str) -> Optional[ActionModel]:
         raw = _extract_first_json(reply)
         if not raw:
             return None
-        data = json.loads(raw)
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            # LLM produced malformed JSON (e.g. unescaped quotes in response field)
+            response_text = _extract_response_field(raw)
+            if response_text:
+                return ActionModel(action="none", parameters={}, response=response_text)
+            return None
         return ActionModel(**data)
     except ValidationError:
         return None
@@ -1936,7 +1955,9 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     if structured:
         log.debug(f"  Structured action: {structured.action}")
         if user_text.lower().startswith("jarvis activate"):
-            await _speak(ws, session_id, structured.response or reply)
+            speak_text = structured.response or _extract_response_field(reply) or ""
+            if speak_text:
+                await _speak(ws, session_id, speak_text)
             _lmb = daily_brief._data.get("last_morning_brief")
             if _morning_news_text and _lmb and not _lmb.get("news_snippet_spoken"):
                 _news_snippet = _morning_news_text
@@ -1951,6 +1972,12 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
 
     # ── Fallback: legacy string-based parsing (unchanged)
     spoken_text, action = extract_action(_strip_json_blocks(reply))
+    # Guard: if LLM returned plain JSON without code-block fences, _strip_json_blocks is a no-op.
+    # Try regex extraction of the response field to avoid speaking raw JSON.
+    if not action and spoken_text.strip().startswith('{'):
+        extracted = _extract_response_field(spoken_text)
+        if extracted:
+            spoken_text = extracted
 
     # ── Activate greeting — no actions allowed, speak and done
     if user_text.lower().startswith("jarvis activate"):

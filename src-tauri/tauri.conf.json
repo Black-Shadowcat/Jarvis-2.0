@@ -39,6 +39,7 @@
     ],
     "macOS": {
       "entitlements": "entitlements.plist",
+      "infoPlist": "info.plist",
       "exceptionDomain": "localhost",
       "frameworks": [],
       "minimumSystemVersion": "12.0"

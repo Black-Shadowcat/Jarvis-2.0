@@ -27,7 +27,6 @@ import subprocess
 import sys
 import threading
 import time
-import tracemalloc
 import urllib.request
 import json
 import numpy as np
@@ -671,17 +670,34 @@ async def _run():
     log.info(f"  Server: {SERVER_URL}")
     log.info("─" * 44)
 
+    reconnect_delay = 3
     try:
-        async for ws in websockets.connect(SERVER_URL, ping_interval=20):
-            global _jarvis_speaking, _in_conversation
-            _jarvis_speaking = False   # Reset bei (Re-)Verbindung
-            _in_conversation = False
-            log.info("  Server verbunden ✓")
+        while True:
             try:
-                await asyncio.gather(_sender(ws), _receiver(ws))
-            except websockets.ConnectionClosed:
-                log.warning("Verbindung getrennt — versuche erneut…")
-                continue
+                async with websockets.connect(SERVER_URL, ping_interval=20) as ws:
+                    global _jarvis_speaking, _in_conversation
+                    _jarvis_speaking = False
+                    _in_conversation = False
+                    reconnect_delay = 3  # Reset Backoff nach erfolgreicher Verbindung
+                    log.info("  Server verbunden ✓")
+                    sender_task = asyncio.create_task(_sender(ws))
+                    try:
+                        await _receiver(ws)
+                    except websockets.exceptions.ConnectionClosed:
+                        pass
+                    finally:
+                        sender_task.cancel()
+                        try:
+                            await sender_task
+                        except (asyncio.CancelledError, Exception):
+                            pass
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.warning(f"Verbindungsfehler ({type(e).__name__}: {e})")
+            log.info(f"Reconnect in {reconnect_delay}s…")
+            await asyncio.sleep(reconnect_delay)
+            reconnect_delay = min(reconnect_delay * 2, 60)
     finally:
         stream.stop()
         listener.stop()

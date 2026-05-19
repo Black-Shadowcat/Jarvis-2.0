@@ -674,22 +674,31 @@ function playNext() {
     currentAudio.muted = true;
     currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; playNext(); };
     currentAudio.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; playNext(); };
-    currentAudio.play()
-        .then(() => {
-            // Muted-Autoplay started — unmute after 50ms to bypass Chrome policy
-            setTimeout(() => { if (currentAudio) currentAudio.muted = false; }, 50);
-        })
-        .catch(() => {
-            // Fallback: Audio blockiert auch bei muted, zurück in Queue
-            audioQueue.unshift(b64);
-            URL.revokeObjectURL(url);
-            currentAudio = null;
-            isPlaying = false;
-            setOrbState('idle');
-            const st = document.getElementById('status-text');
-            if (st) st.textContent = _i18n.status_click_to_hear || '▶ Klicke um Jarvis zu hören';
-            document.addEventListener('click', () => playNext(), { once: true });
-        });
+    // B028: Resume AudioContext before play — WKWebView suspends the audio session after
+    // long inactivity even with NSAppSleepDisabled. new Audio() shares the same underlying
+    // audio session, so resuming the context unblocks playback after 30h+ standby.
+    const _resumeCtx = (audioContext && audioContext.state === 'suspended')
+        ? audioContext.resume()
+        : Promise.resolve();
+    _resumeCtx.catch(() => {}).finally(() => {
+        if (!currentAudio) return;
+        currentAudio.play()
+            .then(() => {
+                // Muted-Autoplay started — unmute after 50ms to bypass Chrome policy
+                setTimeout(() => { if (currentAudio) currentAudio.muted = false; }, 50);
+            })
+            .catch(() => {
+                // Fallback: Audio blockiert auch bei muted, zurück in Queue
+                audioQueue.unshift(b64);
+                URL.revokeObjectURL(url);
+                currentAudio = null;
+                isPlaying = false;
+                setOrbState('idle');
+                const st = document.getElementById('status-text');
+                if (st) st.textContent = _i18n.status_click_to_hear || '▶ Klicke um Jarvis zu hören';
+                document.addEventListener('click', () => playNext(), { once: true });
+            });
+    });
 }
 
 // ── Spracherkennung: Web Speech API entfernt — Eingabe via F19 + Whisper (speech_input.py) ──
