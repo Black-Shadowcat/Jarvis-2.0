@@ -1,6 +1,6 @@
-# J.A.R.V.I.S. — Jarvis 2.0 (macOS v2.0.0-beta)
+# J.A.R.V.I.S. — Jarvis 2.0 (macOS v2.0.1)
 
-> **Jarvis 2.0 v2.0.0-beta** is a complete redesign of the original [jarvis-voice-assistant](https://github.com/Black-Shadowcat/jarvis-voice-assistant) (v2.x).  
+> **Jarvis 2.0 v2.0.1** is a complete redesign of the original [jarvis-voice-assistant](https://github.com/Black-Shadowcat/jarvis-voice-assistant) (v2.x).  
 > It replaces the browser-based Web Speech API with **local Whisper STT** on Apple MLX, and uses a **native Tauri app** instead of Chrome Kiosk (86% less memory).  
 > Production-ready with **3 independent microservices** (Core, Audio, Dashboard) for reliability and scalability.
 >
@@ -10,7 +10,7 @@
 
 ## What Changed vs. v2.x
 
-| Old JARVIS (v2.x) | Jarvis 2.0 (v2.0.0-beta) |
+| Old JARVIS (v2.x) | Jarvis 2.0 (v2.0.1) |
 |---|---|
 | Web Speech API (Chrome) | mlx-whisper large-v3 (local, Apple Silicon) |
 | Chrome microphone permission | pynput + sounddevice (system-level) |
@@ -47,12 +47,12 @@
 - **Wake-from-Sleep** — Detects screen unlock, delivers contextual brief.
 - **Update Badge** — All pages show a badge when a new GitHub release is available.
 - **Native Tauri App** — Replaces Chrome Kiosk. ~66 MB vs. 480 MB (86% less memory), no Chrome required. Chrome fallback still available via `USE_TAURI=0`.
-- **Native App Bundle** — `~/Applications/Jarvis.app` for manual start from Dock or Finder.
+- **Native App Bundle** — `/Applications/Jarvis.app` for manual start from Dock or Finder.
 - **launchd Autostart** — Server, speech input, and session launch on login.
 
 ---
 
-## Architecture (v2.0.0-beta: Tauri Native + Service Isolation)
+## Architecture (v2.0.1: Tauri Native + Service Isolation)
 
 ```
 You (speak "Jarvis, ...")
@@ -175,7 +175,7 @@ USE_TAURI=0 bash ~/Jarvis-2.0/scripts/launch-session.sh  # Chrome (fallback)
 
 **Option C — App Bundle:**
 ```
-Double-click: ~/Applications/Jarvis.app
+Double-click: /Applications/Jarvis.app
 ```
 
 ---
