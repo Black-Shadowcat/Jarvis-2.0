@@ -9,7 +9,7 @@
 USE_TAURI="${USE_TAURI:-1}"
 JARVIS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TAURI_BINARY="$JARVIS_DIR/target/debug/jarvis-tauri"
-TAURI_APP="$HOME/Applications/Jarvis.app"
+TAURI_APP="/Applications/Jarvis.app"
 
 echo "[boot] Warte auf macOS (Dock + Finder)..."
 until pgrep -x "Dock" > /dev/null 2>&1 && pgrep -x "Finder" > /dev/null 2>&1; do
@@ -49,7 +49,7 @@ if [[ "$USE_TAURI" == "1" ]]; then
             echo "[session] Build fehlgeschlagen — Fallback auf Chrome"
             USE_TAURI=0
         else
-            cp -R "$JARVIS_DIR/target/debug/bundle/macos/Jarvis.app" "$HOME/Applications/" 2>/dev/null
+            cp -R "$JARVIS_DIR/target/debug/bundle/macos/Jarvis.app" "/Applications/" 2>/dev/null
         fi
     fi
 

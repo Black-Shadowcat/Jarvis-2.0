@@ -1112,9 +1112,11 @@ def parse_structured_action(reply: str) -> Optional[ActionModel]:
                 return ActionModel(action="none", parameters={}, response=response_text)
             return None
         return ActionModel(**data)
-    except ValidationError:
+    except ValidationError as e:
+        log.warning(f"  parse_structured_action ValidationError: {e.errors()[0] if e.errors() else e}")
         return None
-    except Exception:
+    except Exception as e:
+        log.warning(f"  parse_structured_action Exception: {e}")
         return None
 
 
@@ -1941,19 +1943,19 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     conversations[session_id].append({"role": "user", "content": user_text})
     history = conversations[session_id][-16:]
 
+    _max_tokens = 800 if user_text.lower().startswith("jarvis activate") else 300
     response = await ai.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=300,
+        max_tokens=_max_tokens,
         system=get_system_prompt(),
         messages=history,
     )
     reply = response.content[0].text
-    log.debug(f"  LLM raw: {reply[:200]}")
+    log.debug(f"  LLM raw ({len(reply)} chars): {reply[:120]!r}")
 
     # ── Try structured JSON path first
     structured = parse_structured_action(reply)
     if structured:
-        log.debug(f"  Structured action: {structured.action}")
         if user_text.lower().startswith("jarvis activate"):
             speak_text = structured.response or _extract_response_field(reply) or ""
             if speak_text:
@@ -1974,13 +1976,18 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     spoken_text, action = extract_action(_strip_json_blocks(reply))
     # Guard: if LLM returned plain JSON without code-block fences, _strip_json_blocks is a no-op.
     # Try regex extraction of the response field to avoid speaking raw JSON.
-    if not action and spoken_text.strip().startswith('{'):
-        extracted = _extract_response_field(spoken_text)
+    _st = spoken_text.strip()
+    if not action and (_st.startswith('{') or _st.startswith('`')):
+        extracted = _extract_response_field(spoken_text) or _extract_response_field(reply)
         if extracted:
             spoken_text = extracted
 
     # ── Activate greeting — no actions allowed, speak and done
     if user_text.lower().startswith("jarvis activate"):
+        # Last-resort: if spoken_text still looks like JSON/code-block, pull from raw reply
+        _st2 = spoken_text.strip()
+        if not spoken_text or _st2.startswith('{') or _st2.startswith('`'):
+            spoken_text = _extract_response_field(reply) or spoken_text
         await _speak(ws, session_id, spoken_text)
         _lmb = daily_brief._data.get("last_morning_brief")
         if _morning_news_text and _lmb and not _lmb.get("news_snippet_spoken"):

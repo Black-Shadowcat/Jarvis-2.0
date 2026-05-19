@@ -67,9 +67,13 @@ sleep 2
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
 
-# Browser öffnen
-echo "→ Öffne Dashboard..."
-open "http://localhost:8340"
+# Tauri App öffnen
+echo "→ Öffne Jarvis.app..."
+if [[ -d "/Applications/Jarvis.app" ]]; then
+    open "/Applications/Jarvis.app"
+else
+    open "http://localhost:8340"
+fi
 
 echo ""
 echo "✓ Jarvis 2.0 läuft auf http://localhost:8340 (${ELAPSED}s Startup)"
