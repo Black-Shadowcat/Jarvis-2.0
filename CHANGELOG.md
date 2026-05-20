@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 
 ---
 
+## [Unreleased]
+
+### 🔧 Fixes
+
+- **B029** `scripts/wake-monitor.py`: Begrüßung nach Reawake blieb aus — Power-Nap-Kernel-Wakes blockierten HIDIdleTime-Wakes durch geteilten Cooldown  
+  Ursache: `_try_trigger()` nutzte eine einzige `_last_wake`-Variable für beide Pfade. Nach einem Kernel-Wake (Screen gesperrt → 120s Timeout) wurde `_last_wake` nochmal zurückgesetzt → weitere 120s Sperre → echter Nutzer-Wake via HIDIdleTime stummgeschaltet.  
+  Fix: Zwei unabhängige Cooldowns — `_last_wake` (120s, Kernel-Pfad) und `_last_hid_wake` (60s, HIDIdle-Pfad). Neue Funktion `_notify_jarvis_hid()` überspringt `wait_for_unlock()` (HIDIdleTime < 30s beweist bereits entsperrten Screen).
+
+### ⚙️ Änderungen
+
+- **Morgen-Brief Startzeit** `server.py` + `systems/daily_brief.py`: Stille-Stunden-Grenze von 06:00 auf **04:00 Uhr** gesenkt  
+  Hintergrund: Beim Rechner-Wake vor 06:00 (Frühaufsteher) wurde nach 06:00 kein weiterer Trigger ausgelöst — Briefing fiel komplett aus.  
+  Geänderte Stellen: `server.py:2459` (`hour < 4`), `systems/daily_brief.py:189` (`hour >= 4`).  
+  ⏳ Folge-Task: Schwelle in `config.json` auslagern (ToDo.md).
+
+---
+
 ## [2.0.1] — 2026-05-19 — Hotfix: Briefing-JSON abgeschnitten
 
 ### 🔧 Fixes

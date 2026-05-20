@@ -186,7 +186,7 @@ class DailyBrief:
         brief = self._data.get("last_morning_brief")
         if brief:
             return False
-        return datetime.now().hour >= 6
+        return datetime.now().hour >= 4
 
     def detect_pause_return(self) -> bool:
         minutes = self._minutes_since_last_activity()

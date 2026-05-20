@@ -2455,10 +2455,10 @@ async def wake_notification():
         return {"status": "ok", "notes": len(OBSIDIAN_INFO)}
 
     # Schritt 1: sofortige Begrüßung
-    # Vor 6 Uhr: User schläft — kein Greeting, nur Activity updaten
-    if datetime.now().hour < 6:
+    # Vor 4 Uhr: User schläft — kein Greeting, nur Activity updaten
+    if datetime.now().hour < 4:
         daily_brief.update_activity()
-        log.info(f"[jarvis] Wake vor 6 Uhr — stille Rückkehr, kein Greeting")
+        log.info(f"[jarvis] Wake vor 4 Uhr — stille Rückkehr, kein Greeting")
         return {"status": "ok", "notes": len(OBSIDIAN_INFO)}
     # Debounce: falls process_message() bereits kurz zuvor ein Activate-Greeting gesprochen hat
     # (z.B. Browser-Reconnect mit "Jarvis activate"), Wake-Greeting überspringen.

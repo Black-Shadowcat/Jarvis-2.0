@@ -71,6 +71,23 @@ def notify_jarvis():
             time.sleep(5)
 
 
+def _notify_jarvis_hid():
+    """Notify Jarvis after a confirmed user-presence wake (HIDIdleTime).
+    Screen is already unlocked — skips wait_for_unlock entirely."""
+    # Brief buffer so Tauri WebSocket is ready after display wake
+    time.sleep(2)
+    for attempt in range(6):
+        try:
+            req = urllib.request.Request(JARVIS_WAKE_URL, method="POST")
+            req.add_header("Content-Type", "application/json")
+            urllib.request.urlopen(req, data=b"{}", timeout=5)
+            print(f"[wake-monitor] HIDIdleTime display-wake → Jarvis benachrichtigt", flush=True)
+            return
+        except Exception as e:
+            print(f"[wake-monitor] HIDIdle Versuch {attempt + 1}: {e}", flush=True)
+            time.sleep(5)
+
+
 def get_user_idle_seconds() -> float | None:
     """Returns seconds since last user input event via HIDIdleTime, or None on error."""
     try:
@@ -88,9 +105,14 @@ def get_user_idle_seconds() -> float | None:
         return None
 
 
-COOLDOWN = 120  # seconds — shared between log-stream thread and display-wake thread
+COOLDOWN = 120  # seconds — kernel wake cooldown (log-stream thread)
 _wake_lock = threading.Lock()
 _last_wake = 0.0
+
+# HIDIdle user-wake has its own independent cooldown so kernel Power Nap wakes
+# cannot block real user-presence detections.
+_HID_COOLDOWN = 60  # seconds
+_last_hid_wake = 0.0
 
 # Phase 3 observability: tracking current idle time for context
 _current_idle_s = 0.0
@@ -152,8 +174,9 @@ def display_wake_watcher() -> None:
     """
     Polls HIDIdleTime every 10s. Detects display-only wakes (no kernel log event):
     when idle time transitions from > threshold to < 30s, the user woke the display.
+    Uses its own cooldown (_last_hid_wake) so kernel Power Nap wakes cannot block it.
     """
-    global _current_idle_s
+    global _current_idle_s, _last_hid_wake
     was_idle = False
     print("[wake-monitor] Display-Wake-Watcher gestartet (HIDIdleTime-Polling)", flush=True)
     while True:
@@ -161,7 +184,12 @@ def display_wake_watcher() -> None:
         if idle is not None:
             _current_idle_s = idle  # Phase 3: track current idle for wake events
             if was_idle and idle < 30:
-                _try_trigger("HIDIdleTime display-wake")
+                now = time.time()
+                if now - _last_hid_wake >= _HID_COOLDOWN:
+                    _last_hid_wake = now
+                    print(f"[wake-monitor] HIDIdleTime display-wake erkannt", flush=True)
+                    _write_wake_event("HIDIdleTime display-wake")
+                    _notify_jarvis_hid()
                 was_idle = False
             elif idle > _DISPLAY_SLEEP_THRESHOLD:
                 was_idle = True
