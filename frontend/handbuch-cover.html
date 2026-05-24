@@ -143,7 +143,7 @@ h1 {
               fill="#ffffff" font-size="22" letter-spacing="2">J.A.R.V.I.S.</text>
     </svg>
     <h1>J.A.R.V.I.S.</h1>
-    <div class="subtitle">Technical System Handbook v3.0</div>
+    <div class="subtitle">Technical System Handbook <span id="cover-version"></span></div>
     <div class="cover-specs">
         <table>
             <tr><td>Platform</td><td>macOS Apple Silicon</td></tr>
@@ -160,5 +160,10 @@ h1 {
     </div>
 </div>
 
+<script>
+fetch('/api/version').then(r => r.json()).then(v => {
+    document.getElementById('cover-version').textContent = `v${v.version}`;
+}).catch(() => {});
+</script>
 </body>
 </html>
