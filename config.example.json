@@ -16,6 +16,8 @@
   "obsidian_archive_path": "",
   "programs": [null, null, null, null, null, null],
   "wake_greeting_enabled": true,
+  "morning_brief_hour": 4,
+  "_morning_brief_hour_hint": "Morgen-Brief ab dieser Uhrzeit (0–23, Default: 4)",
   "language": "de",
   "_language_hint": "Sprache für Antworten und Spracherkennung: 'de' oder 'en'"
 }

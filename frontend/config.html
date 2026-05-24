@@ -851,6 +851,11 @@ input[type="password"] { font-family:monospace; }
             </div>
             <div class="toggle" id="wakeGreetingToggle" onclick="toggleWakeGreeting()"></div>
         </div>
+        <div class="field-group" style="margin-top:16px;">
+            <label class="label">Morgen-Brief ab (Uhr)</label>
+            <input type="number" id="morningBriefHour" min="0" max="23" style="width:80px;" placeholder="4">
+            <div class="sub" style="margin-top:4px;">Jarvis liefert den Morgen-Brief erst ab dieser Stunde (0–23)</div>
+        </div>
         </div>
     </div>
 

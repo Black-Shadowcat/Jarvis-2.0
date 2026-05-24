@@ -255,6 +255,7 @@ _licht_room_lock = asyncio.Lock()
 
 daily_brief = DailyBrief()
 daily_brief.set_locale(_L)
+daily_brief.set_morning_hour(config.get("morning_brief_hour", 4))
 _last_activate_spoken: Optional[datetime] = None
 _last_wake_spoken: Optional[datetime] = None
 _mail_cache:  dict = {"data": None, "ts": 0.0}
@@ -2940,6 +2941,7 @@ async def save_config_api(request: Request):
     LANGUAGE = cfg.get("language", LANGUAGE)
     _L = _load_locale()
     daily_brief.set_locale(_L)
+    daily_brief.set_morning_hour(cfg.get("morning_brief_hour", 4))
     OBSIDIAN_INBOX   = cfg.get("obsidian_inbox_path", OBSIDIAN_INBOX)
     OBSIDIAN_ARCHIVE = cfg.get("obsidian_archive_path", OBSIDIAN_ARCHIVE)
     ai = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)

@@ -70,6 +70,8 @@ async function loadConfig() {
             document.getElementById('wakeGreetingToggle').classList.add('on');
         }
 
+        document.getElementById('morningBriefHour').value = data.morning_brief_hour ?? 4;
+
         // Load available apps and populate dropdowns
         await loadAvailableApps();
 
@@ -387,6 +389,7 @@ async function saveConfig() {
         browser_url: document.getElementById('browserUrl').value,
         spotify_track: document.getElementById('spotifyTrack').value,
         wake_greeting_enabled: document.getElementById('wakeGreetingToggle').classList.contains('on'),
+        morning_brief_hour: parseInt(document.getElementById('morningBriefHour').value) || 4,
         programs: programs
     };
 

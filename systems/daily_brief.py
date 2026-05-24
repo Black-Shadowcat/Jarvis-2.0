@@ -100,9 +100,13 @@ class DailyBrief:
     def __init__(self):
         self._data: dict = self.load()
         self._loc: dict = {}
+        self._morning_hour: int = 4
 
     def set_locale(self, loc: dict) -> None:
         self._loc = loc
+
+    def set_morning_hour(self, hour: int) -> None:
+        self._morning_hour = max(0, min(23, int(hour)))
 
     def _t(self, *keys, default=""):
         """Navigate nested locale keys and return the value."""
@@ -186,7 +190,7 @@ class DailyBrief:
         brief = self._data.get("last_morning_brief")
         if brief:
             return False
-        return datetime.now().hour >= 4
+        return datetime.now().hour >= self._morning_hour
 
     def detect_pause_return(self) -> bool:
         minutes = self._minutes_since_last_activity()
