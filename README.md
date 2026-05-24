@@ -217,16 +217,18 @@ Jarvis 2.0/
 │   ├── index.html         # Jarvis Dashboard + HUD (kiosk, port 8340)
 │   ├── config.html        # Config UI (/config)
 │   ├── config.js          # Config UI logic
-│   ├── handbuch.html      # User manual (/handbuch)
+│   ├── handbuch.html      # User manual DE (/handbuch)
+│   ├── handbuch-en.html   # User manual EN (/handbuch-en)
 │   └── i18n/
 │       ├── de.json        # German UI labels
 │       └── en.json        # English UI labels
 ├── docs/
-│   ├── icon-source/           # Icon source files + update process
-│   │   ├── JARVIS_source_1254x1254.png  # Original AI-generated source
-│   │   ├── generate_icon_konzept_a.py   # Programmatic generator (numpy+PIL)
-│   │   └── README.md          # Icon update process documentation
-│   └── JARVIS_Handbuch.pdf    # PDF-Handbuch
+│   ├── SERVICE_SPECS.md       # Microservice API contracts & specs
+│   ├── MICROPHONE_SETUP.md    # Microphone calibration guide
+│   └── icon-source/           # Icon source files + update process
+│       ├── JARVIS_source_1254x1254.png  # Original AI-generated source
+│       ├── generate_icon_konzept_a.py   # Programmatic generator (numpy+PIL)
+│       └── README.md          # Icon update process documentation
 ├── services/
 │   ├── jarvis-audio/           # Port 8341 — TTS Microservice
 │   │   ├── main.py

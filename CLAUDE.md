@@ -22,7 +22,7 @@ Frage nach Name, Taetigkeit und bevorzugter Anrede — diese Infos gehoeren in d
 .
 ├── CLAUDE.md                    # Diese Datei
 ├── SETUP_macOS.md               # Setup-Anleitung
-├── README.md / README_de.md     # Projektdoku (EN/DE)
+├── README.md                    # Projektdoku (EN)
 ├── version.json                 # Aktuelle Version (z.B. 2.4.0)
 ├── config.json                  # Persoenliche Config (gitignored)
 ├── config.example.json          # Template (alle Keys mit Defaults)
