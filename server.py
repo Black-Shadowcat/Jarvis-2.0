@@ -1539,6 +1539,12 @@ async def _call_jarvis_ha(endpoint: str, method: str = "GET", json_body: Optiona
         return {"error": "Service unavailable"}
 
 
+def _tts_to_display(text: str) -> str:
+    """Convert TTS-spoken format to readable UI text (e.g. '20 Komma 1' → '20,1')."""
+    import re
+    return re.sub(r'(\d+) Komma (\d+)', r'\1,\2', text)
+
+
 async def _speak(ws: WebSocket, session_id: str, text: str, display: str = "") -> bool:
     """TTS (via jarvis-audio service), append to history, broadcast to all connections.
     display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet.
@@ -1563,7 +1569,7 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = "") -
                     active_connections.discard(conn)
         payload = {
             "type": "response",
-            "text": display or text,
+            "text": display or _tts_to_display(text),
             "audio": audio_b64,
         }
         # Vor Broadcast: STT informieren dass Jarvis jetzt spricht → WW stumm
