@@ -2846,7 +2846,10 @@ async def supervisor_restart(service: str = None, all: bool = False):
 
 @app.get("/config")
 async def serve_config():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "config.html"))
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "frontend", "config.html"),
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
 
 
 @app.get("/handbuch")

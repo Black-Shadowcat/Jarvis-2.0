@@ -1069,6 +1069,16 @@ input[type="password"] { font-family:monospace; }
                     </div>
                 </div>
 
+                <div class="maintenance-row">
+                    <div class="maintenance-label">
+                        Browser-Cache leeren
+                        <div class="maintenance-sub">Seite neu laden und Cache umgehen (WKWebView-Fix)</div>
+                    </div>
+                    <div>
+                        <button class="btn btn-secondary" style="font-size:0.8rem;padding:7px 12px;" onclick="window.location.href='/config?v='+Date.now()">↺ Cache leeren</button>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -1119,6 +1129,11 @@ function dismissUpdate(e) {
 </script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
 <script defer src="/static/config.js?v=lang-step3"></script>
+<script>
+document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'r') { e.preventDefault(); window.location.reload(); }
+});
+</script>
 
 </body>
 </html>
