@@ -395,7 +395,7 @@ def get_ha_temperature() -> float | None:
     try:
         import urllib.request
         req = urllib.request.Request(
-            f"{HA_URL}/api/states/sensor.weather_station_outdoor_module_temperatur",
+            f"{HA_URL}/api/states/sensor.thermometer_temperatur",
             headers={"Authorization": f"Bearer {HA_TOKEN}"}
         )
         resp = urllib.request.urlopen(req, timeout=5)
