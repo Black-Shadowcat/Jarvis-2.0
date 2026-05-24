@@ -1,6 +1,6 @@
-# J.A.R.V.I.S. — Jarvis 2.0 (macOS v2.0.3)
+# J.A.R.V.I.S. — Jarvis 2.0 (macOS v2.0.4)
 
-> **Jarvis 2.0 v2.0.3** is a complete redesign of the original [jarvis-voice-assistant](https://github.com/Black-Shadowcat/jarvis-voice-assistant) (v2.x).  
+> **Jarvis 2.0 v2.0.4** is a complete redesign of the original [jarvis-voice-assistant](https://github.com/Black-Shadowcat/jarvis-voice-assistant) (v2.x).  
 > It replaces the browser-based Web Speech API with **local Whisper STT** on Apple MLX, and uses a **native Tauri app** instead of Chrome Kiosk (86% less memory).  
 > Production-ready with **3 independent microservices** (Core, Audio, Dashboard) for reliability and scalability.
 >
@@ -10,7 +10,7 @@
 
 ## What Changed vs. v2.x
 
-| Old JARVIS (v2.x) | Jarvis 2.0 (v2.0.3) |
+| Old JARVIS (v2.x) | Jarvis 2.0 (v2.0.4) |
 |---|---|
 | Web Speech API (Chrome) | mlx-whisper large-v3 (local, Apple Silicon) |
 | Chrome microphone permission | pynput + sounddevice (system-level) |
@@ -52,7 +52,7 @@
 
 ---
 
-## Architecture (v2.0.3: Tauri Native + Service Isolation)
+## Architecture (v2.0.4: Tauri Native + Service Isolation)
 
 ```
 You (speak "Jarvis, ...")
