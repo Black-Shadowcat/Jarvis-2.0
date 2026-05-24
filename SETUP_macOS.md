@@ -1,4 +1,4 @@
-# JARVIS Setup (macOS) — Jarvis 2.0 v2.0.0-beta
+# JARVIS Setup (macOS) — Jarvis 2.0 v2.0.4
 
 Dein persönlicher KI-Sprachassistent mit Sprachsteuerung — optimiert für macOS Apple Silicon.
 
