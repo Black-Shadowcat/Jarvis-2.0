@@ -882,7 +882,10 @@ def build_system_prompt():
         w = WEATHER_INFO
         wind = f", Wind {w['wind_kmh']} km/h" if w.get('wind_kmh') else ""
         t = w['temp']
-        temp_str = str(int(t)) if t == int(t) else str(t).replace('.', ' Komma ')
+        if t is None:
+            temp_str = "?"
+        else:
+            temp_str = str(int(t)) if t == int(t) else str(t).replace('.', ' Komma ')
         weather_block = f"\nWetter {CITY}: {temp_str} Grad, {w['description']}{wind}"
         # Add forecast if available
         if WEATHER_FORECAST_INFO:
@@ -1536,18 +1539,20 @@ async def _call_jarvis_ha(endpoint: str, method: str = "GET", json_body: Optiona
         return {"error": "Service unavailable"}
 
 
-async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
+async def _speak(ws: WebSocket, session_id: str, text: str, display: str = "") -> bool:
     """TTS (via jarvis-audio service), append to history, broadcast to all connections.
-    display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet."""
+    display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet.
+    Returns True if at least one connection received the audio payload."""
     global _active_speaks
     _active_speaks += 1
+    _delivered = False
     try:
         audio_b64 = await _synthesize_audio(text)
         if audio_b64:
             log.debug(f"  TTS OK: {len(audio_b64)} chars (base64)")
 
         log.info(f"  Jarvis: {text[:100]}")
-        conversations[session_id].append({"role": "assistant", "content": text})
+        conversations.setdefault(session_id, []).append({"role": "assistant", "content": text})
         tts_failed = not audio_b64 and bool(text.strip())
         if tts_failed:
             log.warning(f"  TTS fehlgeschlagen — kein Audio für: {text[:60]}")
@@ -1555,7 +1560,7 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
                 try:
                     await conn.send_json({"type": "tts_error"})
                 except Exception:
-                    pass
+                    active_connections.discard(conn)
         payload = {
             "type": "response",
             "text": display or text,
@@ -1566,8 +1571,9 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
         for conn in list(active_connections):
             try:
                 await conn.send_json(payload)
+                _delivered = True
             except Exception:
-                pass
+                active_connections.discard(conn)  # sofort entfernen — Zombie erkannt
     finally:
         _active_speaks -= 1
 
@@ -1577,13 +1583,15 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = ""):
             try:
                 await conn.send_json({"type": "tts_done"})
             except Exception:
-                pass
+                active_connections.discard(conn)
         _cancel_listen_task()
         if audio_b64:
             # audio_done from frontend triggers speaking_end + listen_open; 60s fallback
             _pending_listen_task = asyncio.create_task(_send_listen_open(60.0))
         else:
             _pending_listen_task = asyncio.create_task(_send_listen_open(1.5))
+
+    return _delivered
 
 
 # ── Structured Output Dispatcher ──────────────────────────────────────────
@@ -1846,6 +1854,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         # Morning trigger → record state, let LLM generate the rich greeting
         daily_brief.load()
         _llm_morning = False
+        _pending_brief_args: dict | None = None  # set here, recorded only after successful _speak()
         if daily_brief.detect_morning_trigger():
             # Fresh mail only needed for rich morning brief
             fresh = await loop.run_in_executor(None, get_mail_sync)
@@ -1857,7 +1866,8 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
             await _ensure_weather(loop)
             await _ensure_calendar(loop)
             await _ensure_news()
-            daily_brief.record_morning_brief(
+            # Daten für späteres record_morning_brief() merken — Recording erst nach Zustellung
+            _pending_brief_args = dict(
                 mails=mails, tasks=tasks, reminders=[], notes=OBSIDIAN_INFO,
                 weather=_format_weather_str(WEATHER_INFO),
             )
@@ -1940,7 +1950,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
 
         # Pre-6am / unknown / morning brief → fall through to LLM greeting
 
-    conversations[session_id].append({"role": "user", "content": user_text})
+    conversations.setdefault(session_id, []).append({"role": "user", "content": user_text})
     history = conversations[session_id][-16:]
 
     _max_tokens = 800 if user_text.lower().startswith("jarvis activate") else 300
@@ -1959,7 +1969,10 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         if user_text.lower().startswith("jarvis activate"):
             speak_text = structured.response or _extract_response_field(reply) or ""
             if speak_text:
-                await _speak(ws, session_id, speak_text)
+                _delivered = await _speak(ws, session_id, speak_text)
+                if _pending_brief_args is not None and _delivered:
+                    daily_brief.record_morning_brief(**_pending_brief_args)
+                    _pending_brief_args = None
             _lmb = daily_brief._data.get("last_morning_brief")
             if _morning_news_text and _lmb and not _lmb.get("news_snippet_spoken"):
                 _news_snippet = _morning_news_text
@@ -1988,7 +2001,10 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         _st2 = spoken_text.strip()
         if not spoken_text or _st2.startswith('{') or _st2.startswith('`'):
             spoken_text = _extract_response_field(reply) or spoken_text
-        await _speak(ws, session_id, spoken_text)
+        _delivered = await _speak(ws, session_id, spoken_text)
+        if _pending_brief_args is not None and _delivered:
+            daily_brief.record_morning_brief(**_pending_brief_args)
+            _pending_brief_args = None
         _lmb = daily_brief._data.get("last_morning_brief")
         if _morning_news_text and _lmb and not _lmb.get("news_snippet_spoken"):
             _news_snippet = _morning_news_text
@@ -2141,9 +2157,21 @@ async def websocket_endpoint(ws: WebSocket):
     active_connections.add(ws)
     log.info(f"[jarvis] WS connected  session={session_id} active={len(active_connections)}")
 
+    # Proaktiver Morning-Brief: falls noch nicht erledigt, direkt auslösen (kein _wsIsFirst nötig)
+    daily_brief.load()
+    if daily_brief.detect_morning_trigger():
+        log.info(f"[jarvis] WS connect → proaktiver Morgen-Brief")
+        asyncio.create_task(process_message(session_id, "Jarvis activate", ws))
+
     try:
         while True:
             data = await ws.receive_json()
+            if data.get("type") == "hello":
+                # Frische Seite identifiziert sich — alte Zombie-Verbindungen entfernen
+                for old in list(active_connections - {ws}):
+                    active_connections.discard(old)
+                log.info(f"[jarvis] WS hello → Zombies bereinigt, active={len(active_connections)}")
+                continue
             if data.get("type") == "ping":
                 continue
             if data.get("type") == "audio_done":

@@ -45,7 +45,12 @@ body {
     border-left:3px solid transparent;
     cursor:pointer;
     transition:all 0.2s ease;
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
 }
+.news-cb { flex-shrink:0; accent-color:var(--accent); cursor:pointer; margin-top:3px; }
+.news-item-body { flex:1; min-width:0; }
 .news-item:hover {
     background:rgba(212,175,55,0.1);
     border-left-color:var(--gold);
@@ -724,6 +729,7 @@ function initWS() {
     dashboardWs = new WebSocket(`ws://${location.host}/ws`);
     dashboardWs.onopen = () => {
         _wsDelay = 3000;
+        wsSend({ type: 'hello' }); // identifiziert frische Seite → Server bereinigt Zombies
         if (_wsIsFirst) {
             _wsIsFirst = false;
             setOrbState('thinking');
@@ -972,10 +978,13 @@ function renderNewsPanel() {
     const shown = _newsArticles.slice(0, 5);
     box.innerHTML = shown.map((a, i) => {
         const catClass = CAT_COLORS[a.category] || 'cat-default';
-        const title = a.title.length > 82 ? a.title.slice(0, 82) + '…' : a.title;
+        const title = a.title.length > 78 ? a.title.slice(0, 78) + '…' : a.title;
         return `<div class="news-item" onclick="showNewsPopup(${i})">
-            <div class="news-source ${catClass}">${a.source}</div>
-            <div class="news-title">${title}</div>
+            <input type="checkbox" class="news-cb" onclick="event.stopPropagation(); markNewsReadById('${a.id}')" title="Zur Kenntnis genommen">
+            <div class="news-item-body">
+                <div class="news-source ${catClass}">${a.source}</div>
+                <div class="news-title">${title}</div>
+            </div>
         </div>`;
     }).join('');
     if (_newsArticles.length > 5)
@@ -1048,6 +1057,12 @@ function markNewsRead() {
         _newsArticles = _newsArticles.filter(a => a.id !== _currentNewsId);
     }
     closeNewsPopup();
+    renderNewsPanel();
+}
+
+function markNewsReadById(id) {
+    fetch('/api/news/read', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ article_id: id }) }).catch(() => {});
+    _newsArticles = _newsArticles.filter(a => a.id !== id);
     renderNewsPanel();
 }
 

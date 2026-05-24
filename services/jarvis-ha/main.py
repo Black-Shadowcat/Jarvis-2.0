@@ -90,6 +90,7 @@ CACHE_TTL = 60.0  # Increased from 30s (tasks don't change frequently)
 CACHE_RETRY_DELAY = 10.0  # M13: Retry failed calls every 10s instead of waiting 60s
 _mail_cache = {"data": None, "ts": 0.0, "last_good": None, "etag": None}
 _tasks_cache = {"data": None, "ts": 0.0, "last_good": None, "etag": None}
+_tasks_raw_list: list = []  # raw string list from Reminders.app for ETag comparison
 _weather_cache = {"data": None, "ts": 0.0, "last_good": None}
 
 # ── Dashboard Data Functions ──────────────────────────────────────────────
@@ -132,12 +133,13 @@ def _cache_with_fallback(cache_dict, source_fn, timeout=8):
 def get_mail_sync():
     """M14: Fetch unread mails with ETag-based change detection."""
     try:
-        # Fetch unread email subjects and senders from all mailboxes
+        # Only read INBOX of each account — avoids showing archived/sent/junk as "new"
         script = """
 tell application "Mail"
     set mailList to ""
     repeat with acc in accounts
-        repeat with mb in mailboxes of acc
+        try
+            set mb to mailbox "INBOX" of acc
             if (unread count of mb) > 0 then
                 repeat with msg in messages of mb
                     try
@@ -166,7 +168,7 @@ tell application "Mail"
                     end try
                 end repeat
             end if
-        end repeat
+        end try
     end repeat
     return mailList
 end tell
@@ -223,6 +225,7 @@ end tell
 
 def get_tasks_sync():
     """M14: Fetch reminders with ETag-based change detection."""
+    global _tasks_raw_list
     script = '''tell application "Reminders"
     set cutoff to current date
     set hours of cutoff to 23
@@ -249,16 +252,15 @@ end tell'''
         new_etag = _calculate_etag(tasks_raw)
         if new_etag == _tasks_cache.get("etag"):
             log.info(f"[tasks] ETag match ({new_etag}) — no change, skipping cache update")
-            return _tasks_cache["data"]  # Return cached (don't update ts)
+            # Return raw strings (not _tasks_cache["data"] which contains processed dicts)
+            return {"tasks": _tasks_raw_list, "total": len(_tasks_raw_list)}
 
-        # Data changed — update cache
+        # Data changed — update raw list and etag
         log.info(f"[tasks] ETag changed ({_tasks_cache.get('etag')} → {new_etag}) — {len(tasks_raw)} tasks")
-        result_dict = {"tasks": tasks_raw, "total": len(tasks_raw)}
-        _tasks_cache["data"] = result_dict
+        _tasks_raw_list = tasks_raw
         _tasks_cache["etag"] = new_etag
-        _tasks_cache["last_good"] = result_dict
         _tasks_cache["ts"] = time.time()
-        return result_dict
+        return {"tasks": tasks_raw, "total": len(tasks_raw)}
 
     except subprocess.TimeoutExpired:
         log.error(f"get_tasks_sync: Reminders.app timeout (10s)")

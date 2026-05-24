@@ -50,14 +50,51 @@ def wait_for_unlock(timeout: int = 120) -> bool:
     return False
 
 
+_CMD_R_COOLDOWN = 60  # seconds — prevents double reload when both wake paths fire
+_last_cmd_r = 0.0
+
+
+def _cmd_r_jarvis() -> bool:
+    """Send Cmd+R to the Jarvis Tauri window via osascript.
+    Brings WKWebView to foreground, unblocks AudioContext, and forces WS reconnect.
+    Returns True if sent, False if blocked by cooldown."""
+    global _last_cmd_r
+    now = time.time()
+    if now - _last_cmd_r < _CMD_R_COOLDOWN:
+        print("[wake-monitor] Cmd+R übersprungen (Cooldown aktiv)", flush=True)
+        return False
+    _last_cmd_r = now
+    script = '''
+tell application "System Events"
+    set jarvisProcs to every process whose name contains "jarvis-tauri"
+    repeat with p in jarvisProcs
+        try
+            set frontmost of p to true
+            keystroke "r" using {command down}
+        end try
+    end repeat
+end tell
+'''
+    try:
+        subprocess.run(["osascript", "-e", script], capture_output=True, timeout=5)
+        print("[wake-monitor] Cmd+R an Jarvis gesendet (AudioContext reset)", flush=True)
+        return True
+    except Exception as e:
+        print(f"[wake-monitor] Cmd+R fehlgeschlagen: {e}", flush=True)
+        return False
+
+
 def notify_jarvis():
     unlocked = wait_for_unlock()
     if not unlocked:
         print("[wake-monitor] Timeout — Screen blieb gesperrt, kein Brief", flush=True)
         return
 
-    # Buffer after unlock: Chrome needs ~10s to reconnect WebSocket after sleep
-    time.sleep(10)
+    # Cmd+R: brings Tauri to foreground, unblocks WKWebView AudioContext after sleep
+    _cmd_r_jarvis()
+
+    # Buffer for WS reconnect after Cmd+R reload
+    time.sleep(5)
 
     for attempt in range(6):
         try:
@@ -74,8 +111,10 @@ def notify_jarvis():
 def _notify_jarvis_hid():
     """Notify Jarvis after a confirmed user-presence wake (HIDIdleTime).
     Screen is already unlocked — skips wait_for_unlock entirely."""
-    # Brief buffer so Tauri WebSocket is ready after display wake
-    time.sleep(2)
+    # Cmd+R: unblocks AudioContext if suspended after long idle
+    _cmd_r_jarvis()
+    # Buffer for WS reconnect after Cmd+R reload
+    time.sleep(3)
     for attempt in range(6):
         try:
             req = urllib.request.Request(JARVIS_WAKE_URL, method="POST")

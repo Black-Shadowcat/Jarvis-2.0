@@ -9,9 +9,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), version
 
 ### 🔧 Fixes
 
+- **B031 — Morgen-Brief nicht gehört** `server.py`: Brief wurde als „erledigt" markiert, bevor Audio zugestellt war; Zombie-WebSocket-Verbindungen (TCP-open, WKWebView-Seite tot) erhielten Audio ohne Exception → Brief galt als zugestellt, Nutzer hörte nichts.  
+  Ursache: (1) `record_morning_brief()` wurde vor `_speak()` aufgerufen. (2) Alte Verbindungen verblieben stumm in `active_connections`. (3) Keine Retry-Möglichkeit nach WS-Disconnect.  
+  Fix: `_speak()` gibt jetzt `bool` zurück (`True` = mind. eine Verbindung empfangen). `record_morning_brief()` wird erst nach erfolgreicher Zustellung aufgerufen. Neues `{type:"hello"}`-Protokoll: Client sendet bei jedem `onopen`, Server bereinigt dann Zombie-Verbindungen. Proaktiver Brief-Trigger direkt beim WS-Connect (kein `_wsIsFirst` nötig). `conversations.setdefault()` statt direktem Zugriff verhindert `KeyError` bei Race Condition. `build_system_prompt()` crasht nicht mehr bei `temp=None`.
+
+- **B030** `services/jarvis-ha/main.py`: Tasks-Titel explodierten zu unleserlichen Backslash-Ketten nach dem ersten Cache-Expiry  
+  Ursache: `get_tasks_sync()` und `get_tasks()` teilten `_tasks_cache["data"]`, aber mit inkompatiblem Inhalt — `get_tasks()` schrieb verarbeitete Dicts in den Cache; beim nächsten ETag-Match gab `get_tasks_sync()` diese Dicts als vermeintliche Task-Namen zurück → `str(dict)` als Titel → exponentielles Escaping pro 60s-Zyklus.  
+  Fix: Neues `_tasks_raw_list` speichert rohe Reminders-Strings separat; ETag-Match gibt immer Roh-Strings zurück statt `_tasks_cache["data"]`.
+
 - **B029** `scripts/wake-monitor.py`: Begrüßung nach Reawake blieb aus — Power-Nap-Kernel-Wakes blockierten HIDIdleTime-Wakes durch geteilten Cooldown  
   Ursache: `_try_trigger()` nutzte eine einzige `_last_wake`-Variable für beide Pfade. Nach einem Kernel-Wake (Screen gesperrt → 120s Timeout) wurde `_last_wake` nochmal zurückgesetzt → weitere 120s Sperre → echter Nutzer-Wake via HIDIdleTime stummgeschaltet.  
   Fix: Zwei unabhängige Cooldowns — `_last_wake` (120s, Kernel-Pfad) und `_last_hid_wake` (60s, HIDIdle-Pfad). Neue Funktion `_notify_jarvis_hid()` überspringt `wait_for_unlock()` (HIDIdleTime < 30s beweist bereits entsperrten Screen).
+
+- **Mail INBOX-Filter** `services/jarvis-ha/main.py`: Archiv-, Sent- und Junk-Mails wurden als ungelesen im UI angezeigt  
+  Ursache: AppleScript iterierte alle Mailboxen aller Accounts (`repeat with mb in mailboxes of acc`).  
+  Fix: Nur noch `mailbox "INBOX"` je Account wird ausgelesen.
+
+### ✨ Features
+
+- **News-Checkbox** `frontend/index.html`: Direktes Abhaken von News-Artikeln ohne Popup-Umweg  
+  Jeder Eintrag in der Neuigkeiten-Liste hat eine Checkbox. Haken setzen → POST `/api/news/read` → Artikel verschwindet sofort. Klick auf Titel öffnet wie gewohnt das Popup.
 
 ### ⚙️ Änderungen
 
