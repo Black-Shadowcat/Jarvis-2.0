@@ -1,6 +1,7 @@
 # Persönliche Konfiguration — niemals committen
 config.json
 voice.json
+STARTPROMPT.md
 
 # Laufzeitdaten
 data/
