@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>logFormatVersion</key>
+	<integer>12</integer>
+	<key>logs</key>
+	<dict>
+		<key>23151231-AD39-4038-8D62-B65F601BFC30</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>23151231-AD39-4038-8D62-B65F601BFC30.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>5</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>JarvisManager project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>JarvisManager</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Building project JarvisManager with scheme JarvisManager and configuration Release</string>
+			<key>timeStartedRecording</key>
+			<real>801320091.88197899</real>
+			<key>timeStoppedRecording</key>
+			<real>801320096.01173198</real>
+			<key>title</key>
+			<string>Building project JarvisManager with scheme JarvisManager and configuration Release</string>
+			<key>uniqueIdentifier</key>
+			<string>23151231-AD39-4038-8D62-B65F601BFC30</string>
+		</dict>
+		<key>79F985DA-3C1C-4885-A93F-E666CE2E5AD8</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>79F985DA-3C1C-4885-A93F-E666CE2E5AD8.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>0</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>JarvisManager project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>JarvisManager</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Cleaning project JarvisManager with scheme JarvisManager and configuration Release</string>
+			<key>timeStartedRecording</key>
+			<real>801320591.25952196</real>
+			<key>timeStoppedRecording</key>
+			<real>801320591.47721398</real>
+			<key>title</key>
+			<string>Cleaning project JarvisManager with scheme JarvisManager and configuration Release</string>
+			<key>uniqueIdentifier</key>
+			<string>79F985DA-3C1C-4885-A93F-E666CE2E5AD8</string>
+		</dict>
+		<key>89B113B0-D71D-4410-8673-C7DAB0D66338</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>89B113B0-D71D-4410-8673-C7DAB0D66338.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>0</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>JarvisManager project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>JarvisManager</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Cleaning project JarvisManager with scheme JarvisManager and configuration Release</string>
+			<key>timeStartedRecording</key>
+			<real>801320297.66278195</real>
+			<key>timeStoppedRecording</key>
+			<real>801320297.90296304</real>
+			<key>title</key>
+			<string>Cleaning project JarvisManager with scheme JarvisManager and configuration Release</string>
+			<key>uniqueIdentifier</key>
+			<string>89B113B0-D71D-4410-8673-C7DAB0D66338</string>
+		</dict>
+		<key>CCA91C6D-6724-4616-883D-4BB9A48FB461</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>CCA91C6D-6724-4616-883D-4BB9A48FB461.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>0</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>JarvisManager project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>JarvisManager</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Cleaning project JarvisManager with scheme JarvisManager and configuration Release</string>
+			<key>timeStartedRecording</key>
+			<real>801320091.65225804</real>
+			<key>timeStoppedRecording</key>
+			<real>801320091.88011599</real>
+			<key>title</key>
+			<string>Cleaning project JarvisManager with scheme JarvisManager and configuration Release</string>
+			<key>uniqueIdentifier</key>
+			<string>CCA91C6D-6724-4616-883D-4BB9A48FB461</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

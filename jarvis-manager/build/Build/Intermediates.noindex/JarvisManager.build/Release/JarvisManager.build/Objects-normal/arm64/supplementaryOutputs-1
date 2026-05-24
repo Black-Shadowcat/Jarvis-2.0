@@ -1,0 +1,12 @@
+{
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Views/ContentView.swift" : {
+    "abi-baseline-json" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/Jarvis_Manager.abi.json",
+    "const-values" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary.swiftconstvalues",
+    "dependencies" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary.d",
+    "diagnostics" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary.dia",
+    "objc-header" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/Jarvis_Manager-Swift.h",
+    "swiftdoc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/Jarvis_Manager.swiftdoc",
+    "swiftmodule" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/Jarvis_Manager.swiftmodule",
+    "swiftsourceinfo" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/Jarvis_Manager.swiftsourceinfo"
+  }
+}

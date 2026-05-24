@@ -21,11 +21,13 @@ _start_agent() {
     local port=$3
     local uid=$(id -u)
     echo "→ Starte $name (Port $port)..."
+    # enable + load -w: loescht Disabled=true Flag (gesetzt durch Autostart-Deaktivierung)
+    launchctl enable gui/$uid/$name 2>/dev/null
+    launchctl load -w "$plist" 2>/dev/null
     if launchctl list "$name" &>/dev/null; then
         launchctl start "$name" 2>/dev/null
     else
-        # Use modern launchctl bootstrap (macOS Ventura+, reliable)
-        launchctl bootstrap gui/$uid "$plist" 2>/dev/null || launchctl load "$plist" 2>/dev/null
+        launchctl bootstrap gui/$uid "$plist" 2>/dev/null
     fi
 }
 
@@ -63,6 +65,12 @@ wait
 echo "→ Starte Spracheingabe..."
 _start_agent "com.jarvis.v2.speech" "$SPEECH_PLIST" "STT"
 sleep 2
+
+# Phase 4: Supervisor (zuletzt — bewacht alle anderen Services)
+echo "→ Starte Supervisor..."
+SUPERVISOR_PLIST=~/Library/LaunchAgents/com.jarvis.v2.supervisor.plist
+_start_agent "com.jarvis.v2.supervisor" "$SUPERVISOR_PLIST" "SVC"
+sleep 1
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

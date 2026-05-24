@@ -1,0 +1,66 @@
+{
+  "" : {
+    "const-values" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary.swiftconstvalues",
+    "dependencies" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary.d",
+    "diagnostics" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary.dia",
+    "emit-module-dependencies" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary-emit-module.dia",
+    "pch" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManager-primary.swiftdeps"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Core/LaunchAgentController.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/LaunchAgentController.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/LaunchAgentController.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/LaunchAgentController.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Core/ServiceMonitor.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ServiceMonitor.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ServiceMonitor.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ServiceMonitor.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Core/ShellExecutor.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ShellExecutor.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ShellExecutor.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ShellExecutor.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/JarvisManagerApp.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManagerApp.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManagerApp.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/JarvisManagerApp.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Models/LogEntry.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/LogEntry.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/LogEntry.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/LogEntry.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Models/Service.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/Service.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/Service.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/Service.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Views/ContentView.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ContentView.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Views/HUDColor.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/HUDColor.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/HUDColor.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/HUDColor.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Views/LogView.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/LogView.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/LogView.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/LogView.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/JarvisManager/Views/ServiceRowView.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ServiceRowView.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ServiceRowView.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/ServiceRowView.o"
+  },
+  "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/matthiasschreiber/Jarvis-2.0/jarvis-manager/build/Build/Intermediates.noindex/JarvisManager.build/Release/JarvisManager.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  }
+}
