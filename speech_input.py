@@ -80,6 +80,10 @@ MAX_SNIPPET_SECS = 10       # Max 10s per snippet accumulation
 WS_SEND_TIMEOUT        = 10  # seconds — ws.send() timeout → zombie detected
 MAX_RECONNECT_FAILURES =  5  # consecutive failures → sys.exit(1) for launchd restart
 
+# Auto-Listen braucht stärkere Stimme als Wake-Word — verhindert Tastatur-Trigger
+# Tastaturgeräusche liegen typisch bei RMS 0.003–0.004, Stimme bei >0.006
+WW_AUTO_LISTEN_RMS = 0.006  # Mindest-RMS für Auto-Listen (höher als WW_VOICE_RMS=0.002)
+
 # VAD Kalibrierungs-Pfad
 VAD_CALIB_PATH = os.path.join(os.path.dirname(__file__), "data", "vad_calibration.json")
 
@@ -124,6 +128,20 @@ _HALLUCINATIONS = {
     "thank you.", "thank you", "thanks.", "thanks", "bye.", "bye",
     "you", "you.", ".", "..", "...",
 }
+
+_ELLIPSIS_RE = re.compile(r'^\s*\.{2,}.*\.{2,}\s*$')  # "... Wort ..." Muster → Tastatur-Halluzination
+
+def _is_hallucination(text: str) -> bool:
+    """True wenn Text eine bekannte Whisper-Halluzination ist."""
+    t = text.strip()
+    if t.lower() in _HALLUCINATIONS:
+        return True
+    if _ELLIPSIS_RE.match(t):  # "... Musik ...", "... 1 1 1 ..." etc.
+        return True
+    # Nur Zahlen/Leerzeichen ("1 1 1 1 1") → Tastaturgeräusch-Artefakt
+    if re.match(r'^[\d\s]+$', t) and len(t.replace(' ', '')) < 6:
+        return True
+    return False
 
 _audio_buffer: list  = []
 _recording:    bool  = False
@@ -282,7 +300,7 @@ def _transcribe(audio: np.ndarray):
             language="de",
         )
         text = result["text"].strip()
-        if not text or text.lower() in _HALLUCINATIONS:
+        if not text or _is_hallucination(text):
             log.debug(f"(verworfen: '{text}')")
             return
         log.info(f"» {text}")
@@ -361,7 +379,7 @@ def _auto_listen(timeout: float):
         except queue.Empty:
             continue
         rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
-        if rms < WW_VOICE_RMS:
+        if rms < WW_AUTO_LISTEN_RMS:  # Höherer Schwellwert als WW — verhindert Tastatur-Trigger
             continue
 
         # Phase 2: Stimme erkannt → Aufnahme starten
@@ -526,7 +544,7 @@ def _ww_thread():
         _detect_q_flush()
         _write_state("IDLE", inference_active=False, last_duration_s=transcription_duration)  # Phase 2: Done
 
-        if not text or text.lower() in _HALLUCINATIONS:
+        if not text or _is_hallucination(text):
             threading.Thread(target=_notify_ptt, args=("listen_close",), daemon=True).start()
             continue
         log.info(f"WW-Snippet: '{text}'")
@@ -543,7 +561,7 @@ def _ww_thread():
             r'^[\s,!.]*jarvis[\s,!.]*', '', text, flags=re.IGNORECASE
         ).strip()
 
-        if command and command.lower() not in _HALLUCINATIONS and len(command) > 3:
+        if command and not _is_hallucination(command) and len(command) > 3:
             # Befehl inline → direkt senden
             log.info(f"Befehl inline: » {command}")
             threading.Thread(target=_notify_ptt, args=("stop",), daemon=True).start()
@@ -588,9 +606,11 @@ async def _receiver(ws):
             log.info("[MUTE] Jarvis spricht — Mikrofon gestummt")
 
         elif msg_type == "speaking_end":
-            _jarvis_speaking = False
+            # 500ms warten: Echo-Nachhall im Raum zerfällt, bevor Mikro wieder aktiv
+            await asyncio.sleep(0.5)
             _detect_q_flush()
-            log.info("[UNMUTE] Jarvis fertig — Mikrofon aktiv")
+            _jarvis_speaking = False
+            log.info("[UNMUTE] Jarvis fertig — Mikrofon aktiv (500ms Echo-Schutz)")
 
         elif msg_type == "listen_open":
             _jarvis_speaking = False
