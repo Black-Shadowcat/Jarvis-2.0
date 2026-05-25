@@ -606,11 +606,11 @@ async def _receiver(ws):
             log.info("[MUTE] Jarvis spricht — Mikrofon gestummt")
 
         elif msg_type == "speaking_end":
-            # 500ms warten: Echo-Nachhall im Raum zerfällt, bevor Mikro wieder aktiv
-            await asyncio.sleep(0.5)
+            # 1200ms warten: Echo-Nachhall im Raum zerfällt, bevor Mikro wieder aktiv
+            await asyncio.sleep(1.2)
             _detect_q_flush()
             _jarvis_speaking = False
-            log.info("[UNMUTE] Jarvis fertig — Mikrofon aktiv (500ms Echo-Schutz)")
+            log.info("[UNMUTE] Jarvis fertig — Mikrofon aktiv (1200ms Echo-Schutz)")
 
         elif msg_type == "listen_open":
             _jarvis_speaking = False

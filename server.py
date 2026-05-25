@@ -856,6 +856,12 @@ _ww_muted: bool = False       # Wake-Word global mute flag
 _last_interaction: float = time.time()  # Track last user interaction (Chat, F19, Wake-Word)
 _morning_brief_in_progress: bool = False  # Race-condition guard: verhindert doppelten Brief
 
+# Echo-Schutz: letzter gesprochener Text + Zeitstempel
+_last_spoken_text: str = ""
+_last_spoken_at: float = 0.0
+_ECHO_WINDOW_SECS: float = 6.0   # Zeitfenster nach speaking_end in dem Echo möglich ist
+_ECHO_WORD_OVERLAP: float = 0.60  # Min. Wort-Overlap-Quote um als Echo zu gelten
+
 
 def _obsidian_note_done(content: str) -> bool:
     """True if the note has checkboxes and all of them are checked."""
@@ -1059,6 +1065,23 @@ def get_system_prompt():
     return (build_system_prompt()
             .replace("{time}", now.strftime("%H:%M"))
             .replace("{date}", date_str))
+
+
+def _is_echo(text: str) -> bool:
+    """Return True if text looks like a Whisper transcription of Jarvis's own TTS output."""
+    if not _last_spoken_text or time.time() - _last_spoken_at > _ECHO_WINDOW_SECS:
+        return False
+    def words(s: str) -> set:
+        return set(re.sub(r'[^\w\s]', '', s.lower()).split())
+    spoken = words(_last_spoken_text)
+    incoming = words(text)
+    if not incoming or not spoken:
+        return False
+    overlap = len(spoken & incoming) / len(incoming)
+    if overlap >= _ECHO_WORD_OVERLAP:
+        log.warning(f"[ECHO-FILTER] Verworfen (overlap={overlap:.0%}): {text[:80]!r}")
+        return True
+    return False
 
 
 def extract_action(text: str):
@@ -1554,7 +1577,9 @@ async def _speak(ws: WebSocket, session_id: str, text: str, display: str = "") -
     """TTS (via jarvis-audio service), append to history, broadcast to all connections.
     display: optionaler Frontend-Text (z.B. lesbare Datumsform); fehlt er, wird text verwendet.
     Returns True if at least one connection received the audio payload."""
-    global _active_speaks
+    global _active_speaks, _last_spoken_text, _last_spoken_at
+    _last_spoken_text = text
+    _last_spoken_at = time.time()
     _active_speaks += 1
     _delivered = False
     try:
@@ -2142,6 +2167,8 @@ async def stt_endpoint(ws: WebSocket):
             data = await ws.receive_json()
             user_text = data.get("text", "").strip()
             if not user_text:
+                continue
+            if _is_echo(user_text):
                 continue
             log.info(f"  You:    {user_text}")
             for conn in list(active_connections):
