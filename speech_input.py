@@ -739,8 +739,8 @@ async def _run():
             _ws_connected = False
             _reconnect_failures += 1
             if _reconnect_failures >= MAX_RECONNECT_FAILURES:
-                log.error(f"[M18] {MAX_RECONNECT_FAILURES} Reconnects fehlgeschlagen — sys.exit(1) für launchd-Neustart")
-                sys.exit(1)
+                log.error(f"[M18] {MAX_RECONNECT_FAILURES} Reconnects fehlgeschlagen — os._exit(1) für launchd-Neustart")
+                os._exit(1)  # Sofortabbruch — verhindert SIGSEGV durch mlx-Thread-Race beim Python-Cleanup
             log.info(f"Reconnect in {reconnect_delay}s… [Versuch {_reconnect_failures}/{MAX_RECONNECT_FAILURES}]")
             await asyncio.sleep(reconnect_delay)
             reconnect_delay = min(reconnect_delay * 2, 60)
@@ -752,7 +752,7 @@ async def _run():
 
 def _handle_sigterm(signum, frame):
     log.info("[M18] SIGTERM — graceful shutdown")
-    sys.exit(0)
+    os._exit(0)  # Sofortabbruch — verhindert SIGSEGV durch mlx-Thread-Race beim Python-Cleanup
 
 
 if __name__ == "__main__":

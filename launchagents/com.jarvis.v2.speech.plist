@@ -7,8 +7,9 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/opt/homebrew/bin/python3.11</string>
-        <string>/Users/matthiasschreiber/Jarvis-2.0/speech_input.py</string>
+        <string>/bin/zsh</string>
+        <string>-c</string>
+        <string>sleep 20 &amp;&amp; exec /opt/homebrew/bin/python3.11 /Users/matthiasschreiber/Jarvis-2.0/speech_input.py</string>
     </array>
 
     <key>WorkingDirectory</key>
@@ -19,6 +20,9 @@
 
     <key>KeepAlive</key>
     <true/>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
 
     <key>StandardOutPath</key>
     <string>/Users/matthiasschreiber/Library/Logs/jarvis-v2/speech.log</string>
