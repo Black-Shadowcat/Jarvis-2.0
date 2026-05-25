@@ -433,6 +433,7 @@ def get_weather_sync():
             "wind_kmh": attrs.get("wind_speed"),
             "cloud_pct": attrs.get("cloud_coverage"),
             "sun_hours": attrs.get("sun_hours"),
+            "fetched_at": datetime.now().isoformat(),
         }
     except Exception as e:
         log.info(f"[jarvis] Wetter-Fehler von HA: {e}")
@@ -888,7 +889,9 @@ def build_system_prompt():
             temp_str = "?"
         else:
             temp_str = str(int(t)) if t == int(t) else str(t).replace('.', ' Komma ')
-        weather_block = f"\nWetter {CITY}: {temp_str} Grad, {w['description']}{wind}"
+        ts = w.get('fetched_at', '')
+        ts_note = f" (Stand: {ts[:16].replace('T', ' ')})" if ts else ""
+        weather_block = f"\nWetter {CITY}{ts_note}: {temp_str} Grad, {w['description']}{wind}"
         # Add forecast if available
         if WEATHER_FORECAST_INFO:
             forecast_lines = []
@@ -963,7 +966,7 @@ ACTIONS - When an action is needed, write ONLY the action — no text before it,
 [ACTION:NOTE] text - Save note to Obsidian inbox. Use this action when {USER_ADDRESS} wants to note, write down, or save something to Obsidian. Write the entire note text after the tag. Example: "[ACTION:NOTE] Idea for the project: new dashboard with real-time data"
 [ACTION:NOTE_LIST] - List and read all notes in Obsidian inbox. Use this action ALWAYS when {USER_ADDRESS} asks what notes, reminders, or recordings are in Obsidian.
 [ACTION:NOTE_DONE] keyword - Mark note(s) in Obsidian inbox as done (delete). Use "all" to delete all notes. Use this action ALWAYS when {USER_ADDRESS} wants to mark Obsidian notes as done, checked, or finished — NEVER use REMINDER_DONE for this.
-[ACTION:WEATHER] - Get current weather + forecast (Kachelmann via HomeAssistant). Use this action ALWAYS when {USER_ADDRESS} asks about weather, temperature, rain, wind, snow, forecast, or upcoming days. Available: current data + 5-day forecast with min/max temperature and precipitation.
+[ACTION:WEATHER] - Get current weather + forecast (Kachelmann via HomeAssistant). Use this action ALWAYS when {USER_ADDRESS} directly asks about weather, temperature, rain, wind, snow, forecast, or upcoming days — EVEN IF weather data is already present in === CURRENT DATA ===, because that data may be stale. The weather in === CURRENT DATA === is ONLY for the morning briefing (Jarvis activate). Available: current data + 5-day forecast with min/max temperature and precipitation.
 
 OUTPUT FORMAT — Prefer JSON:
 Answer ALWAYS as JSON object. For normal answer without action:
@@ -1018,7 +1021,7 @@ AKTIONEN - Wenn eine Aktion noetig ist, schreibe NUR die Aktion — keinen Text 
 [ACTION:NOTIZ] text - Notiz in Obsidian Inbox speichern. Nutze diese Aktion wenn {USER_ADDRESS} etwas notieren, aufschreiben oder in Obsidian speichern moechte. Der gesamte Notiztext kommt nach dem Tag. Beispiel: "[ACTION:NOTIZ] Idee fuer das Projekt: neues Dashboard mit Echtzeit-Daten"
 [ACTION:NOTIZ_LIST] - Alle Notizen in der Obsidian Inbox auflisten und vorlesen. Nutze diese Aktion IMMER wenn {USER_ADDRESS} fragt welche Notizen, Erinnerungen oder Aufzeichnungen in Obsidian sind.
 [ACTION:NOTIZ_ERLEDIGT] stichwort - Notiz(en) aus der Obsidian Inbox als erledigt markieren (loeschen). Nutze "alle" um alle Notizen zu loeschen. Nutze diese Aktion IMMER wenn {USER_ADDRESS} Obsidian-Notizen als erledigt, abgehakt oder fertig markieren moechte — NIEMALS REMINDER_DONE dafuer verwenden.
-[ACTION:WETTER] - Aktuelles Wetter + Vorhersage abrufen (Kachelmann via HomeAssistant). Nutze diese Aktion IMMER wenn {USER_ADDRESS} nach Wetter, Temperatur, Regen, Wind, Schnee, Vorhersage oder kommenden Tagen fragt. Verfügbar: Aktuelle Daten + 5-Tage-Vorhersage mit Min/Max-Temperatur und Niederschlag.
+[ACTION:WETTER] - Aktuelles Wetter + Vorhersage abrufen (Kachelmann via HomeAssistant). Nutze diese Aktion IMMER wenn {USER_ADDRESS} direkt nach Wetter, Temperatur, Regen, Wind, Schnee, Vorhersage oder kommenden Tagen fragt — AUCH wenn Wetterdaten bereits in === AKTUELLE DATEN === stehen, denn diese koennen veraltet sein. Die Wetterdaten in === AKTUELLE DATEN === sind NUR fuer das Morgen-Briefing (Jarvis activate) bestimmt. Verfuegbar: Aktuelle Daten + 5-Tage-Vorhersage mit Min/Max-Temperatur und Niederschlag.
 
 AUSGABEFORMAT — Bevorzuge JSON:
 Antworte IMMER als JSON-Objekt. Bei normaler Antwort ohne Aktion:
