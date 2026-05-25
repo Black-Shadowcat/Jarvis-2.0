@@ -853,6 +853,7 @@ active_connections: set = set()
 stt_connections: set = set()  # speech_input.py WebSocket connections
 _ww_muted: bool = False       # Wake-Word global mute flag
 _last_interaction: float = time.time()  # Track last user interaction (Chat, F19, Wake-Word)
+_morning_brief_in_progress: bool = False  # Race-condition guard: verhindert doppelten Brief
 
 
 def _obsidian_note_done(content: str) -> bool:
@@ -1859,10 +1860,13 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         loop = asyncio.get_event_loop()
 
         # Morning trigger → record state, let LLM generate the rich greeting
+        # _morning_brief_in_progress guard: verhindert zweiten Brief wenn WS-Connect + WW gleichzeitig
+        global _morning_brief_in_progress
         daily_brief.load()
         _llm_morning = False
         _pending_brief_args: dict | None = None  # set here, recorded only after successful _speak()
-        if daily_brief.detect_morning_trigger():
+        if daily_brief.detect_morning_trigger() and not _morning_brief_in_progress:
+            _morning_brief_in_progress = True
             # Fresh mail only needed for rich morning brief
             fresh = await loop.run_in_executor(None, get_mail_sync)
             async with _mail_lock:
@@ -1980,6 +1984,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
                 if _pending_brief_args is not None and _delivered:
                     daily_brief.record_morning_brief(**_pending_brief_args)
                     _pending_brief_args = None
+                    _morning_brief_in_progress = False
             _lmb = daily_brief._data.get("last_morning_brief")
             if _morning_news_text and _lmb and not _lmb.get("news_snippet_spoken"):
                 _news_snippet = _morning_news_text
@@ -2012,6 +2017,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         if _pending_brief_args is not None and _delivered:
             daily_brief.record_morning_brief(**_pending_brief_args)
             _pending_brief_args = None
+            _morning_brief_in_progress = False
         _lmb = daily_brief._data.get("last_morning_brief")
         if _morning_news_text and _lmb and not _lmb.get("news_snippet_spoken"):
             _news_snippet = _morning_news_text
@@ -2165,8 +2171,11 @@ async def websocket_endpoint(ws: WebSocket):
     log.info(f"[jarvis] WS connected  session={session_id} active={len(active_connections)}")
 
     # Proaktiver Morning-Brief: falls noch nicht erledigt, direkt auslösen (kein _wsIsFirst nötig)
+    # _morning_brief_in_progress verhindert Race Condition mit speech_input.py "Jarvis activate"
+    global _morning_brief_in_progress
     daily_brief.load()
-    if daily_brief.detect_morning_trigger():
+    if daily_brief.detect_morning_trigger() and not _morning_brief_in_progress:
+        _morning_brief_in_progress = True
         log.info(f"[jarvis] WS connect → proaktiver Morgen-Brief")
         asyncio.create_task(process_message(session_id, "Jarvis activate", ws))
 
@@ -2473,11 +2482,13 @@ async def wake_notification():
             log.info(f"[jarvis] Wake: kein Browser verbunden — Brief übersprungen")
             return {"status": "ok", "notes": len(OBSIDIAN_INFO)}
 
+    global _morning_brief_in_progress
     daily_brief.load()
     loop = asyncio.get_event_loop()
 
     # Morgen-Brief: direkt via LLM
-    if daily_brief.detect_morning_trigger():
+    if daily_brief.detect_morning_trigger() and not _morning_brief_in_progress:
+        _morning_brief_in_progress = True
         await _ensure_weather(loop)
         await _ensure_calendar(loop)
         await _ensure_news()
