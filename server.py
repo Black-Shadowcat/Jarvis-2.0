@@ -2170,12 +2170,13 @@ async def websocket_endpoint(ws: WebSocket):
     active_connections.add(ws)
     log.info(f"[jarvis] WS connected  session={session_id} active={len(active_connections)}")
 
-    # Proaktiver Morning-Brief: falls noch nicht erledigt, direkt auslösen (kein _wsIsFirst nötig)
-    # _morning_brief_in_progress verhindert Race Condition mit speech_input.py "Jarvis activate"
-    global _morning_brief_in_progress
+    # Proaktiver Morning-Brief: falls noch nicht erledigt, direkt auslösen.
+    # KEIN Pre-Set von _morning_brief_in_progress hier — process_message setzt es selbst
+    # atomar (kein await zwischen Check und Set). Würde man es hier pre-setzen, blockiert
+    # man process_message daran, den Brief-Block zu betreten → last_morning_brief wird nie
+    # geschrieben → Brief triggert bei jedem Reconnect/Restart erneut.
     daily_brief.load()
     if daily_brief.detect_morning_trigger() and not _morning_brief_in_progress:
-        _morning_brief_in_progress = True
         log.info(f"[jarvis] WS connect → proaktiver Morgen-Brief")
         asyncio.create_task(process_message(session_id, "Jarvis activate", ws))
 
@@ -2482,13 +2483,12 @@ async def wake_notification():
             log.info(f"[jarvis] Wake: kein Browser verbunden — Brief übersprungen")
             return {"status": "ok", "notes": len(OBSIDIAN_INFO)}
 
-    global _morning_brief_in_progress
     daily_brief.load()
     loop = asyncio.get_event_loop()
 
-    # Morgen-Brief: direkt via LLM
+    # Morgen-Brief: direkt via LLM. Kein Pre-Set von _morning_brief_in_progress —
+    # process_message setzt es selbst atomar.
     if daily_brief.detect_morning_trigger() and not _morning_brief_in_progress:
-        _morning_brief_in_progress = True
         await _ensure_weather(loop)
         await _ensure_calendar(loop)
         await _ensure_news()
