@@ -270,43 +270,68 @@ end tell'''
         return []
 
 
-def get_calendar_sync(days: int = 7) -> list[str]:
-    """Fetch calendar events from Home Assistant."""
+def get_calendar_sync(days: int = 3) -> list[str]:
+    """Fetch calendar events from Home Assistant CalDAV integration."""
     if not HA_URL or not HA_TOKEN:
         return []
 
-    try:
-        result = subprocess.run(
-            ["curl", "-s", "-H", f"Authorization: Bearer {HA_TOKEN}",
-             f"{HA_URL}/api/states/calendar.home"],
-            capture_output=True,
-            text=True,
-            timeout=3
-        )
-        if result.returncode != 0:
-            log.warning(f"get_calendar_sync: curl returned error code {result.returncode}")
-            return []
+    calendars = [
+        "calendar.kalender",
+        "calendar.dienstliches",
+        "calendar.a_dienst",
+        "calendar.stammtisch",
+        "calendar.arzttermine",
+        "calendar.family",
+    ]
+    headers = {"Authorization": f"Bearer {HA_TOKEN}"}
 
-        data = json.loads(result.stdout)
-        if not data or "attributes" not in data:
-            log.warning(f"get_calendar_sync: no calendar data from Home Assistant")
-            return []
+    start_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    end_dt = start_dt + timedelta(days=days)
+    start_str = start_dt.strftime('%Y-%m-%dT%H:%M:%S')
+    end_str = end_dt.strftime('%Y-%m-%dT%H:%M:%S')
 
-        events = []
-        for attr_key in ["start_time", "description"]:
-            if attr_key in data["attributes"]:
-                event_str = f"{data['attributes'].get('description', '?')} -- {data['attributes'].get('start_time', '?')}"
-                events.append(event_str)
-        return events
-    except subprocess.TimeoutExpired:
-        log.error(f"get_calendar_sync: Home Assistant timeout (3s)")
-        return []
-    except json.JSONDecodeError as e:
-        log.error(f"get_calendar_sync: invalid JSON from HA: {e}")
-        return []
-    except Exception as e:
-        log.error(f"get_calendar_sync error: {e}")
-        return []
+    seen_occ: set = set()
+    results: list = []
+
+    import urllib.request as _urlreq
+    for entity_id in calendars:
+        try:
+            url = f"{HA_URL}/api/calendars/{entity_id}?start={start_str}&end={end_str}"
+            req = _urlreq.Request(url, headers=headers)
+            with _urlreq.urlopen(req, timeout=5) as resp:
+                events = json.loads(resp.read())
+            for e in events:
+                title = e.get('summary', '').strip()
+                if not title:
+                    continue
+                s = e['start'].get('dateTime') or e['start'].get('date')
+                if 'T' in s:
+                    dt = datetime.fromisoformat(s).replace(tzinfo=None)
+                else:
+                    dt = datetime.fromisoformat(s)
+                key = f"{title}|{dt.strftime('%Y-%m-%d %H:%M')}"
+                if key not in seen_occ:
+                    seen_occ.add(key)
+                    results.append((dt, title))
+        except Exception as exc:
+            log.debug(f"get_calendar_sync: {entity_id} fehler: {exc}")
+            continue
+
+    results.sort(key=lambda x: x[0])
+    seen_titles: set = set()
+    lines = []
+    for dt, title in results:
+        if title in seen_titles:
+            continue
+        seen_titles.add(title)
+        # Label: Uhrzeit oder "Ganztags" + Datum wenn nicht heute
+        today = datetime.now().date()
+        if dt.date() == today:
+            label = dt.strftime('%H:%M') if dt.hour or dt.minute else "Ganztags"
+        else:
+            label = dt.strftime('%d.%m. %H:%M') if dt.hour or dt.minute else dt.strftime('%d.%m. Ganztags')
+        lines.append(f"{title} -- {label}")
+    return lines
 
 
 def get_weather_sync() -> dict:
