@@ -76,6 +76,10 @@ WW_CMD_SILENCE  = 1.5    # Stille nach Befehl → Aufnahme beenden
 MAX_AUDIO_BUFFER_SECS = 30  # Max 30s of audio in _audio_buffer before forced stop
 MAX_SNIPPET_SECS = 10       # Max 10s per snippet accumulation
 
+# M18: WS Watchdog — zombie detection + graceful exit
+WS_SEND_TIMEOUT        = 10  # seconds — ws.send() timeout → zombie detected
+MAX_RECONNECT_FAILURES =  5  # consecutive failures → sys.exit(1) for launchd restart
+
 # VAD Kalibrierungs-Pfad
 VAD_CALIB_PATH = os.path.join(os.path.dirname(__file__), "data", "vad_calibration.json")
 
@@ -127,6 +131,10 @@ _ptt_active:   bool  = False   # True während F19 gehalten wird — verhindert 
 _buffer_lock         = threading.Lock()
 _loop:  asyncio.AbstractEventLoop = None
 _queue: asyncio.Queue             = None
+
+# M18: WS state tracking
+_ws_connected:      bool  = False
+_reconnect_failures: int  = 0
 
 _detect_q: queue.Queue = queue.Queue(maxsize=500)
 
@@ -552,7 +560,15 @@ def _ww_thread():
 async def _sender(ws):
     while True:
         text = await _queue.get()
-        await ws.send(json.dumps({"text": text}))
+        try:
+            await asyncio.wait_for(
+                ws.send(json.dumps({"text": text})),
+                timeout=WS_SEND_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            log.warning(f"[M18] ws.send() timeout ({WS_SEND_TIMEOUT}s) — Zombie-WS erkannt, trenne Verbindung")
+            await ws.close()
+            return  # _receiver erkennt ConnectionClosed → Reconnect-Loop
 
 
 async def _receiver(ws):
@@ -671,13 +687,17 @@ async def _run():
     log.info("─" * 44)
 
     reconnect_delay = 3
+    global _ws_connected, _reconnect_failures
+    _reconnect_failures = 0
     try:
         while True:
             try:
-                async with websockets.connect(SERVER_URL, ping_interval=20) as ws:
+                async with websockets.connect(SERVER_URL, ping_interval=20, ping_timeout=30) as ws:
                     global _jarvis_speaking, _in_conversation
                     _jarvis_speaking = False
                     _in_conversation = False
+                    _ws_connected = True
+                    _reconnect_failures = 0
                     reconnect_delay = 3  # Reset Backoff nach erfolgreicher Verbindung
                     log.info("  Server verbunden ✓")
                     sender_task = asyncio.create_task(_sender(ws))
@@ -686,6 +706,7 @@ async def _run():
                     except websockets.exceptions.ConnectionClosed:
                         pass
                     finally:
+                        _ws_connected = False
                         sender_task.cancel()
                         try:
                             await sender_task
@@ -695,14 +716,26 @@ async def _run():
                 raise
             except Exception as e:
                 log.warning(f"Verbindungsfehler ({type(e).__name__}: {e})")
-            log.info(f"Reconnect in {reconnect_delay}s…")
+            _ws_connected = False
+            _reconnect_failures += 1
+            if _reconnect_failures >= MAX_RECONNECT_FAILURES:
+                log.error(f"[M18] {MAX_RECONNECT_FAILURES} Reconnects fehlgeschlagen — sys.exit(1) für launchd-Neustart")
+                sys.exit(1)
+            log.info(f"Reconnect in {reconnect_delay}s… [Versuch {_reconnect_failures}/{MAX_RECONNECT_FAILURES}]")
             await asyncio.sleep(reconnect_delay)
             reconnect_delay = min(reconnect_delay * 2, 60)
     finally:
+        _ws_connected = False
         stream.stop()
         listener.stop()
 
 
+def _handle_sigterm(signum, frame):
+    log.info("[M18] SIGTERM — graceful shutdown")
+    sys.exit(0)
+
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, _handle_sigterm)
     _ensure_single_instance()  # B021 v3: OS-level fcntl lock (robust)
     asyncio.run(_run())
