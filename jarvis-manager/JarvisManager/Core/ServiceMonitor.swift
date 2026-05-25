@@ -135,12 +135,16 @@ class ServiceMonitor: ObservableObject {
         return 0
     }
 
-    // Autostart = alle LaunchAgents geladen?
+    // Autostart = alle 7 LaunchAgents enabled (nicht disabled)?
+    // Nutzt print-disabled statt list — erkennt auch persistent deaktivierte Agents.
     private func checkAutostart() {
         Task {
-            let result = await ShellExecutor.run("/bin/launchctl", args: ["list"])
-            let loaded = result.output.contains("com.jarvis.v2.server")
-            await MainActor.run { self.autostartEnabled = loaded }
+            let uid = String(getuid())
+            let result = await ShellExecutor.run("/bin/launchctl", args: ["print-disabled", "gui/\(uid)"])
+            let allEnabled = LaunchAgentController.stopOrder.allSatisfy { agentID in
+                !result.output.contains("\"\(agentID)\" => disabled")
+            }
+            await MainActor.run { self.autostartEnabled = allEnabled }
         }
     }
 }
