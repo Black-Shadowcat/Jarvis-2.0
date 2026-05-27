@@ -885,6 +885,20 @@ def get_obsidian_info_sync() -> list[str]:
     except Exception:
         return []
 
+def build_system_prompt_parts() -> tuple[str, str]:
+    """Return (static_part, dynamic_part) for prompt caching.
+    static_part: persona + all instructions (cacheable, ~1000 tokens, rarely changes)
+    dynamic_part: === AKTUELLE DATEN === block (changes every 30min, not cached)
+    """
+    full = build_system_prompt()
+    # Split at the data block marker (both DE and EN)
+    for marker in ["\n=== AKTUELLE DATEN ===", "\n=== CURRENT DATA ==="]:
+        if marker in full:
+            idx = full.index(marker)
+            return full[:idx], full[idx:]
+    return full, ""
+
+
 def build_system_prompt():
     weather_block = ""
     if WEATHER_INFO:
@@ -1056,7 +1070,6 @@ WENN {USER_NAME} "Jarvis activate" sagt:
 
 
 def get_system_prompt():
-    # B022 FIX: Inject current date so Jarvis knows what day it actually is
     now = datetime.now()
     if LANGUAGE == "de":
         date_str = f"{_DE_WEEKDAYS[now.weekday()]}, {now.day}. {_DE_MONTHS[now.month]} {now.year}"
@@ -1065,6 +1078,29 @@ def get_system_prompt():
     return (build_system_prompt()
             .replace("{time}", now.strftime("%H:%M"))
             .replace("{date}", date_str))
+
+
+def get_system_prompt_cached() -> list[dict]:
+    """Return system prompt as list with cache_control on the static part.
+    Static part (~1000 tokens, persona + instructions) is cached for 5 min.
+    Dynamic part (AKTUELLE DATEN block) is never cached — changes every 30 min.
+    Saves ~60-80% of input token costs on repeated calls.
+    """
+    now = datetime.now()
+    if LANGUAGE == "de":
+        date_str = f"{_DE_WEEKDAYS[now.weekday()]}, {now.day}. {_DE_MONTHS[now.month]} {now.year}"
+    else:
+        date_str = now.strftime("%A, %B %d, %Y")
+    time_str = now.strftime("%H:%M")
+
+    static_raw, dynamic_raw = build_system_prompt_parts()
+    static = static_raw.replace("{time}", time_str).replace("{date}", date_str)
+    dynamic = dynamic_raw.replace("{time}", time_str).replace("{date}", date_str)
+
+    parts: list[dict] = [{"type": "text", "text": static, "cache_control": {"type": "ephemeral"}}]
+    if dynamic:
+        parts.append({"type": "text", "text": dynamic})
+    return parts
 
 
 def _is_echo(text: str) -> bool:
@@ -1996,10 +2032,17 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     response = await ai.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=_max_tokens,
-        system=get_system_prompt(),
+        system=get_system_prompt_cached(),
         messages=history,
     )
     reply = response.content[0].text
+    usage = response.usage
+    cache_hit = getattr(usage, "cache_read_input_tokens", 0) or 0
+    cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    if cache_hit:
+        log.info(f"  [cache] HIT {cache_hit} tokens gelesen, {usage.input_tokens} fresh")
+    elif cache_write:
+        log.info(f"  [cache] WRITE {cache_write} tokens gecacht")
     log.debug(f"  LLM raw ({len(reply)} chars): {reply[:120]!r}")
 
     # ── Try structured JSON path first
