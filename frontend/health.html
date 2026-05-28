@@ -93,6 +93,26 @@
             align-items: center;
         }
 
+        @keyframes blink-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .groq-fallback-banner {
+            display: none;
+            background: rgba(255,50,50,0.12);
+            border: 1px solid rgba(255,50,50,0.6);
+            border-radius: 6px;
+            padding: 8px 16px;
+            margin: 12px 0 4px 0;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.08em;
+            color: #ff5050;
+            text-transform: uppercase;
+            animation: blink-red 1.2s ease-in-out infinite;
+            text-align: center;
+        }
+
         .alert-badge {
             display: flex;
             flex-direction: row;
@@ -643,6 +663,9 @@
 
                 <div class="supervisor-info">
                     <div style="padding: 12px 0; border-top: 1px solid rgba(0, 255, 136, 0.1); font-size: 12px; font-weight: bold; letter-spacing: 0.1em; color: #00ff88; text-transform: uppercase; text-align: left; margin-top: 16px;">SYSTEM SUMMARY</div>
+                    <div class="groq-fallback-banner" id="groq-fallback-banner">
+                        ⚠ GROQ FALLBACK AKTIV — ANTHROPIC LIMIT ERREICHT
+                    </div>
                     <div class="info-row">
                         <span>SUPERVISOR.PY</span>
                         <span class="info-value" id="info-version">—</span>
@@ -1166,6 +1189,15 @@
             } catch (e) {
                 console.error('[health] Error fetching metrics:', e);
             }
+            // Groq Fallback Banner
+            try {
+                const lr = await fetch('/api/llm_status');
+                if (lr.ok) {
+                    const ld = await lr.json();
+                    const banner = document.getElementById('groq-fallback-banner');
+                    if (banner) banner.style.display = ld.groq_fallback_active ? 'block' : 'none';
+                }
+            } catch(e) {}
         }
 
         function updateLogs() {

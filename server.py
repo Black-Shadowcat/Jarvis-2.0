@@ -3024,9 +3024,9 @@ async def get_config_api():
 
 @app.post("/api/config")
 async def save_config_api(request: Request):
-    global ANTHROPIC_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID
+    global ANTHROPIC_API_KEY, GROQ_API_KEY, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID
     global USER_NAME, USER_ADDRESS, CITY, LAT, LON, LANGUAGE, _L
-    global KACHELMANN_KEY, HA_URL, HA_TOKEN, ai, WAKE_GREETING_ENABLED
+    global KACHELMANN_KEY, HA_URL, HA_TOKEN, ai, groq_ai, WAKE_GREETING_ENABLED
     global OBSIDIAN_INBOX, OBSIDIAN_ARCHIVE
 
     data = await request.json()
@@ -3035,7 +3035,7 @@ async def save_config_api(request: Request):
         cfg = json.load(f)
 
     allowed = [
-        "anthropic_api_key", "elevenlabs_api_key", "elevenlabs_voice_id",
+        "anthropic_api_key", "groq_api_key", "elevenlabs_api_key", "elevenlabs_voice_id",
         "user_name", "user_address", "city", "timezone", "lat", "lon",
         "kachelmann_api_key", "ha_url", "ha_token", "ha_enabled",
         "workspace_path", "obsidian_inbox_path", "obsidian_archive_path", "browser_url",
@@ -3072,11 +3072,24 @@ async def save_config_api(request: Request):
     daily_brief.set_morning_hour(cfg.get("morning_brief_hour", 4))
     OBSIDIAN_INBOX   = cfg.get("obsidian_inbox_path", OBSIDIAN_INBOX)
     OBSIDIAN_ARCHIVE = cfg.get("obsidian_archive_path", OBSIDIAN_ARCHIVE)
+    ANTHROPIC_API_KEY = cfg.get("anthropic_api_key", ANTHROPIC_API_KEY)
+    GROQ_API_KEY = cfg.get("groq_api_key", GROQ_API_KEY)
     ai = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     groq_ai = groq_sdk.AsyncGroq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
     log.info(f"[jarvis] Config gespeichert via UI")
     return {"status": "saved", "errors": errors}
+
+
+@app.get("/api/llm_status")
+async def llm_status():
+    """LLM provider status — zeigt ob Groq Fallback aktiv ist."""
+    return {
+        "provider": "groq" if _groq_fallback_active else "anthropic",
+        "groq_fallback_active": _groq_fallback_active,
+        "groq_configured": bool(GROQ_API_KEY),
+        "groq_model": GROQ_MODEL if _groq_fallback_active else None,
+    }
 
 
 @app.get("/api/apps")

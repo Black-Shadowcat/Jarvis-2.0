@@ -41,7 +41,10 @@ async function loadConfig() {
 
         // Fill form fields
         document.getElementById('anthropicKey').value = data.anthropic_api_key || '';
+        document.getElementById('groqKey').value = data.groq_api_key || '';
         document.getElementById('elevenlabsKey').value = data.elevenlabs_api_key || '';
+        // Groq status
+        loadGroqStatus();
         document.getElementById('userName').value = data.user_name || '';
         document.getElementById('userAddress').value = data.user_address || '';
         document.getElementById('city').value = data.city || '';
@@ -370,6 +373,7 @@ async function saveConfig() {
 
     const config = {
         anthropic_api_key: document.getElementById('anthropicKey').value,
+        groq_api_key: document.getElementById('groqKey').value,
         elevenlabs_api_key: document.getElementById('elevenlabsKey').value,
         elevenlabs_voice_id: voiceId,
         user_name: document.getElementById('userName').value,
@@ -731,4 +735,31 @@ async function bulkSaveFeeds() {
     } finally {
         setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 2200);
     }
+}
+
+async function loadGroqStatus() {
+    try {
+        const r = await fetch('/api/llm_status');
+        const d = await r.json();
+        const el = document.getElementById('groqStatus');
+        if (!el) return;
+        if (d.groq_fallback_active) {
+            el.style.color = '#ff5050';
+            el.textContent = '⚠ Fallback aktiv — Jarvis nutzt gerade Groq (' + (d.groq_model || '') + ')';
+        } else if (d.groq_configured) {
+            el.style.color = '#00ff88';
+            el.textContent = '✓ Konfiguriert — bereit als Fallback';
+        } else {
+            el.style.color = '#888';
+            el.textContent = 'Nicht konfiguriert';
+        }
+    } catch(e) {}
+}
+
+function clearGroqKey() {
+    if (!confirm('Groq API Key entfernen? Fallback wird deaktiviert.')) return;
+    document.getElementById('groqKey').value = '';
+    document.getElementById('groqStatus').textContent = 'Nicht konfiguriert';
+    document.getElementById('groqStatus').style.color = '#888';
+    saveConfig();
 }
