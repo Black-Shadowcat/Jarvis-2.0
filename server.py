@@ -2992,7 +2992,10 @@ async def serve_handbuch_en():
 
 @app.get("/health")
 async def serve_health():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "health.html"))
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "frontend", "health.html"),
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
 
 
 @app.get("/welcome")
@@ -3448,7 +3451,10 @@ async def update_check():
 async def serve_index():
     if not os.path.exists(INTRO_FLAG):
         return RedirectResponse(url="/welcome", status_code=302)
-    return FileResponse(os.path.join(os.path.dirname(__file__), "frontend", "index.html"))
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "frontend", "index.html"),
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
 
 
 @app.post("/api/intro_done")
