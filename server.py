@@ -22,6 +22,7 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field, ValidationError
 
 import anthropic
+import groq as groq_sdk
 import httpx
 import psutil
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -76,6 +77,7 @@ def _load_voice_db() -> dict:
 _voice_db = _load_voice_db()
 
 ANTHROPIC_API_KEY  = config.get("anthropic_api_key", "")
+GROQ_API_KEY       = config.get("groq_api_key", "")
 ELEVENLABS_API_KEY = config.get("elevenlabs_api_key", "")
 ELEVENLABS_VOICE_ID = _voice_db.get("active_voice_id", "")
 
@@ -294,6 +296,8 @@ class ActionModel(BaseModel):
 # ──────────────────────────────────────────────────────────────────────────
 
 ai = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+groq_ai = groq_sdk.AsyncGroq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+GROQ_MODEL = "llama-3.1-8b-instant"  # schnell + kostenlos
 http = httpx.AsyncClient(timeout=30)
 
 app = FastAPI()
@@ -1894,6 +1898,56 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
 
 # ──────────────────────────────────────────────────────────────────────────
 
+_groq_fallback_active: bool = False  # True wenn Anthropic-Limit erreicht
+
+async def _llm_call(history: list, max_tokens: int) -> str:
+    """LLM call mit automatischem Groq-Fallback bei Anthropic API-Limit."""
+    global _groq_fallback_active
+
+    # Anthropic versuchen (außer wir wissen bereits dass Limit erreicht)
+    if not _groq_fallback_active:
+        try:
+            response = await ai.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=max_tokens,
+                system=get_system_prompt_cached(),
+                messages=history,
+            )
+            usage = response.usage
+            cache_hit = getattr(usage, "cache_read_input_tokens", 0) or 0
+            cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+            if cache_hit:
+                log.info(f"  [cache] HIT {cache_hit} tokens gelesen, {usage.input_tokens} fresh")
+            elif cache_write:
+                log.info(f"  [cache] WRITE {cache_write} tokens gecacht")
+            return response.content[0].text
+        except anthropic.BadRequestError as e:
+            if "usage limits" in str(e).lower() or "429" in str(e) or "400" in str(e):
+                log.warning(f"[llm] Anthropic-Limit erreicht — wechsle zu Groq Fallback")
+                _groq_fallback_active = True
+            else:
+                raise
+
+    # Groq Fallback
+    if groq_ai and _groq_fallback_active:
+        try:
+            groq_messages = [
+                {"role": "system", "content": get_system_prompt()},
+                *history,
+            ]
+            resp = await groq_ai.chat.completions.create(
+                model=GROQ_MODEL,
+                max_tokens=max_tokens,
+                messages=groq_messages,
+            )
+            log.info(f"  [groq] Fallback aktiv — {GROQ_MODEL}")
+            return resp.choices[0].message.content or ""
+        except Exception as e:
+            log.error(f"[groq] Fallback fehlgeschlagen: {e}")
+            return f"Entschuldigung {USER_ADDRESS}, beide KI-Dienste sind gerade nicht verfügbar."
+
+    return f"Entschuldigung {USER_ADDRESS}, kein KI-Dienst verfügbar."
+
 
 async def process_message(session_id: str, user_text: str, ws: WebSocket):
     """Process message and send exactly one spoken response via WebSocket."""
@@ -2029,20 +2083,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     history = conversations[session_id][-16:]
 
     _max_tokens = 800 if user_text.lower().startswith("jarvis activate") else 300
-    response = await ai.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=_max_tokens,
-        system=get_system_prompt_cached(),
-        messages=history,
-    )
-    reply = response.content[0].text
-    usage = response.usage
-    cache_hit = getattr(usage, "cache_read_input_tokens", 0) or 0
-    cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
-    if cache_hit:
-        log.info(f"  [cache] HIT {cache_hit} tokens gelesen, {usage.input_tokens} fresh")
-    elif cache_write:
-        log.info(f"  [cache] WRITE {cache_write} tokens gecacht")
+    reply = await _llm_call(history, _max_tokens)
     log.debug(f"  LLM raw ({len(reply)} chars): {reply[:120]!r}")
 
     # ── Try structured JSON path first
@@ -3032,6 +3073,7 @@ async def save_config_api(request: Request):
     OBSIDIAN_INBOX   = cfg.get("obsidian_inbox_path", OBSIDIAN_INBOX)
     OBSIDIAN_ARCHIVE = cfg.get("obsidian_archive_path", OBSIDIAN_ARCHIVE)
     ai = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    groq_ai = groq_sdk.AsyncGroq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
     log.info(f"[jarvis] Config gespeichert via UI")
     return {"status": "saved", "errors": errors}
