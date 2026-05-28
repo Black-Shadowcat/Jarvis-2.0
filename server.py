@@ -1898,7 +1898,30 @@ async def handle_structured_action(structured: ActionModel, ws: WebSocket, sessi
 
 # ──────────────────────────────────────────────────────────────────────────
 
-_groq_fallback_active: bool = False  # True wenn Anthropic-Limit erreicht
+_GROQ_STATE_FILE = os.path.join(os.path.dirname(__file__), "data", "groq_fallback_state.json")
+
+def _load_groq_state() -> bool:
+    try:
+        with open(_GROQ_STATE_FILE) as f:
+            state = json.load(f)
+        reset_at = state.get("reset_at")
+        if reset_at and datetime.fromisoformat(reset_at) <= datetime.now():
+            os.remove(_GROQ_STATE_FILE)
+            log.info("[groq] Fallback-State abgelaufen — Anthropic wieder aktiv")
+            return False
+        return state.get("active", False)
+    except (FileNotFoundError, Exception):
+        return False
+
+def _save_groq_state(active: bool):
+    os.makedirs(os.path.dirname(_GROQ_STATE_FILE), exist_ok=True)
+    with open(_GROQ_STATE_FILE, "w") as f:
+        # Reset am 1. des nächsten Monats 00:05 UTC
+        now = datetime.now()
+        reset = datetime(now.year + (now.month == 12), (now.month % 12) + 1, 1, 0, 5)
+        json.dump({"active": active, "reset_at": reset.isoformat()}, f)
+
+_groq_fallback_active: bool = _load_groq_state()
 
 async def _llm_call(history: list, max_tokens: int) -> str:
     """LLM call mit automatischem Groq-Fallback bei Anthropic API-Limit."""
@@ -1925,6 +1948,7 @@ async def _llm_call(history: list, max_tokens: int) -> str:
             if "usage limits" in str(e).lower() or "429" in str(e) or "400" in str(e):
                 log.warning(f"[llm] Anthropic-Limit erreicht — wechsle zu Groq Fallback")
                 _groq_fallback_active = True
+                _save_groq_state(True)
             else:
                 raise
 
