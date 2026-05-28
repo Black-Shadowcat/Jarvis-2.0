@@ -744,7 +744,7 @@
             <div class="panel-content" style="display:flex;flex-direction:column;">
                 <div id="log-container"></div>
 
-                <div class="recovery-section" style="margin-top:auto;">
+                <div class="recovery-section" style="margin-top:32px;">
                     <div class="recovery-label">RECOVERY ACTIONS (LAST 24H)</div>
                     <div class="recovery-stat">
                         <span>AUTO-RECOVERIES</span>
@@ -839,6 +839,10 @@
         };
         const MAX_HISTORY = 30;
         let _startTime = new Date();
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'r') { e.preventDefault(); location.reload(); }
+        });
 
         document.addEventListener('DOMContentLoaded', () => {
             console.log('[health] DOM Content Loaded');
