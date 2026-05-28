@@ -667,6 +667,10 @@
                         <span>LLM PROVIDER</span>
                         <span class="info-value" id="info-llm-provider">...</span>
                     </div>
+                    <div class="info-row">
+                        <span>GROQ FALLBACK</span>
+                        <span class="info-value" id="info-groq-status">...</span>
+                    </div>
                     <div class="groq-fallback-banner" id="groq-fallback-banner">
                         ⚠ GROQ FALLBACK AKTIV — ANTHROPIC LIMIT ERREICHT
                     </div>
@@ -1212,6 +1216,19 @@
                         } else {
                             providerEl.textContent = 'ANTHROPIC';
                             providerEl.style.color = '#00ff88';
+                        }
+                    }
+                    const groqEl = document.getElementById('info-groq-status');
+                    if (groqEl) {
+                        if (ld.groq_fallback_active) {
+                            groqEl.textContent = 'AKTIV';
+                            groqEl.style.color = '#ff5050';
+                        } else if (ld.groq_configured) {
+                            groqEl.textContent = 'BEREIT';
+                            groqEl.style.color = '#4db8ff';
+                        } else {
+                            groqEl.textContent = 'NICHT KONFIGURIERT';
+                            groqEl.style.color = '#888';
                         }
                     }
                 }
