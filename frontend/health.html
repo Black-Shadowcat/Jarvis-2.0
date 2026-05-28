@@ -1223,7 +1223,7 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.events && data.events.length > 0) {
-                        data.events.slice(-7).forEach(log => {
+                        data.events.slice(-8).forEach(log => {
                             const entry = document.createElement('div');
                             const levelClass = log.level === 'ERROR' ? 'error' : log.level === 'WARN' ? 'warning' : '';
                             entry.className = 'log-entry ' + levelClass;
