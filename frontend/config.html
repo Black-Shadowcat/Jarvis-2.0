@@ -689,13 +689,13 @@ input[type="password"] { font-family:monospace; }
         </div>
 
         <div class="field-group">
-            <label class="label">Groq API Key <span style="font-size:0.75rem;color:#888;font-weight:400;">(Fallback bei Anthropic-Limit)</span></label>
+            <label class="label">Groq API Key</label>
             <div class="field-row">
                 <input id="groqKey" type="password" placeholder="gsk_…">
                 <button class="field-row-action eye-btn" onclick="toggleVisibility('groqKey', this)" title="Key anzeigen">👁</button>
-                <button class="field-row-action" onclick="clearGroqKey()" id="groqClearBtn" title="Key entfernen" style="background:rgba(255,80,80,0.15);border-color:rgba(255,80,80,0.3);color:#ff5050;">✕ Entfernen</button>
+                <button class="field-row-action" onclick="testKey('groq')" id="groqBtn">Testen</button>
             </div>
-            <div id="groqStatus" style="font-size:0.75rem;margin-top:4px;color:#888;"></div>
+            <div id="groqStatus" style="font-size:0.75rem;margin-top:4px;color:#888;">Fallback bei Anthropic-Limit</div>
         </div>
 
         <div class="field-group">

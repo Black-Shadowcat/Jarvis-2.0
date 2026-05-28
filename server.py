@@ -3692,6 +3692,16 @@ async def test_key(request: Request):
                 messages=[{"role": "user", "content": "Hi"}]
             )
             return {"success": True}
+        elif key_type == "groq":
+            from groq import Groq as GroqClient
+            gc = GroqClient(api_key=key)
+            await asyncio.to_thread(
+                gc.chat.completions.create,
+                model="llama-3.1-8b-instant",
+                max_tokens=5,
+                messages=[{"role": "user", "content": "Hi"}]
+            )
+            return {"success": True}
         elif key_type == "elevenlabs":
             # /v1/voices is restricted on Starter plans — use a minimal TTS request instead
             resp = await http.post(

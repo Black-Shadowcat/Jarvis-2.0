@@ -745,21 +745,24 @@ async function loadGroqStatus() {
         if (!el) return;
         if (d.groq_fallback_active) {
             el.style.color = '#ff5050';
-            el.textContent = '⚠ Fallback aktiv — Jarvis nutzt gerade Groq (' + (d.groq_model || '') + ')';
+            el.innerHTML = '⚠ Fallback aktiv — Jarvis nutzt gerade Groq (' + (d.groq_model || '') + ') &nbsp;<a href="#" style="color:#888;font-size:0.7rem;" onclick="clearGroqKey();return false;">Entfernen</a>';
         } else if (d.groq_configured) {
-            el.style.color = '#00ff88';
-            el.textContent = '✓ Konfiguriert — bereit als Fallback';
+            el.style.color = '#4db8ff';
+            el.innerHTML = 'Fallback bei Anthropic-Limit &nbsp;<a href="#" style="color:#888;font-size:0.7rem;" onclick="clearGroqKey();return false;">Entfernen</a>';
         } else {
             el.style.color = '#888';
-            el.textContent = 'Nicht konfiguriert';
+            el.textContent = 'Fallback bei Anthropic-Limit';
         }
-    } catch(e) {}
+    } catch(e) {
+        const el = document.getElementById('groqStatus');
+        if (el) { el.style.color = '#888'; el.textContent = 'Fallback bei Anthropic-Limit'; }
+    }
 }
 
 function clearGroqKey() {
     if (!confirm('Groq API Key entfernen? Fallback wird deaktiviert.')) return;
     document.getElementById('groqKey').value = '';
-    document.getElementById('groqStatus').textContent = 'Nicht konfiguriert';
     document.getElementById('groqStatus').style.color = '#888';
+    document.getElementById('groqStatus').textContent = 'Fallback bei Anthropic-Limit';
     saveConfig();
 }
