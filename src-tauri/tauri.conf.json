@@ -11,18 +11,7 @@
   },
   "app": {
     "withGlobalTauri": true,
-    "windows": [
-      {
-        "title": "Jarvis",
-        "width": 1920,
-        "height": 1200,
-        "minWidth": 600,
-        "minHeight": 500,
-        "resizable": true,
-        "fullscreen": true,
-        "center": true
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }

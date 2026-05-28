@@ -58,6 +58,24 @@ pub fn run() {
             commands::get_version,
             commands::send_chat,
         ])
+        .setup(|app| {
+            tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
+                .title("Jarvis")
+                .inner_size(1920.0, 1200.0)
+                .min_inner_size(600.0, 500.0)
+                .resizable(true)
+                .fullscreen(true)
+                .center()
+                .initialization_script(
+                    "document.addEventListener('keydown',function(e){\
+                        if((e.metaKey||e.ctrlKey)&&e.key==='r'){\
+                            e.preventDefault();location.reload();\
+                        }\
+                    });",
+                )
+                .build()?;
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Jarvis-App");
 }
