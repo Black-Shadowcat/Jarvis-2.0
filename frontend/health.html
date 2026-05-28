@@ -741,10 +741,10 @@
         <!-- ── Right: Real-Time Log ── -->
         <div class="panel">
             <div class="panel-header">REAL-TIME LOG</div>
-            <div class="panel-content">
-                <div id="log-container" style="max-height: 220px; overflow: hidden;"></div>
+            <div class="panel-content" style="display:flex;flex-direction:column;">
+                <div id="log-container"></div>
 
-                <div class="recovery-section">
+                <div class="recovery-section" style="margin-top:auto;">
                     <div class="recovery-label">RECOVERY ACTIONS (LAST 24H)</div>
                     <div class="recovery-stat">
                         <span>AUTO-RECOVERIES</span>
@@ -1253,7 +1253,7 @@
                         wakeHeader.innerHTML = 'WAKE EVENTS';
                         container.appendChild(wakeHeader);
 
-                        const wakeEvents = data.events.slice(-5);
+                        const wakeEvents = data.events.slice(-3);
                         wakeEvents.forEach(evt => {
                             const time = new Date(evt.ts * 1000).toLocaleTimeString('de-DE');
                             let trigger = evt.trigger;
