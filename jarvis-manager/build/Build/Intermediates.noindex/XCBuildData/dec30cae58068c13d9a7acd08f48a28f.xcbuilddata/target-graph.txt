@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'JarvisManager' in project 'JarvisManager' (no dependencies)
