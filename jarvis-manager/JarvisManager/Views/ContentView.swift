@@ -105,7 +105,7 @@ struct ContentView: View {
 
             HStack(spacing: 8) {
                 Toggle("", isOn: $disableAutostart)
-                    .toggleStyle(CheckboxToggleStyle())
+                    .toggleStyle(HUDCheckboxStyle())
                     .labelsHidden()
                 Text("Autostart deaktivieren beim Stoppen")
                     .font(.custom("Courier New", size: 11))
@@ -367,5 +367,26 @@ struct ActionButton: View {
             )
             .disabled(disabled)
             .buttonStyle(.plain)
+    }
+}
+
+// ── HUD Checkbox Style — immer sichtbarer Rahmen ──────────────────────────
+struct HUDCheckboxStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 3)
+                .stroke(HUDColor.green.opacity(0.6), lineWidth: 1.5)
+                .frame(width: 14, height: 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(configuration.isOn ? HUDColor.green.opacity(0.2) : Color.clear)
+                )
+            if configuration.isOn {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(HUDColor.green)
+            }
+        }
+        .onTapGesture { configuration.isOn.toggle() }
     }
 }
